@@ -1,0 +1,75 @@
+# Esto es un encabezado
+
+Este es un párrafo con una lambda (λ). Los párrafos continuan hasta
+que uno escriba una línea en blanco. No importa si no lo indentas bien,
+por dos razones
+
+Este es otro párrafo.
+Si no dejo una línea, esto formará parte del párrafo anterior.
+
+Esta es una lista:
+
+*   El primer item de la lista.
+    Noten lo que va a pasar aquí.
+
+*   El segundo item.
+
+*   El tercer item
+
+    *   Inception list.
+
+    *   Inception list parte dos.
+
+*   El cuarto item.
+
+    1.  Lista enumerada
+
+    2.  Otro elemento de la lista enumerada.
+
+    3.  Aún otro elemento de la lista enumerada.
+
+Usar colores para destacar cosas es rudo para los daltónicos. No es que yo
+lo sea, pero hay que pensar en los demás. Si uno necesita resaltar el
+texto, probablemente quiera usar *itálicas* o **negritas**.
+
+* * *
+
+Esta es otra forma de generar un encabezado tipo 1
+==================================================
+
+Ooooooh! I see what you did there...
+
+## Esto es otro encabezado.
+
+En ocasiones ustedes van a querer incluir texto que no está resaltado,
+sino que corresponde a lenguaje de programación. Por ejemplo, ustedes
+quisieran hablar de la palabra reservada `begin` en medio de un párrafo
+y lo harían exactamente así.
+
+Otra manera, adecuada para grandes bloques de texto, es indentar
+*exactamente* cuatro espacios.
+
+    map :: [a] -> (a -> b) -> [b]
+    map f []     = []
+    map f (x:xs) = f x : map f xs
+
+A veces es necesario citar a alguien, dentro un párrafo más largo. Estoy
+abombando arbitrariamente este párrafo para que se note lo que quiero
+hacer, y ahora voy a usar `fortune` para tener alguien a quien citar --
+espero que salga un `fortune` largo
+
+> Trust your husband, adore your husband, and get as much
+as you can in your own name.
+		-- Joan Rivers
+
+Este es el párrafo que sigue a la cita.
+
+### Este es un tercer encabezado.
+
+Una manera de incluir un enlace simple en línea
+[click aqui](http://www.haskell.org) dentro de un párrafo. Este es un
+enlace [referenciado][wikipedia].
+
+#### Este es un cuarto encabezado.
+
+[wikipedia]: http://www.wikipedia.org
