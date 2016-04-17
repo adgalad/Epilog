@@ -1,0 +1,46 @@
+%% Ctrl-Shift-P > sserl > Return
+
+function power(int Base, int Exponent) -> int :-
+  int Result,
+
+  %% The operator `|`, as in `A|B` returns true if B divides A with
+  %% remainder 0, while the operator `!|` returns the opposite value.
+
+  if
+    Exponent  = 0 -> Result is 1;
+    Exponent  = 1 -> Result is Base;
+    Exponent  | 2 -> Result is power(Base * Base, Exponent/2);
+    Exponent !| 2 -> Result is Base * power(Base * Base, (Exponent - 1) / 2);
+  end,
+
+  return(Result).
+
+function max(int A, int B) -> int :-
+  %% How in hell are we going to make sure a function always returns (!?)
+  if
+    A =< B -> return B;
+    A >  B -> return A;
+  end.
+
+function min(int A, int B) -> int :-
+  if
+    A =< B -> return A;
+    A >  B -> return B;
+  end.
+
+main() :- 
+  int X,
+  int Y,
+
+  read(X),
+  read(Y),
+
+  int Base is max(X, Y),
+  int Exponent is min(X,Y),
+
+  print(Base),
+  print(Exponent),
+
+  int Z is power(Base, Exponent)
+
+  print(Z).
