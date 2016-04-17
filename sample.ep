@@ -1,5 +1,47 @@
 %% Ctrl-Shift-P > sserl > Return
 
+%% Structures
+struct h :-
+  int X,
+  char Y,
+  string A.
+
+struct b :-
+  int X,
+  char Y,
+  string Str,
+  h H.
+
+struct complex :-
+  int Real,
+  int Imaginary.
+
+%% Functions for complex numbers
+function complex(int X, int Y) -> complex :-
+  complex C,
+  C_real      is X,
+  C_imaginary is Y,
+  return C.
+
+function sum(complex A, complex B) -> complex :-
+  complex C,
+  C_real      is A_real      + B_real,
+  C_imaginary is A_imaginary + B_imaginary,
+  return C.
+
+function negate(complex A) -> complex :-
+  complex C,
+  C_real      is -A_real,
+  C_imaginary is -A_imaginary,
+  return C.
+
+%% Other functions
+function prod(complex A, complex B) -> complex :-
+  complex C,
+  C_real      is (A_real * B_real)   + (A_imaginary * B_imaginary),
+  C_imaginary is (A_real * B_imaginary) + (A_imaginary * B_real),
+  return C.
+
 function power(int Base, int Exponent) -> int :-
   int Result,
 
@@ -28,7 +70,42 @@ function min(int A, int B) -> int :-
     A >  B -> return B;
   end.
 
-main() :- 
+function f(int X) -> int :-
+  %% stuffs
+  bool B is X < 10 and ((((True)))) and (True or (False) or (False and True)),
+  
+  if B ->
+    print("True\n"),
+    int X is 1 + 4 * (4 + 5), 
+    int Z is -5
+    for I in {1..10}:
+      int X is 4, 
+      int Y is 5,
+      X is X+Y+Z
+      return X.
+  otherwise ->
+    if not B ->
+      print("False\n"),
+      return 10;
+    otherwise ->
+      print("Algo muy malo ocurrio\n"),
+      int Y is X - X,
+      Y is Y/Y,
+      return -121827397;
+    end;
+  end,
+  return X.
+
+%% Procedimientos
+Procedure q(int X, int Y, int Z):
+  if Z > 0 ->
+    X is X + 10,
+    Y is Z + Y,
+    Z is Z - 1,
+    q(Y,X,Z);
+  end.
+
+procedure main() :- 
   int X,
   int Y,
 
