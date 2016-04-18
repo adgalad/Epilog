@@ -189,8 +189,8 @@ Syntax:
 
 Examples:
 ~~~erlang
-    if
-        greetUser -> print("Hi $username!")
+    if greetUser ->
+        print("Hi $username!")
     end,
 
     if
