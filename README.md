@@ -17,53 +17,53 @@ Program
 Examples:
 
 ~~~erlang
-    procedure main() :- 
-      int X, read(X),
-      int Y, read(Y),
+procedure main() :- 
+  int X, read(X),
+  int Y, read(Y),
 
-      int Base is max(X, Y),
-      int Exponent is min(X,Y),
+  int Base is max(X, Y),
+  int Exponent is min(X,Y),
 
-      print(Base),
-      print(Exponent),
+  print(Base),
+  print(Exponent),
 
-      int Z is power(Base, Exponent),
+  int Z is power(Base, Exponent),
 
-      print(Z),
+  print(Z),
 
-      while Z > 0 ->
-        Z is Z / 2,
-        print(Z)
-      end,
+  while Z > 0 ->
+    Z is Z / 2,
+    print(Z)
+  end,
 
-      int$5 Warr,
-      for I in {0..4} ->
-        Warr$I is 0
-      end,
+  int$5 Warr,
+  for I in {0..4} ->
+    Warr$I is 0
+  end,
 
-      intchar K,
-      if
-        X > Y -> K_I is Y;
-        otherwise -> K_C is 'C'
-      end
+  intchar K,
+  if
+    X > Y -> K_I is Y;
+    otherwise -> K_C is 'C'
+  end
 
-      %% The following will be a runtime error if K_I was set.
-      print(K_C),
+  %% The following will be a runtime error if K_I was set.
+  print(K_C),
 
 
-      %% Given the comment in (*), the syntax kind of allows the following
-      %% blocks as well:
-      %% (Which I guess would just perform the actions in order.)
-      for
-        I in {0..5} -> something();
-        I in {3..10} -> somethingElse()
-      end,
+  %% Given the comment in (*), the syntax kind of allows the following
+  %% blocks as well:
+  %% (Which I guess would just perform the actions in order.)
+  for
+    I in {0..5} -> something();
+    I in {3..10} -> somethingElse()
+  end,
 
-      while
-        Z > Y -> something3();
-        Y > X -> something4();
-        X > Z -> something5()
-      end.
+  while
+    Z > Y -> something3();
+    Y > X -> something4();
+    X > Z -> something5()
+  end.
 ~~~
 
 # References
