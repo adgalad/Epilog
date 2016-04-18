@@ -1,19 +1,19 @@
 %% Ctrl-Shift-P > sserl > Return
 
 %% Structures
-struct h :-
+record h :-
   int X,
   char Y,
   string A. %% note the period
 
 %% Structures with structures within them
-struct b :-
+record b :-
   int X,
   char Y,
   string Str,
   h H. %% note the period
 
-struct complex :-
+record complex :-
   int Real,
   int Imaginary.
 
