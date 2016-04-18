@@ -53,7 +53,7 @@ function prod(complex A, complex B) -> complex :-
 function power(int Base, int Exponent) -> int :-
   int Result,
 
-  %% The operator `|`, as in `A|B` returns true if B divides A with
+  %% The operator `|`, as in `A|B` returns true if A divides B with
   %% remainder 0, while the operator `!|` returns the opposite value.
 
   %% Let it be noted that the last clause in an `if` block does NOT
@@ -62,8 +62,8 @@ function power(int Base, int Exponent) -> int :-
   if
     Exponent  = 0 -> Result is 1;
     Exponent  = 1 -> Result is Base;
-    Exponent  | 2 -> Result is power(Base * Base, Exponent/2);
-    Exponent !| 2 -> Result is Base * power(Base * Base, (Exponent - 1) / 2)
+    2  | Exponent -> Result is power(Base * Base, Exponent/2);
+    2 !| Exponent -> Result is Base * power(Base * Base, (Exponent - 1) / 2)
   end,
 
   return(Result).
