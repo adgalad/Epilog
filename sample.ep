@@ -4,48 +4,50 @@
 struct h :-
   int X,
   char Y,
-  string A.
+  string A. %% note the period
 
 %% Structures with structures within them
 struct b :-
   int X,
   char Y,
   string Str,
-  h H.
+  h H. %% note the period
 
 struct complex :-
   int Real,
   int Imaginary.
 
-%% Union type
+%% Union type (What do you think about the `either` keyword?)
 either intchar :-
   int I,
   char C.
 
 %% Functions for complex numbers
 function complex(int X, int Y) -> complex :-
+  %% How in sweet hell are we going to return struct types? is it even possible
+  %% in the general case?
   complex C,
-  C_real      is X,
-  C_imaginary is Y,
+  C_Real      is X,
+  C_Imaginary is Y,
   return C.
 
 function sum(complex A, complex B) -> complex :-
   complex C,
-  C_real      is A_real      + B_real,
-  C_imaginary is A_imaginary + B_imaginary,
+  C_Real      is A_Real      + B_Real,
+  C_Imaginary is A_Imaginary + B_Imaginary,
   return C.
 
 function negate(complex A) -> complex :-
   complex C,
-  C_real      is -A_real,
-  C_imaginary is -A_imaginary,
+  C_Real      is -A_Real,
+  C_Imaginary is -A_Imaginary,
   return C.
 
 %% Other functions
 function prod(complex A, complex B) -> complex :-
   complex C,
-  C_real      is (A_real * B_real)   + (A_imaginary * B_imaginary),
-  C_imaginary is (A_real * B_imaginary) + (A_imaginary * B_real),
+  C_Real      is (A_Real * B_Real)      - (A_Imaginary * B_Imaginary),
+  C_Imaginary is (A_Real * B_Imaginary) + (A_Imaginary * B_Real),
   return C.
 
 function power(int Base, int Exponent) -> int :-
@@ -54,6 +56,9 @@ function power(int Base, int Exponent) -> int :-
   %% The operator `|`, as in `A|B` returns true if B divides A with
   %% remainder 0, while the operator `!|` returns the opposite value.
 
+  %% Let it be noted that the last clause in an `if` block does NOT
+  %% end with a `;`, since the end keyword closes the clause. Same
+  %% comment applies to `for` and `while` blocks. (*)
   if
     Exponent  = 0 -> Result is 1;
     Exponent  = 1 -> Result is Base;
@@ -109,15 +114,12 @@ procedure q(int X, int Y, int Z) :-
     X is X + 10,
     Y is Z + Y,
     Z is Z - 1,
-    q(Y,X,Z);
+    q(Y,X,Z)
   end.
 
 procedure main() :- 
-  int X,
-  int Y,
-
-  read(X),
-  read(Y),
+  int X, read(X),
+  int Y, read(Y),
 
   int Base is max(X, Y),
   int Exponent is min(X,Y),
@@ -134,7 +136,7 @@ procedure main() :-
     print(Z)
   end,
 
-  int$5 Warr;
+  int$5 Warr,
   for I in {0..4} ->
     Warr$I is 0
   end,
@@ -146,4 +148,19 @@ procedure main() :-
   end
 
   %% The following will be a runtime error if K_I was set.
-  print(K_C).
+  print(K_C),
+
+
+  %% Given the comment in (*), the syntax kind of allows the following
+  %% blocks as well:
+  %% (Which I guess would just perform the actions in order.)
+  for
+    I in {0..5} -> something();
+    I in {3..10} -> somethingElse()
+  end,
+
+  while
+    Z > Y -> something3();
+    Y > X -> something4();
+    X > Z -> something5()
+  end.
