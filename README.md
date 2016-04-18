@@ -102,7 +102,7 @@ Examples:
 The operators and punctuation characters used in Epilog include
 
 > `+`, `-`, `*`, `/`, `%`, `|`, `=`, `/=`, `=<`, `<`, `>=`, `>`, `is`, `and`,
-> `or`, `not`, `xor`, `(`, `)`, `{`, `}`, `,`, `.`, 
+> `or`, `not`, `xor`, `(`, `)`, `{`, `}`, `,`, `.`
 
 ### Comments
 
