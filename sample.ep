@@ -1,29 +1,29 @@
 %% Ctrl-Shift-P > sserl > Return
 
 %% Structures
-struct h :-
-  int X,
-  char Y,
+record h :-
+  integer X,
+  character Y,
   string A. %% note the period
 
 %% Structures with structures within them
-struct b :-
-  int X,
-  char Y,
+record b :-
+  integer X,
+  character Y,
   string Str,
   h H. %% note the period
 
-struct complex :-
-  int Real,
-  int Imaginary.
+record complex :-
+  integer Real,
+  integer Imaginary.
 
 %% Union type (What do you think about the `either` keyword?)
 either intchar :-
-  int I,
-  char C.
+  integer I,
+  character C.
 
 %% Functions for complex numbers
-function complex(int X, int Y) -> complex :-
+function complex(integer X, integer Y) -> complex :-
   %% How in sweet hell are we going to return struct types? is it even possible
   %% in the general case?
   complex C,
@@ -50,8 +50,8 @@ function prod(complex A, complex B) -> complex :-
   C_Imaginary is (A_Real * B_Imaginary) + (A_Imaginary * B_Real),
   return C.
 
-function power(int Base, int Exponent) -> int :-
-  int Result,
+function power(integer Base, integer Exponent) -> integer :-
+  integer Result,
 
   %% The operator `|`, as in `A|B` returns true if A divides B with
   %% remainder 0, while the operator `!|` returns the opposite value.
@@ -68,30 +68,30 @@ function power(int Base, int Exponent) -> int :-
 
   return(Result).
 
-function max(int A, int B) -> int :-
+function max(integer A, integer B) -> integer :-
   %% How in hell are we going to make sure a function always returns (!?)
   if
     A =< B -> return B;
     A >  B -> return A
   end.
 
-function min(int A, int B) -> int :-
+function min(integer A, integer B) -> integer :-
   if
     A =< B -> return A;
     A >  B -> return B
   end.
 
-function f(int X) -> int :-
+function f(integer X) -> integer :-
   %% stuffs
   bool B is X < 10 and ((((True)))) and (True or (False) or (False and True)),
   
   if B ->
     print("True\n"),
-    int X is 1 + 4 * (4 + 5), 
-    int Z is -5;
+    integer X is 1 + 4 * (4 + 5), 
+    integer Z is -5;
     for I in {1..10} ->
-      int XX is 4,
-      int YY is 5,
+      integer XX is 4,
+      integer YY is 5,
       XX is XX+YY+Z
     end,
     return X.
@@ -101,7 +101,7 @@ function f(int X) -> int :-
       return 10;
     otherwise ->
       print("Algo muy malo ocurrio\n"),  
-      int Y is X - X,
+      integer Y is X - X,
       Y is Y/Y,
       return -121827397
     end
@@ -109,7 +109,7 @@ function f(int X) -> int :-
   return X.
 
 %% Procedimientos
-procedure q(int X, int Y, int Z) :-
+procedure q(integer X, integer Y, integer Z) :-
   if Z > 0 ->
     X is X + 10,
     Y is Z + Y,
@@ -118,16 +118,16 @@ procedure q(int X, int Y, int Z) :-
   end.
 
 procedure main() :- 
-  int X, read(X),
-  int Y, read(Y),
+  integer X, read(X),
+  integer Y, read(Y),
 
-  int Base is max(X, Y),
-  int Exponent is min(X,Y),
+  integer Base is max(X, Y),
+  integer Exponent is min(X,Y),
 
   print(Base),
   print(Exponent),
 
-  int Z is power(Base, Exponent),
+  integer Z is power(Base, Exponent),
 
   print(Z),
 
@@ -136,9 +136,9 @@ procedure main() :-
     print(Z)
   end,
 
-  int$5 Warr,
+  integer:5 Warr,
   for I in {0..4} ->
-    Warr$I is 0
+    Warr:I is 0
   end,
 
   intchar K,
