@@ -250,8 +250,8 @@ Syntax:
 Examples:
 ~~~erlang
     read(I),
-    while
-        I /= 42 -> print("Keep trying!"), read(I)
+    while I /= 42 ->
+        print("Keep trying!"), read(I)
     end,
     print("You found it!").
 ~~~
