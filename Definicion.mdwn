@@ -1,6 +1,6 @@
 # Esto es un encabezado
 
-Este es un párrafo con una lambda (λ). Los párrafos continuan hasta
+Este es un párrafo con una lambda (). Los párrafos continuan hasta
 que uno escriba una línea en blanco. No importa si no lo indentas bien,
 por dos razones
 
