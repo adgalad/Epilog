@@ -6,6 +6,7 @@ struct h :-
   char Y,
   string A.
 
+%% Structures with structures within them
 struct b :-
   int X,
   char Y,
@@ -15,6 +16,11 @@ struct b :-
 struct complex :-
   int Real,
   int Imaginary.
+
+%% Union type
+either intchar :-
+  int I,
+  char C.
 
 %% Functions for complex numbers
 function complex(int X, int Y) -> complex :-
@@ -52,7 +58,7 @@ function power(int Base, int Exponent) -> int :-
     Exponent  = 0 -> Result is 1;
     Exponent  = 1 -> Result is Base;
     Exponent  | 2 -> Result is power(Base * Base, Exponent/2);
-    Exponent !| 2 -> Result is Base * power(Base * Base, (Exponent - 1) / 2);
+    Exponent !| 2 -> Result is Base * power(Base * Base, (Exponent - 1) / 2)
   end,
 
   return(Result).
@@ -61,13 +67,13 @@ function max(int A, int B) -> int :-
   %% How in hell are we going to make sure a function always returns (!?)
   if
     A =< B -> return B;
-    A >  B -> return A;
+    A >  B -> return A
   end.
 
 function min(int A, int B) -> int :-
   if
     A =< B -> return A;
-    A >  B -> return B;
+    A >  B -> return B
   end.
 
 function f(int X) -> int :-
@@ -78,32 +84,33 @@ function f(int X) -> int :-
     print("True\n"),
     int X is 1 + 4 * (4 + 5), 
     int Z is -5;
-    %% for I in {1..10}:
-    %%   int X is 4, 
-    %%   int Y is 5,
-    %%   X is X+Y+Z
-    %%   return X.
+    for I in {1..10} ->
+      int XX is 4,
+      int YY is 5,
+      XX is XX+YY+Z
+    end,
+    return X.
   otherwise ->
     if not B ->
       print("False\n"),
       return 10;
     otherwise ->
-      print("Algo muy malo ocurrio\n"),
+      print("Algo muy malo ocurrio\n"),  
       int Y is X - X,
       Y is Y/Y,
-      return -121827397;
-    end;
+      return -121827397
+    end
   end,
   return X.
 
 %% Procedimientos
-Procedure q(int X, int Y, int Z):
+procedure q(int X, int Y, int Z) :-
   if Z > 0 ->
     X is X + 10,
     Y is Z + Y,
     Z is Z - 1,
-    q(Y,X,Z)
-  ;end.
+    q(Y,X,Z);
+  end.
 
 procedure main() :- 
   int X,
@@ -118,6 +125,25 @@ procedure main() :-
   print(Base),
   print(Exponent),
 
-  int Z is power(Base, Exponent)
+  int Z is power(Base, Exponent),
 
-  print(Z).
+  print(Z),
+
+  while Z > 0 ->
+    Z is Z / 2,
+    print(Z)
+  end,
+
+  int$5 Warr;
+  for I in {0..4} ->
+    Warr$I is 0
+  end,
+
+  intchar K,
+  if
+    X > Y -> K_I is Y;
+    otherwise -> K_C is 'C'
+  end
+
+  %% The following will be a runtime error if K_I was set.
+  print(K_C).
