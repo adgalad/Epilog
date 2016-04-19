@@ -189,7 +189,26 @@ Examples:
 
 
 ## Program Structure
-***TO DO: The structure***
+
+A program written with Epilog, consist in a set of data structures called records 
+and either, and a set of methods called procedures and functions. Every program must 
+have a special procedure called with the identifier "main". The main procedure contains
+the first instructions that will be execute by the program.
+
+Example:
+
+~~~erlang
+    record myRecord :- 
+        integer myInteger,
+        float   myFloat.
+        
+    function myFunction(integer x) :- 
+        return x+1.
+    
+    procedure main() :-
+        print("This is the first instruction"),
+        integer y is myFunction(3).
+~~~
 
 
 ## Scoping
@@ -201,12 +220,17 @@ inside them. Every block inside a control structure creates a new scope too.
 - Any identifier declared at the highest scope is a global identifier.
 - Every identifier must be declared before it can be used.
 - Functions and procedures can only be declared at the highest scope.
-- Declaring a variable identifier twice in the same scope is not allowed.
+- Declaring an identifier twice in the same scope is not allowed.
 - A variable identifier can be redefined in a nested scope and it hides or
     "shadows" the previous declaration until the scope is left.
 
 ## Variables
-***TO DO: Variables***
+
+Each variable must be declared with its type. Variables can have any of the 
+scalar types given by the language, except void, or any of the composite type
+declared by the user. A variable can also be an array of the above types.
+If a variable is not initialized, it contains whatever the memory contains at 
+the moment of the declaration.
 
 
 ## Scalar types 
@@ -593,7 +617,12 @@ Examples:
 
 
 ## Procedure and Function invocation
-***TO DO: Procedure and Function invocation***
+
+To invocate a procedure or a function, it is enough by putting its identifier followed 
+by its arguments inside parenthesis. Invocations do not use lazy evaluation, which means,
+if an arguments is an operand or another function call, it is evluated immediately, 
+so what the procedure or function recieves is an concrete value, not an expression.
+
 
 
 ## Run time checks
