@@ -21,10 +21,6 @@ used as identifiers nor redefined.
 > `or`, `not`, `print`, `procedure`, `read`, `record`, `return`, `string`,
 > `true`, `void`, `while`, `xor`
 
-The following are operator and punctuation marks.
-
-`+`, `-`, `*`, `/`, `%`, `and`, `or`,`|`, `!|`, `<`, `>`, `=>`, `=<`, `=`, `!=`,
-`:-`, `->`, `,`, `.`, `;`, `_`
 
 ### Identifiers
 An identifier is a sequence of letters (`[A-Za-z]`) and digits (`[0-9]`) of any
@@ -117,7 +113,7 @@ Operators have the following procedence, from highest to lowest:
 | `<`,`=<`,`>`,`>=`| Relational                                     | Left to right |
 | `|`              | A|B means A divides B                          | Left to right |
 | `and`,`or`,      | Conjunction, disjunction,                      | Left to right |
-| `=`, `!=`        | Equality                                       | Left to right |
+| `=`, `/=`        | Equality                                       | Left to right |
 
 A boolean expression using logical AND and OR has short circuit evaluation. It means, 
 EPILOG does not evaluate an operand unless it is neccessary to resolve the result of the expression.
