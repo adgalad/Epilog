@@ -443,7 +443,6 @@ Examples:
     end.
 ~~~
 
-
 ### Case
 The `case` statement takes an integer expression which is evaluated. It then
 looks for the resulting value in the guards, and finally executes the branch
@@ -532,16 +531,32 @@ Examples:
 ## Procedures
 A procedure is used to define a routine, so it can be called at any point of 
 the code. Procedures are declared using the keyword `procedure` followed
-by its name and parameters. Procedures always return void. If the programmer
-wishes to exit from a procedure before reaching its last line, the keyword
-`finish` can be used.
+by its name and parameters. Procedures can receive one or more parameters
+and always return void. If the programmer wishes to exit from a procedure
+before reaching its last line, the keyword `finish` can be used.
 
 Syntax:
+~~~erlang 
+    procedure <procedure_name> (<type_0> <parameter_0> [, <type_i> <parameter_i>]) :-
+        <instruction_0> [, <instruction_j>].
+~~~
+
+Examples:
 ~~~erlang
     procedure bar(integer X, float Y) :-
         integer Z is 3,
         X is X + Z,
         Y is Y - 1.0.
+~~~
+
+~~~erlang
+    procedure q(integer X, integer Y, integer Z) :-
+        if Z > 0 ->
+            X is X + 10,
+            Y is Z + Y,
+            Z is Z - 1,
+            q(Y,X,Z)
+        end.
 ~~~
 
 
@@ -554,6 +569,12 @@ explicitly. Additionally, they must always return a value. Functions can
 return a value of any type, except void.
 
 Syntax:
+~~~erlang 
+    function <function_name> (<type_0> <parameter_0> [, <type_i> <parameter_i>]) -> <return_type> :-
+        <instruction_0> [, <instruction_j>].
+~~~
+
+Examples:
 ~~~erlang
     function foo(integer X) -> integer :-
         integer Y is 4,
