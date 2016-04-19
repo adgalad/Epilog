@@ -110,8 +110,8 @@ Operators have the following procedence, from highest to lowest:
 | `-`, `not        | Unary arithmetic and logical negation          | Right to left |
 | `*`, `/`, `%`    | Multiplicative                                 | Left to right |
 | `-`, `+`         | Additive                                       | Left to right |
-| `<`,`=<`,`>`,`>=`| Relational                                     | Left to right |
-| `|`              | A|B means A divides B                          | Left to right |
+| `<`,`=<`,`>`,`>=`| Relational                                     |      None     |
+| `|`              | A|B means A divides B                          |      None     |
 | `and`,`or`,      | Conjunction, disjunction,                      | Left to right |
 | `=`, `/=`        | Equality                                       | Left to right |
 
