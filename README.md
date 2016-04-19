@@ -398,8 +398,6 @@ Examples:
 ~~~
 
 
-
-=======
 ### Case
 The `case` statement takes an integer expression which is evaluated. It then
 looks for the resulting value in the guards, and finally executes the branch
