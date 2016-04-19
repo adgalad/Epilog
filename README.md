@@ -114,11 +114,12 @@ Operators have the following procedence, from highest to lowest:
 |    Operator      |                    Description                 | Associativity |
 |------------------|------------------------------------------------|---------------|
 | `_`              | Access to record element                       | Left to right |
-| `-`, `!`         | Unary arithmetic and logical negation          | Right to left |
+| `-`, `not        | Unary arithmetic and logical negation          | Right to left |
 | `*`, `/`, `%`    | Multiplicative                                 | Left to right |
 | `-`, `+`         | Additive                                       | Left to right |
 | `<`,`=<`,`>`,`>=`| Relational                                     | Left to right |
-| `and`, `or`      | Conjunction, disjunction                       | Left to right |
+| `|`              | A|B means A divides B                          | Left to right |
+| `and`,`or`,      | Conjunction, disjunction,                      | Left to right |
 | `=`, `!=`        | Equality                                       | Left to right |
 
 A boolean expression using logical AND and OR has short circuit evaluation. It means, 
