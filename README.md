@@ -158,7 +158,12 @@ Examples:
 
 ## Types 
 
-***TO DO: Types***
+EPILOG's basic types are 
+- void
+- integer
+- float
+- char
+- string
 
 ## Variables
 
@@ -170,7 +175,16 @@ Examples:
 
 ## Records
 
-***TO DO: Records***
+The way to create a data structures to store one or more elements is using records.
+Records are declared using the reserved word `record` followed by an identifier and
+the fields of the record.
+
+Syntax:
+~~~erlang
+    record complex :-
+        integer Real,
+        integer Imaginary.
+~~~
 
 ## Eithers
 
@@ -320,7 +334,16 @@ Examples:
 
 ## Functions
 
-***TO DO: Functions***
+Funstions are a special case of procedures. Functions most be pure, it means, 
+arguments are read only, global variables are not allowed inside its scope and 
+always have a return of any type, except void.
+
+Syntax:
+~~~erlang
+    function foo(integer x) -> integer :-
+        return(x+4).
+~~~
+
 
 ## Procedure and Function invocation
 
@@ -329,7 +352,7 @@ Examples:
 ## Run time checks
 
 ***TO DO: Run time checks***
->>>>>>> origin/master
+
 
 # References
 
