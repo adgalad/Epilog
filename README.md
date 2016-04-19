@@ -21,6 +21,11 @@ used as identifiers nor redefined.
 > `or`, `not`, `print`, `procedure`, `read`, `record`, `return`, `string`,
 > `true`, `void`, `while`, `xor`
 
+The following are operator and punctuation marks.
+
+`+`, `-`, `*`, `/`, `%`, `and`, `or`,`|`, `!|`, `<`, `>`, `=>`, `=<`, `=`, `!=`,
+`:-`, `->`, `,`, `.`, `;`, `_`
+
 ### Identifiers
 An identifier is a sequence of letters (`[A-Za-z]`) and digits (`[0-9]`) of any
 length, starting with a letter, which isn't a keyword. Identifiers are
@@ -100,6 +105,22 @@ The operators and punctuation characters used in Epilog include
 
 > `+`, `-`, `*`, `/`, `%`, `|`, `=`, `/=`, `=<`, `<`, `>=`, `>`, `is`, `and`,
 > `or`, `not`, `xor`, `(`, `)`, `{`, `}`, `:`, `_`, `,`, `.`
+
+Operators have the following procedence, from highest to lowest:
+
+|    Operator      |                    Description                 | Associativity |
+|------------------|------------------------------------------------|---------------|
+| `_`              | Access to record element                       | Left to right |
+| `-`, `not        | Unary arithmetic and logical negation          | Right to left |
+| `*`, `/`, `%`    | Multiplicative                                 | Left to right |
+| `-`, `+`         | Additive                                       | Left to right |
+| `<`,`=<`,`>`,`>=`| Relational                                     | Left to right |
+| `|`              | A|B means A divides B                          | Left to right |
+| `and`,`or`,      | Conjunction, disjunction,                      | Left to right |
+| `=`, `!=`        | Equality                                       | Left to right |
+
+A boolean expression using logical AND and OR has short circuit evaluation. It means, 
+EPILOG does not evaluate an operand unless it is neccessary to resolve the result of the expression.
 
 ### Comments
 Epilog allows for both single-line comments as well as block comments.
@@ -376,6 +397,9 @@ Examples:
     end.
 ~~~
 
+
+
+=======
 ### Case
 The `case` statement takes an integer expression which is evaluated. It then
 looks for the resulting value in the guards, and finally executes the branch
@@ -462,11 +486,34 @@ Examples:
 
 
 ## Procedures
-***TO DO: Procedures***
+A procedure is used to define a routine, so it can be called at any point of 
+the code. Procedures are declared using the keyword `procedure` followed
+by it's name and parameters. Always returns void.
+
+Syntax:
+~~~erlang
+    procedure bar(integer X, float Y) :-
+        integer Z is 3,
+        X is X + Z,
+        Y is Y - 1.0.
+~~~
 
 
 ## Functions
-***TO DO: Functions***
+Functions are pure, it means that evaluating a function has not side effect. 
+A function looks like a procedure but is declared using the keyword `function`, 
+its arguments are read only, global variables are not allowed on its scope
+and the return type most always be declared explicitly. Functions can return
+a value of any type, except void.
+
+
+Syntax:
+~~~erlang
+    function foo(integer X) -> integer :-
+        integer Y is 4,
+        integer Z is 5,
+        return(X+Y+Z).
+~~~
 
 
 ## Procedure and Function invocation
@@ -475,6 +522,7 @@ Examples:
 
 ## Run time checks
 ***TO DO: Run time checks***
+
 
 # References
 [^1]: Prolog has quite a few different compilers, the most widely
