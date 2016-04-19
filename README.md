@@ -398,6 +398,8 @@ Examples:
 ~~~
 
 
+
+=======
 ### Case
 The `case` statement takes an integer expression which is evaluated. It then
 looks for the resulting value in the guards, and finally executes the branch
@@ -489,11 +491,28 @@ the code. Procedures are declared using the keyword `procedure` followed
 by it's name and parameters. Always returns void.
 
 Syntax:
+~~~erlang 
+    procedure <procedure_name> (<type_0> <parameter_name_1>[, <type_i> <parameter_name_i>]) :-
+        <instruction_0> [, <instruction_j>].
+~~~
+
+Example:
 ~~~erlang
     procedure bar(integer X, float Y) :-
         integer Z is 3,
         X is X + Z,
         Y is Y - 1.0.
+~~~
+
+Example:
+~~~erlang
+    procedure q(integer X, integer Y, integer Z) :-
+      if Z > 0 ->
+        X is X + 10,
+        Y is Z + Y,
+        Z is Z - 1,
+        q(Y,X,Z)
+      end.
 ~~~
 
 
@@ -506,6 +525,12 @@ a value of any type, except void.
 
 
 Syntax:
+~~~erlang 
+    function <function_name> (<type_0> <parameter_name_1>[, <type_i> <parameter_name_i>]) :-
+        <instruction_0> [, <instruction_j>].
+~~~
+
+Example:
 ~~~erlang
     function foo(integer X) -> integer :-
         integer Y is 4,
