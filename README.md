@@ -16,12 +16,12 @@ nested structured (record) and union (either) type definition.
 The following are keywords. This means they are all reserved and they cannot be
 used as identifiers nor redefined.
 
-> `and`, `boolean`, `character`, `either`, `end`, `false`, `finish`,
-> `float`, `for`, `function`, `if`, `integer`, `is`, `length`, `otherwise`,
-> `or`, `not`, `print`, `procedure`, `read`, `record`, `return`, `string`,
-> `toBoolean`, `toCharacter`, `toFloat`, `toInteger`, `true`, `void`,
-> `while`, `xor`
-
+> `and`, `andalso`, `band`, `bnot`, `boolean`, `bor`, `bsl`, `bsr`,
+> `bxor`, `character`, `div`, `either`, `end`, `false`, `finish`,
+> `float`, `for`, `function`, `if`, `integer`, `is`, `length`, `not`,
+> `or`, `orelse`, `otherwise`, `print`, `procedure`, `read`, `record`,
+> `rem`, `return`, `string`, `toBoolean`, `toCharacter`, `toFloat`,
+> `toInteger`, `true`, `void`, `while`, `xor`
 
 ### Identifiers
 An identifier is a sequence of letters (`[A-Za-z]`) and digits (`[0-9]`) of any
@@ -99,26 +99,72 @@ Examples:
 ### Operators
 The operators and punctuation characters used in Epilog include
 
-`>>` `<<`
-
-> `+`, `-`, `*`, `/`, `%`, `|`, `=`, `/=`, `=<`, `<`, `>=`, `>`, `is`, `and`,
-> `or`, `not`, `xor`, `(`, `)`, `{`, `}`, `:`, `_`, `,`, `.`
+> `(`, `)`, `*`, `+`, `,`, `-`, `.`, `/=`, `/`, `:`, `<`, `=<`, `=`,
+> `>=`, `>`, `_`, `{`, `|`, `}`, `and`, `andalso`, `band`, `bnot`,
+> `bor`, `bsl`, `bsr`, `bxor`, `div`, `is`, `length`, `not`, `or`,
+> `orelse`, `rem`, `xor`
 
 Operators have the following procedence, from highest to lowest:
 
-|    Operator      |                    Description                 | Associativity |
-|------------------|------------------------------------------------|---------------|
-| `_`              | Access to record element                       | Left to right |
-| `-`, `not        | Unary arithmetic and logical negation          | Right to left |
-| `*`, `/`, `%`    | Multiplicative                                 | Left to right |
-| `-`, `+`         | Additive                                       | Left to right |
-| `<`,`=<`,`>`,`>=`| Relational                                     |      None     |
-| `|`              | A|B means A divides B                          |      None     |
-| `and`,`or`,      | Conjunction, disjunction,                      | Left to right |
-| `=`, `/=`        | Equality                                       | Left to right |
+|    Operator            |                    Description                  | Associativity |
+|------------------------|-------------------------------------------------|---------------|
+| `length`               | Array length                                    |      None     |
+| `()`                   | Function/Procedure call                         | Left to right |
+| `:`                    | Array subscripting                              | Left to right |
+| `_`                    | Record entry and union member access            | Left to right |
+| `-`, `not`, `bnot`     | Unary arithmetic, logical, and bitwise negation | Right to left |
+| `*`, `/`, `div`, `rem` | Multiplicative                                  | Left to right |
+| `-`, `+`               | Additive                                        | Left to right |
+| `bsl`, `bsr`           | Bitwise left shift and right shift              | Left to right |
+| `<`,`=<`,`>`,`>=`      | Relational                                      |      None     |
+| `|`                    | "divisor of" operator                           |      None     |
+| `=`, `/=`              | Equality                                        | Left to right |
+| `band`                 | Bitwise AND                                     | Left to right |
+| `bxor`                 | Bitwise XOR                                     | Left to right |
+| `bor`                  | Bitwise OR                                      | Left to right |
+| `and`                  | Logical AND                                     | Left to right |
+| `xor`                  | Logical XOR                                     | Left to right |
+| `or`                   | Logical OR                                      | Left to right |
+| `andalso`              | Short-circuit conjunction                       | Left to right |
+| `orelse`,              | Short-circuit disjunction                       | Left to right |
+| `is`                   | Simple assignment                               | Right to left |
 
-A boolean expression using logical AND and OR has short circuit evaluation. It means, 
-EPILOG does not evaluate an operand unless it is neccessary to resolve the result of the expression.
+The operators `orelse` and `andalso` only evaluate their second argument if
+the first one doesn't provide enough information to determine the value of the
+full expression. Specifically, in `<exp_1> orelse <exp_2>`, `<exp_2>` is only
+evaluated if `<exp_1>` evaluates to false, since otherwise the value of the
+expression would just be true. The same logic applies, *mutatis mutandis*, to
+the `andalso` operator.
+
+The operator `:` takes an array on its left and an integer on its right and
+returns the element type of the array.
+
+The operator `_` takes a record or either type on its left and a name on its
+right and returns the named entry or member of the record or either.
+
+The operators `+`, `*`, and `-`, both unary and binary, work on floats and
+on integers, taking two values of the same type and returning a third one of
+the same.
+
+The operator `/` only works between floats and returns floats.
+
+The operators `not`, `and`, `andalso`, `xor`, `or`, and `orelse` only work
+between booleans and return booleans.
+
+The operators `bnot`, `div`, `rem`, `bsl`, `bsr`, `band`, `bxor` and `bor`
+only work between integers, and return integers.
+
+The operator `length` takes an array of any type and returns its length, an
+integer.
+
+The operator `|` only works between integers and returns a boolean.
+
+The operators `<`, `=<`, `>`, and `>=` work on chars, floats and integers,
+taking two values of the same type and returning a boolean.
+
+The operators `=` and `/=` work on all types, taking two values of the same
+type and returning a boolean.
+
 
 ### Comments
 Epilog allows for both single-line comments as well as block comments.
@@ -188,8 +234,8 @@ following syntax:
 ~~~
 
 A programmer who uses arrays can take advantage of the predefined `length`
-function when writing functions and procedures. This function returns the
-length of the array passed as argument.
+unary operator when writing functions and procedures. This operator returns the
+length of the array to its right.
 
 Attempting to access an element outside the bounds of an array produces a
 runtime error.
@@ -197,14 +243,14 @@ runtime error.
 Examples:
 ~~~erlang
     integer:100 myNums,
-    for I in {0..length(myNums) - 1} ->
+    for I in {0..length myNums - 1} ->
         read(myNums:I)
     end,
 
     <...>,
 
     integer Z,
-    for I in {0..length(myNums) - 1} ->
+    for I in {0..length myNums - 1} ->
         Z is Z + myNums:I
     end,
 
@@ -311,7 +357,7 @@ Examples:
 
     magic Magic,
     Magic_Float is N,
-    Magic_Integer is (1 << 29) + (Magic_Integer >> 1) - (1 << 22),
+    Magic_Integer is (1 bsl 29) + (Magic_Integer bsr 1) - (1 bsl 22),
 
     float SqrtN is Magic_Float,
 
@@ -339,7 +385,7 @@ are provided, with the following semantics:
 | From ↓  | toBoolean            | toChar                          | toInteger                      | toFloat                           |
 |---------|----------------------|---------------------------------|--------------------------------|-----------------------------------|
 | boolean | *                    | `'T'` if `true`, `'F'` if false | `1` if `true`, `0` if `false`  | `1.0` if `true`, `0.0` if `false` |
-| char    | `true` if not `'\0'` | *                               | padded with zeros              | toFloat . toIntger                |
+| char    | `true` if not `'\0'` | *                               | padded with zeros              | toFloat . toInteger               |
 | integer | `true` if not zero   | truncated to 7 bits             | *                              | ***TO DO: define conversion***    |
 | float   | `true` if not zero   | toChar . toInteger              | ***TO DO: define conversion*** | *                                 |
 
@@ -486,7 +532,9 @@ Examples:
 ## Procedures
 A procedure is used to define a routine, so it can be called at any point of 
 the code. Procedures are declared using the keyword `procedure` followed
-by it's name and parameters. Always returns void.
+by its name and parameters. Procedures always return void. If the programmer
+wishes to exit from a procedure before reaching its last line, the keyword
+`finish` can be used.
 
 Syntax:
 ~~~erlang
@@ -498,19 +546,19 @@ Syntax:
 
 
 ## Functions
-Functions are pure, it means that evaluating a function has not side effect. 
-A function looks like a procedure but is declared using the keyword `function`, 
-its arguments are read only, global variables are not allowed on its scope
-and the return type most always be declared explicitly. Functions can return
-a value of any type, except void.
-
+Functions are pure, which means that evaluating a function has no side effects. 
+A function looks like a procedure but unlike a procedure, it is declared using
+the keyword `function`, its arguments are read only, global variables are not
+allowed within its scope and the return type must always be declared
+explicitly. Additionally, they must always return a value. Functions can
+return a value of any type, except void.
 
 Syntax:
 ~~~erlang
     function foo(integer X) -> integer :-
         integer Y is 4,
         integer Z is 5,
-        return(X+Y+Z).
+        return X+Y+Z.
 ~~~
 
 
