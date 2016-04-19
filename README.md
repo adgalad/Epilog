@@ -6,9 +6,9 @@ in part, by the syntax of programming languages Prolog[^1]
 and [Erlang](http://www.erlang.org/).
 
 Epilog is imperative and strongly typed. It supports functions, procedures,
-logical (if) and value (switch) selectors, count- and condition-controlled
-loops, recursion, line and block comments, as well as arbitrarily nested
-structured (record) and union (either) type definition.
+logical (if) and value (case) selectors, count- (for) and condition-controlled
+(while) loops, recursion, line and block comments, as well as arbitrarily
+nested structured (record) and union (either) type definition.
 
 ## Lexical considerations
 
@@ -312,3 +312,9 @@ Examples:
 used of which are [GNU Prolog](http://www.gprolog.org/),
 [SWI-Prolog](http://www.swi-prolog.org/) and
 [SICStus](http://www.sics.se/sicstus/).
+
+# Acknowledgements
+
+The structure of this document is based, in part, on the specification of the
+[Decaf](https://parasol.tamu.edu/courses/decaf/students/decafOverview.pdf)
+programming language.
