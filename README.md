@@ -22,10 +22,6 @@ used as identifiers nor redefined.
 > `toBoolean`, `toCharacter`, `toFloat`, `toInteger`, `true`, `void`,
 > `while`, `xor`
 
-The following are operator and punctuation marks.
-
-`+`, `-`, `*`, `/`, `%`, `and`, `or`,`|`, `!|`, `<`, `>`, `=>`, `=<`, `=`, `!=`,
-`:-`, `->`, `,`, `.`, `;`, `_`
 
 ### Identifiers
 An identifier is a sequence of letters (`[A-Za-z]`) and digits (`[0-9]`) of any
@@ -54,6 +50,7 @@ sequence, which is evaluated according to the following table:
 
 | Escape Sequence | Character Represented |
 |-----------------|-----------------------|
+| `\0`            | Null character        |
 | `\n`            | Newline               |
 | `\t`            | Horizontal Tab        |
 | `\\`            | Backslash             |
@@ -115,10 +112,10 @@ Operators have the following procedence, from highest to lowest:
 | `-`, `not        | Unary arithmetic and logical negation          | Right to left |
 | `*`, `/`, `%`    | Multiplicative                                 | Left to right |
 | `-`, `+`         | Additive                                       | Left to right |
-| `<`,`=<`,`>`,`>=`| Relational                                     | Left to right |
-| `|`              | A|B means A divides B                          | Left to right |
+| `<`,`=<`,`>`,`>=`| Relational                                     |      None     |
+| `|`              | A|B means A divides B                          |      None     |
 | `and`,`or`,      | Conjunction, disjunction,                      | Left to right |
-| `=`, `!=`        | Equality                                       | Left to right |
+| `=`, `/=`        | Equality                                       | Left to right |
 
 A boolean expression using logical AND and OR has short circuit evaluation. It means, 
 EPILOG does not evaluate an operand unless it is neccessary to resolve the result of the expression.
