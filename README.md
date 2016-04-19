@@ -165,7 +165,6 @@ taking two values of the same type and returning a boolean.
 The operators `=` and `/=` work on all types, taking two values of the same
 type and returning a boolean.
 
-
 ### Comments
 Epilog allows for both single-line comments as well as block comments.
 A single-line comment starts with `%%` and extends to the end of the line. A
@@ -194,8 +193,16 @@ Examples:
 
 
 ## Scoping
-***TO DO: Scoping***
 
+EPILOG uses a static scope and support nested scopes. Each `procedure`, `function` 
+has its own scope for their parameters. A block inside a control structure 
+creates a new scope for the variables within it.
+
+- Any identifier declared at the highest scope is a global identifier.
+- Every identifier must be declared before it can be used.
+- Functions and procedures can only be defined at the highest scope.
+- Define a variable identifier twice in the same scope is not allowed.
+- A variable identifier can be redefined in a lower scope.
 
 ## Variables
 ***TO DO: Variables***
@@ -373,6 +380,7 @@ in the section "Constants" under "Lexical considerations".
 
 ### Void
 ***TO DO: Are we even going to have the void type?***
+***if procedures won't return values, No. 'Cuz void is never used***
 
 
 ## Type equivalence and compatibility
