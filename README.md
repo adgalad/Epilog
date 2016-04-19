@@ -229,8 +229,21 @@ inside them. Every block inside a control structure creates a new scope too.
 Each variable must be declared with its type. Variables can have any of the 
 scalar types given by the language, except void, or any of the composite type
 declared by the user. A variable can also be an array of the above types.
-If a variable is not initialized, it contains whatever the memory contains at 
-the moment of the declaration.
+To declare a variable use the following syntax:
+
+~~~erlang
+    <type> <variable_id>,
+~~~
+
+To assign a value to a variable the assignment operator `is` is used. If a variable is not initialized, 
+it contains whatever the memory contains at the moment of the declaration. 
+
+Example:
+~~~erlang
+    integer Xa is 5,
+    integer Xb is 6,
+    integer Xc is Xa+Xb.
+~~~
 
 
 ## Scalar types 
@@ -432,11 +445,6 @@ different either types to be equivalent, even if the structures are the same.
 Regarding array types, their equivalence depends completely on the equivalence
 of their element types, the only instance of structural equivalence in the
 definition of the Epilog language.
-
-
-## Assignment
-***TO DO: Assignment***
-
 
 ## Control Structures
 
