@@ -106,16 +106,18 @@ The operators and punctuation characters used in Epilog include
 
 Operators have the following procedence, from highest to lowest:
 
-|    Operator      |                    Description                 | Associativity |
-|------------------|------------------------------------------------|---------------|
-| `_`              | Access to record element                       | Left to right |
-| `-`, `not        | Unary arithmetic and logical negation          | Right to left |
-| `*`, `/`, `%`    | Multiplicative                                 | Left to right |
-| `-`, `+`         | Additive                                       | Left to right |
-| `<`,`=<`,`>`,`>=`| Relational                                     |      None     |
-| `|`              | A|B means A divides B                          |      None     |
-| `and`,`or`,      | Conjunction, disjunction,                      | Left to right |
-| `=`, `/=`        | Equality                                       | Left to right |
+|    Operator      |                    Description            | Associativity |
+|------------------|-------------------------------------------|---------------|
+| `:`, `_`         | Access to array's index or record's field | Left to right |
+| `-`, `not`       | Unary arithmetic and logical negation     | Right to left |
+| `*`, `/`, `%`    | Multiplicative                            | Left to right |
+| `-`, `+`         | Additive                                  | Left to right |
+| `<`,`=<`,`>`,`>=`| Relational                                |      None     |
+| `|`              | A\|B means A divides B                    |      None     |
+| `=`, `/=`        | Equality                                  | Left to right |
+| `and`            | Conjunction                               | Left to right |
+| `or`             | Disjunction                               | Left to right |
+| `is`             | Assignment                                |      None     |
 
 A boolean expression using logical AND and OR has short circuit evaluation. It means, 
 EPILOG does not evaluate an operand unless it is neccessary to resolve the result of the expression.
@@ -486,9 +488,9 @@ Examples:
 
 
 ## Procedures
-A procedure is used to define a routine, so it can be called at any point of 
-the code. Procedures are declared using the keyword `procedure` followed
-by it's name and parameters. Always returns void.
+The `procedure` statment is used to declare routine that can be called at any
+point of the program. Procedures can receive one or more parameters. It always 
+return void, so the return type has not to be declared explicitly. 
 
 Syntax:
 ~~~erlang 
@@ -506,12 +508,12 @@ Examples:
 
 ~~~erlang
     procedure q(integer X, integer Y, integer Z) :-
-      if Z > 0 ->
-        X is X + 10,
-        Y is Z + Y,
-        Z is Z - 1,
-        q(Y,X,Z)
-      end.
+        if Z > 0 ->
+            X is X + 10,
+            Y is Z + Y,
+            Z is Z - 1,
+            q(Y,X,Z)
+        end.
 ~~~
 
 
