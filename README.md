@@ -330,18 +330,33 @@ Examples:
 
 ## Procedures
 
-***TO DO: Procedures***
-
-## Functions
-
-Funstions are a special case of procedures. Functions most be pure, it means, 
-arguments are read only, global variables are not allowed inside its scope and 
-always have a return of any type, except void.
+A procedure is used to define a routine, so it can be called at any point of 
+the code. Procedures are declared using the keyword `procedure` followed
+by it's name and parameters. Always returns void.
 
 Syntax:
 ~~~erlang
-    function foo(integer x) -> integer :-
-        return(x+4).
+    procedure bar(integer X, float Y) :-
+        integer Z is 3,
+        X is X + Z,
+        Y is Y - 1.0.
+~~~
+
+## Functions
+
+Functions are pure, it means that evaluating a function has not side effect. 
+A function looks like a procedure but is declared using the keyword `function`, 
+its arguments are read only, global variables are not allowed on its scope
+and the return type most always be declared explicitly. Functions can return
+a value of any type, except void.
+
+
+Syntax:
+~~~erlang
+    function foo(integer X) -> integer :-
+        integer Y is 4,
+        integer Z is 5,
+        return(X+Y+Z).
 ~~~
 
 
