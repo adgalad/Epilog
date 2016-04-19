@@ -333,12 +333,14 @@ converted or coerced from one type to another. In other words, a type is only
 equivalent and compatible with itself. For conversion between native types,
 the predefined functions `toBoolean`, `toCharacter`, `toIntger` and `toFloat`
 are provided, with the following semantics:
+
 | From ↓  | toBoolean           | toChar                          | toInteger                      | toFloat                           |
 |---------|---------------------|---------------------------------|--------------------------------|-----------------------------------|
 | boolean | *                   | `'T'` if `true`, `'F'` if false | `1` if `true`, `0` if `false`  | `1.0` if `true`, `0.0` if `false` |
 | char    | `true` if not '\0'  | *                               | padded with zeros              | toFloat . toIntger                |
 | integer | `true` if not zero  | truncated to 7 bits             | *                              | ***TO DO: define conversion***    |
 | float   | `true` if not zero  | toChar . toInteger              | ***TO DO: define conversion*** | *                                 |
+
 where the cells marked (*) produce compilation time errors for unnecessary
 conversions.
 
