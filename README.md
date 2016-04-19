@@ -496,7 +496,7 @@ Syntax:
         <instruction_0> [, <instruction_j>].
 ~~~
 
-Example:
+Examples:
 ~~~erlang
     procedure bar(integer X, float Y) :-
         integer Z is 3,
@@ -504,7 +504,6 @@ Example:
         Y is Y - 1.0.
 ~~~
 
-Example:
 ~~~erlang
     procedure q(integer X, integer Y, integer Z) :-
       if Z > 0 ->
@@ -526,11 +525,11 @@ a value of any type, except void.
 
 Syntax:
 ~~~erlang 
-    function <function_name> (<type_0> <parameter_name_1>[, <type_i> <parameter_name_i>]) :-
+    function <function_name> (<type_0> <parameter_name_1>[, <type_i> <parameter_name_i>]) -> <return_type> :-
         <instruction_0> [, <instruction_j>].
 ~~~
 
-Example:
+Examples:
 ~~~erlang
     function foo(integer X) -> integer :-
         integer Y is 4,
