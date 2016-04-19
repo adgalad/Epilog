@@ -109,6 +109,21 @@ The operators and punctuation characters used in Epilog include
 > `+`, `-`, `*`, `/`, `%`, `|`, `=`, `/=`, `=<`, `<`, `>=`, `>`, `is`, `and`,
 > `or`, `not`, `xor`, `(`, `)`, `{`, `}`, `,`, `.`
 
+Operators have the following procedence, from highest to lowest:
+
+|    Operator      |                    Description                 | Associativity |
+|------------------|------------------------------------------------|---------------|
+| `_`              | Access to record element                       | Left to right |
+| `-`, `!`         | Unary arithmetic and logical negation          | Right to left |
+| `*`, `/`, `%`    | Multiplicative                                 | Left to right |
+| `-`, `+`         | Additive                                       | Left to right |
+| `<`,`=<`,`>`,`>=`| Relational                                     | Left to right |
+| `and`, `or`      | Conjunction, disjunction                       | Left to right |
+| `=`, `!=`        | Equality                                       | Left to right |
+
+A boolean expression using logical AND and OR has short circuit evaluation. It means, 
+EPILOG does not evaluate an operand unless it is neccessary to resolve the result of the expression.
+
 ### Comments
 
 Epilog allows for both single-line comments as well as block comments.
@@ -211,22 +226,7 @@ Examples:
     end.
 ~~~
 
-### Operators
 
-EPILOG's operators have the following procedence, from highest to lowest:
-
-|    Operator      |                    Description                 | Associativity |
-|------------------|------------------------------------------------|---------------|
-| `_`              | Access to record element                       | Left to right |
-| `-`, `!`         | Unary arithmetic and logical negation          | Right to left |
-| `*`, `/`, `%`    | Multiplicative                                 | Left to right |
-| `-`, `+`         | Additive                                       | Left to right |
-| `<`,`=<`,`>`,`>=`| Relational                                     | Left to right |
-| `and`, `or`      | Conjunction, disjunction                       | Left to right |
-| `=`, `!=`        | Equality                                       | Left to right |
-
-A boolean expression using logical AND and OR operator has short circuit evaluation. It means, 
-EPILOG dos not evaluate an operand unless it is neccessary to resolve the result of the expression.
 
 =======
 ### Case
