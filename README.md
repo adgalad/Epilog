@@ -1,5 +1,4 @@
 # Epilog Programming Language
-
 Epilog is a general purpose programming language developed for the elective
 courses on Programming Languages at Universidad Simón Bolívar. It is inspired,
 in part, by the syntax of programming languages Prolog[^1]
@@ -10,20 +9,19 @@ logical (if) and value (case) selectors, count- (for) and condition-controlled
 (while) loops, recursion, line and block comments, as well as arbitrarily
 nested structured (record) and union (either) type definition.
 
+
 ## Lexical considerations
 
 ### Keywords
-
 The following are keywords. This means they are all reserved and they cannot be
 used as identifiers nor redefined.
 
 > `and`, `boolean`, `character`, `either`, `end`, `false`, `finish`,
-> `float`, `for`, `function`, `if`, `integer`, `is`, `otherwise`, `or`,
-> `not`, `print`, `procedure`, `read`, `record`, `return`, `string`,
+> `float`, `for`, `function`, `if`, `integer`, `is`, `length`, `otherwise`,
+> `or`, `not`, `print`, `procedure`, `read`, `record`, `return`, `string`,
 > `true`, `void`, `while`, `xor`
 
 ### Identifiers
-
 An identifier is a sequence of letters (`[A-Za-z]`) and digits (`[0-9]`) of any
 length, starting with a letter, which isn't a keyword. Identifiers are
 classified into Variable Identifiers and General Identifiers.
@@ -35,14 +33,12 @@ General Identifiers must begin with a lowercase letter, and are used for
 naming functions, procedures, structures and union types.
 
 ### Whitespace
-
 Whitespace (i.e. spaces, tabs, newlines) serves to separate tokens and is
 otherwise ignored. Keywords and identifiers must be separated by whitespace or
 a token that is neither a keyword nor an identifier. `returniftrue` is a single
 identifier, not three keywords; while `if(23this` scans as four tokens.
 
 ### Constants
-
 A boolean constant is either of the keywords `true` or `false`.
 
 A char constant is specified as `'<char>'`, where `<char>` is either a
@@ -98,14 +94,14 @@ Examples:
 ~~~
 
 ### Operators
-
 The operators and punctuation characters used in Epilog include
 
+`>>` `<<`
+
 > `+`, `-`, `*`, `/`, `%`, `|`, `=`, `/=`, `=<`, `<`, `>=`, `>`, `is`, `and`,
-> `or`, `not`, `xor`, `(`, `)`, `{`, `}`, `,`, `.`
+> `or`, `not`, `xor`, `(`, `)`, `{`, `}`, `:`, `_`, `,`, `.`
 
 ### Comments
-
 Epilog allows for both single-line comments as well as block comments.
 A single-line comment starts with `%%` and extends to the end of the line. A
 block comment starts with `/%` and ends with the first subsequent `%/`. Any
@@ -115,7 +111,7 @@ comment. Block comments do not nest.
 Examples:
 
 ~~~erlang
-    int X, %% This is a single line comment
+    integer X, %% This is a single line comment
 
     /%
      % While this is
@@ -123,54 +119,228 @@ Examples:
      %/ 
 ~~~
 
-## Reference Grammar
 
+## Reference Grammar
 ***TO DO: The grammar***
 
-## Program Structure
 
+## Program Structure
 ***TO DO: The structure***
 
-## Scoping
 
+## Scoping
 ***TO DO: Scoping***
 
-## Types 
-
-***TO DO: Types***
 
 ## Variables
-
 ***TO DO: Variables***
 
-## Arrays
 
-***TO DO: Arrays***
+## Scalar types 
 
-## Records
+### boolean
+Takes either of the values `true` or `false`.
 
-***TO DO: Records***
+### character
+Represents one of the 128 ASCII characters.
 
-## Eithers
+### integer
+Represents signed integers between -2147483648 and 2147483647.
 
-***TO DO: Eithers***
+### float
+Represents an IEEE-754 32-bit floating point number.
 
-## Strings
 
-***TO DO: Strings***
+## Composite types
+
+### Arrays
+Arrays are homogeneous, linearly indexed collections of a given type and size.
+The size of an array must always be an integer known at compilation time.
+Epilog arrays are zero-indexed, that is, the first element of an array is
+element 0. The declaration of an array obeys the following syntax:
+~~~erlang
+    <base_type>:<size> theArray.
+~~~
+
+The elements of an array are accessed using the `:` operator, according to the
+following syntax:
+~~~erlang
+    <base_type> theValue is theArray:42.
+~~~
+
+A programmer who uses arrays can take advantage of the predefined `length`
+function when writing functions and procedures. This function returns the
+length of the array passed as argument.
+
+Attempting to access an element outside the bounds of an array produces a
+runtime error.
+
+Examples:
+~~~erlang
+    integer:100 myNums,
+    for I in {0..length(myNums) - 1} ->
+        read(myNums:I)
+    end,
+
+    <...>,
+
+    integer Z,
+    for I in {0..length(myNums) - 1} ->
+        Z is Z + myNums:I
+    end,
+
+    print(Z),
+
+    myNums:100 is 42. %% this produces a runtime error.
+~~~
+
+### Records
+Epilog records are arbitrarily nested structures. This abstraction allows
+Epilog programmers to define their own data types by meaningfully associating
+other data types, which can be native types, arrays, eithers or other records.
+
+It is not possible, however, to define a record containing itself, either
+directly or indirectly, since this would consume an infinite amount of memory.
+
+All record types must be defined in the global scope.
+
+A record type is defined with the following syntax:
+~~~erlang
+    record <record_name> :-
+        <type_0> <entry_0>
+        [, <type_i> <entry_i>]
+    .
+~~~
+
+To declare a variable of a record type, the usual declaration syntax is used:
+~~~erlang
+    <record_name> <variable_name>.
+~~~
+
+To access the entries of a record type, the `_` operator is used, followed
+by the name of the entry. The syntax is the following:
+~~~erlang
+    <record_variable_name>_<entry_name>.
+~~~
+Accessing an entry which is not in the definition of the record produces a
+compilation time error.
+
+Examples:
+~~~erlang
+    record person :-
+        string Name,
+        integer Age,
+        boolean IsRegistered.
+
+    <...>
+
+    person User,
+    print("What is your name?"),
+    read(User_Name),
+    print("How old are you?"),
+    read(User_Age),
+    User_IsRegistered is True.
+~~~
+
+### Eithers
+Either types are structures which might hold a single value at a time. This
+allows the programmer to make efficient use of memory when she considers it
+necessary, since the same memory address can be used for either of the member
+types. The member types of an Either type can be native types, arrays, records
+or other eithers.
+
+It is not possible, however, to define an either containing itself, either
+directly or indirectly, since this would stump the compiler indefinitely.
+
+All either types must be defined in the global scope.
+
+An either type is defined with the following syntax:
+~~~erlang
+    either <either_name> :-
+        <type_0> <member_0>
+        [, <type_i> <member_i>]
+    .
+~~~
+
+To declare a variable of an either type, the usual declaration syntax is used:
+~~~erlang
+    <either_name> <variable_name>.
+~~~
+
+To access the members of an either type, the `_` operator is used, followed
+by the name of the member. The syntax is the following:
+~~~erlang
+    <either_variable_name>_<member_name>.
+~~~
+If the member accessed is not the same as the last member that was assigned,
+the value of the resulting value is undefined.
+
+Accessing a member which is not in the definition of the either produces a
+compilation time error.
+
+Examples:
+~~~erlang
+    either magic :-
+        float Float,
+        integer Integer.
+
+    <...>
+
+    float N,
+
+    <...>
+
+    magic Magic,
+    Magic_Float is N,
+    Magic_Integer is (1 << 29) + (Magic_Integer >> 1) - (1 << 22),
+
+    float SqrtN is Magic_Float,
+
+    print(SqrtN).
+~~~
+
+## Special Types
+
+### Strings
+Strings are immutable sequences of ASCII characters. They must be initialized
+at the site of declaration. The constraints for string constants are discussed
+in the section "Constants" under "Lexical considerations".
+
+### Void
+***TO DO: Are we even going to have the void type?***
+
 
 ## Type equivalence and compatibility
+Epilog has strict types, which means that at no point are values implicitly
+converted or coerced from one type to another. In other words, a type is only
+equivalent and compatible with itself. For conversion between native types,
+the predefined functions `toBoolean`, `toCharacter`, `toIntger` and `toFloat`
+are provided, with the following semantics:
+| From ↓  | toBoolean           | toChar                          | toInteger                      | toFloat                           |
+|---------|---------------------|---------------------------------|--------------------------------|-----------------------------------|
+| boolean | *                   | `'T'` if `true`, `'F'` if false | `1` if `true`, `0` if `false`  | `1.0` if `true`, `0.0` if `false` |
+| char    | `true` if not '\0'  | *                               | padded with zeros              | toFloat . toIntger                |
+| integer | `true` if not zero  | truncated to 7 bits             | *                              | ***TO DO: define conversion***    |
+| float   | `true` if not zero  | toChar . toInteger              | ***TO DO: define conversion*** | *                                 |
+where the cells marked (*) produce compilation time errors for unnecessary
+conversions.
 
-***TO DO: Type equivalence and compatibility***
+Equivalence between record and either types is strictly by name, which means
+that it is impossible for two values declared as different record types or
+different either types to be equivalent, even if the structures are the same.
+
+Regarding array types, their equivalence depends completely on the equivalence
+of their element types, the only instance of structural equivalence in the
+definition of the Epilog language.
+
 
 ## Assignment
-
 ***TO DO: Assignment***
+
 
 ## Control Structures
 
 ### If
-
 The most basic conditional in Epilog is the `if` statement. It has one or more
 guards (boolean expressions), each with an associated branch (one or more
 instructions). The guards are evaluated sequentially and when a true one is
@@ -217,8 +387,8 @@ other programming languages.
 Syntax:
 ~~~erlang
     case <int_expresion> of
-        <int00> [, <int0k>] -> <instruction_00> [, <instruction_0j>]
-        [;<inti0> [, <intik>] -> <instruction_i0> [, <instruction_ij]]
+        <int_00> [, <int_0k>] -> <instruction_00> [, <instruction_0j>]
+        [;<int_i0> [, <int_ik>] -> <instruction_i0> [, <instruction_ij]]
     end
 ~~~
 
@@ -229,7 +399,7 @@ Examples:
         2, 3, 5, 7, 11 -> print("I love small primes.");
         4, 8, 16 -> print("Well, at least it's a power of two");
         42 -> print("Six times nine");
-        otherwise -> print("Go away"), Away = True
+        otherwise -> print("Go away"), Away is True
     end.
 ~~~
 
@@ -286,35 +456,33 @@ Examples:
     end.
 ~~~
 
-## Expressions
 
+## Expressions
 ***TO DO: Expressions***
 
-## Procedures
 
+## Procedures
 ***TO DO: Procedures***
 
-## Functions
 
+## Functions
 ***TO DO: Functions***
 
-## Procedure and Function invocation
 
+## Procedure and Function invocation
 ***TO DO: Procedure and Function invocation***
 
-## Run time checks
 
+## Run time checks
 ***TO DO: Run time checks***
 
 # References
-
 [^1]: Prolog has quite a few different compilers, the most widely
 used of which are [GNU Prolog](http://www.gprolog.org/),
 [SWI-Prolog](http://www.swi-prolog.org/) and
 [SICStus](http://www.sics.se/sicstus/).
 
 # Acknowledgements
-
 The structure of this document is based, in part, on the specification of the
 [Decaf](https://parasol.tamu.edu/courses/decaf/students/decafOverview.pdf)
 programming language.
