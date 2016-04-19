@@ -492,7 +492,7 @@ by it's name and parameters. Always returns void.
 
 Syntax:
 ~~~erlang 
-    procedure <procedure_name> (<type_0> <parameter_name_1>[, <type_i> <parameter_name_i>]) :-
+    procedure <procedure_name> (<type_0> <parameter_0> [, <type_i> <parameter_i>]) :-
         <instruction_0> [, <instruction_j>].
 ~~~
 
@@ -525,7 +525,7 @@ a value of any type, except void.
 
 Syntax:
 ~~~erlang 
-    function <function_name> (<type_0> <parameter_name_1>[, <type_i> <parameter_name_i>]) -> <return_type> :-
+    function <function_name> (<type_0> <parameter_0> [, <type_i> <parameter_i>]) -> <return_type> :-
         <instruction_0> [, <instruction_j>].
 ~~~
 
