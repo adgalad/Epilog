@@ -16,12 +16,12 @@ nested structured (record) and union (either) type definition.
 The following are keywords. This means they are all reserved and they cannot be
 used as identifiers nor redefined.
 
-> `and`, `boolean`, `character`, `either`, `end`, `false`, `finish`,
-> `float`, `for`, `function`, `if`, `integer`, `is`, `length`, `otherwise`,
-> `or`, `not`, `print`, `procedure`, `read`, `record`, `return`, `string`,
-> `toBoolean`, `toCharacter`, `toFloat`, `toInteger`, `true`, `void`,
-> `while`, `xor`
-
+> `and`, `andalso`, `band`, `bnot`, `boolean`, `bor`, `bsl`, `bsr`,
+> `bxor`, `character`, `div`, `either`, `end`, `false`, `finish`,
+> `float`, `for`, `function`, `if`, `integer`, `is`, `length`, `not`,
+> `or`, `orelse`, `otherwise`, `print`, `procedure`, `read`, `record`,
+> `rem`, `return`, `string`, `toBoolean`, `toCharacter`, `toFloat`,
+> `toInteger`, `true`, `void`, `while`, `xor`
 
 ### Identifiers
 An identifier is a sequence of letters (`[A-Za-z]`) and digits (`[0-9]`) of any
@@ -99,28 +99,71 @@ Examples:
 ### Operators
 The operators and punctuation characters used in Epilog include
 
-`>>` `<<`
-
-> `+`, `-`, `*`, `/`, `%`, `|`, `=`, `/=`, `=<`, `<`, `>=`, `>`, `is`, `and`,
-> `or`, `not`, `xor`, `(`, `)`, `{`, `}`, `:`, `_`, `,`, `.`
+> `(`, `)`, `*`, `+`, `,`, `-`, `.`, `/=`, `/`, `:`, `<`, `=<`, `=`,
+> `>=`, `>`, `_`, `{`, `|`, `}`, `and`, `andalso`, `band`, `bnot`,
+> `bor`, `bsl`, `bsr`, `bxor`, `div`, `is`, `length`, `not`, `or`,
+> `orelse`, `rem`, `xor`
 
 Operators have the following procedence, from highest to lowest:
 
-|    Operator      |                    Description            | Associativity |
-|------------------|-------------------------------------------|---------------|
-| `:`, `_`         | Access to array's index and record's field| Left to right |
-| `-`, `not`       | Unary arithmetic and logical negation     | Right to left |
-| `*`, `/`, `%`    | Multiplicative                            | Left to right |
-| `-`, `+`         | Additive                                  | Left to right |
-| `<`,`=<`,`>`,`>=`| Relational                                |      None     |
-| `|`              | A\|B means A divides B                    |      None     |
-| `=`, `/=`        | Equality                                  | Left to right |
-| `and`            | Conjunction                               | Left to right |
-| `or`             | Disjunction                               | Left to right |
-| `is`             | Assignment                                |      None     |
+|    Operator            |                    Description                  | Associativity |
+|------------------------|-------------------------------------------------|---------------|
+| `length`               | Array length                                    |      None     |
+| `()`                   | Function/Procedure call                         | Left to right |
+| `:`                    | Array subscripting                              | Left to right |
+| `_`                    | Record entry and union member access            | Left to right |
+| `-`, `not`, `bnot`     | Unary arithmetic, logical, and bitwise negation | Right to left |
+| `*`, `/`, `div`, `rem` | Multiplicative                                  | Left to right |
+| `-`, `+`               | Additive                                        | Left to right |
+| `bsl`, `bsr`           | Bitwise left shift and right shift              | Left to right |
+| `<`,`=<`,`>`,`>=`      | Relational                                      |      None     |
+| `|`                    | "divisor of" operator                           |      None     |
+| `=`, `/=`              | Equality                                        | Left to right |
+| `band`                 | Bitwise AND                                     | Left to right |
+| `bxor`                 | Bitwise XOR                                     | Left to right |
+| `bor`                  | Bitwise OR                                      | Left to right |
+| `and`                  | Logical AND                                     | Left to right |
+| `xor`                  | Logical XOR                                     | Left to right |
+| `or`                   | Logical OR                                      | Left to right |
+| `andalso`              | Short-circuit conjunction                       | Left to right |
+| `orelse`,              | Short-circuit disjunction                       | Left to right |
+| `is`                   | Simple assignment                               | Right to left |
 
-A boolean expression using logical AND and OR has short circuit evaluation. It means, 
-EPILOG does not evaluate an operand unless it is neccessary to resolve the result of the expression.
+The operators `orelse` and `andalso` only evaluate their second argument if
+the first one doesn't provide enough information to determine the value of the
+full expression. Specifically, in `<exp_1> orelse <exp_2>`, `<exp_2>` is only
+evaluated if `<exp_1>` evaluates to false, since otherwise the value of the
+expression would just be true. The same logic applies, *mutatis mutandis*, to
+the `andalso` operator.
+
+The operator `:` takes an array on its left and an integer on its right and
+returns the element type of the array.
+
+The operator `_` takes a record or either type on its left and a name on its
+right and returns the named entry or member of the record or either.
+
+The operators `+`, `*`, and `-`, both unary and binary, work on floats and
+on integers, taking two values of the same type and returning a third one of
+the same.
+
+The operator `/` only works between floats and returns floats.
+
+The operators `not`, `and`, `andalso`, `xor`, `or`, and `orelse` only work
+between booleans and return booleans.
+
+The operators `bnot`, `div`, `rem`, `bsl`, `bsr`, `band`, `bxor` and `bor`
+only work between integers, and return integers.
+
+The operator `length` takes an array of any type and returns its length, an
+integer.
+
+The operator `|` only works between integers and returns a boolean.
+
+The operators `<`, `=<`, `>`, and `>=` work on chars, floats and integers,
+taking two values of the same type and returning a boolean.
+
+The operators `=` and `/=` work on all types, taking two values of the same
+type and returning a boolean.
 
 ### Comments
 Epilog allows for both single-line comments as well as block comments.
@@ -151,15 +194,16 @@ Examples:
 
 ## Scoping
 
-EPILOG uses a static scope and support nested scopes. Each `procedure`, `function` 
-has its own scope for their parameters and the variables declared inside then.
-Every block inside a control structure creates a new scope too.
+Epilog uses a static scope and support nested scopes. Each `procedure` and
+`function` has its own scope for its parameters and the variables declared
+inside them. Every block inside a control structure creates a new scope too.
 
 - Any identifier declared at the highest scope is a global identifier.
 - Every identifier must be declared before it can be used.
 - Functions and procedures can only be declared at the highest scope.
-- Declare a variable identifier twice in the same scope is not allowed.
-- A variable identifier can be redefined in a lower scope and it hides the previous declaration until the scope is quitted.
+- Declaring a variable identifier twice in the same scope is not allowed.
+- A variable identifier can be redefined in a nested scope and it hides or
+    "shadows" the previous declaration until the scope is left.
 
 ## Variables
 ***TO DO: Variables***
@@ -198,8 +242,8 @@ following syntax:
 ~~~
 
 A programmer who uses arrays can take advantage of the predefined `length`
-function when writing functions and procedures. This function returns the
-length of the array passed as argument.
+unary operator when writing functions and procedures. This operator returns the
+length of the array to its right.
 
 Attempting to access an element outside the bounds of an array produces a
 runtime error.
@@ -207,14 +251,14 @@ runtime error.
 Examples:
 ~~~erlang
     integer:100 myNums,
-    for I in {0..length(myNums) - 1} ->
+    for I in {0..length myNums - 1} ->
         read(myNums:I)
     end,
 
     <...>,
 
     integer Z,
-    for I in {0..length(myNums) - 1} ->
+    for I in {0..length myNums - 1} ->
         Z is Z + myNums:I
     end,
 
@@ -321,7 +365,7 @@ Examples:
 
     magic Magic,
     Magic_Float is N,
-    Magic_Integer is (1 << 29) + (Magic_Integer >> 1) - (1 << 22),
+    Magic_Integer is (1 bsl 29) + (Magic_Integer bsr 1) - (1 bsl 22),
 
     float SqrtN is Magic_Float,
 
@@ -344,13 +388,13 @@ in the section "Constants" under "Lexical considerations".
 Epilog has strict types, which means that at no point are values implicitly
 converted or coerced from one type to another. In other words, a type is only
 equivalent and compatible with itself. For conversion between native types,
-the predefined functions `toBoolean`, `toCharacter`, `toIntger` and `toFloat`
+the predefined functions `toBoolean`, `toCharacter`, `toInteger` and `toFloat`
 are provided, with the following semantics:
 
 | From ↓  | toBoolean            | toChar                          | toInteger                      | toFloat                           |
 |---------|----------------------|---------------------------------|--------------------------------|-----------------------------------|
 | boolean | *                    | `'T'` if `true`, `'F'` if false | `1` if `true`, `0` if `false`  | `1.0` if `true`, `0.0` if `false` |
-| char    | `true` if not `'\0'` | *                               | padded with zeros              | toFloat . toIntger                |
+| char    | `true` if not `'\0'` | *                               | padded with zeros              | toFloat . toInteger               |
 | integer | `true` if not zero   | truncated to 7 bits             | *                              | ***TO DO: define conversion***    |
 | float   | `true` if not zero   | toChar . toInteger              | ***TO DO: define conversion*** | *                                 |
 
@@ -408,9 +452,6 @@ Examples:
     end.
 ~~~
 
-
-
-=======
 ### Case
 The `case` statement takes an integer expression which is evaluated. It then
 looks for the resulting value in the guards, and finally executes the branch
@@ -497,9 +538,11 @@ Examples:
 
 
 ## Procedures
-The `procedure` statment is used to declare routine that can be called at any
-point of the program. Procedures can receive one or more parameters. It always 
-return void, so the return type has not to be declared explicitly. 
+A procedure is used to define a routine, so it can be called at any point of 
+the code. Procedures are declared using the keyword `procedure` followed
+by its name and parameters. Procedures can receive one or more parameters
+and always return void. If the programmer wishes to exit from a procedure
+before reaching its last line, the keyword `finish` can be used.
 
 Syntax:
 ~~~erlang 
@@ -527,12 +570,12 @@ Examples:
 
 
 ## Functions
-Functions are pure, it means that evaluating a function has not side effect. 
-A function looks like a procedure but is declared using the keyword `function`, 
-its arguments are read only, global variables are not allowed on its scope
-and the return type most always be declared explicitly. Functions can return
-a value of any type, except void.
-
+Functions are pure, which means that evaluating a function has no side effects. 
+A function looks like a procedure but unlike a procedure, it is declared using
+the keyword `function`, its arguments are read only, global variables are not
+allowed within its scope and the return type must always be declared
+explicitly. Additionally, they must always return a value. Functions can
+return a value of any type, except void.
 
 Syntax:
 ~~~erlang 
@@ -545,7 +588,7 @@ Examples:
     function foo(integer X) -> integer :-
         integer Y is 4,
         integer Z is 5,
-        return(X+Y+Z).
+        return X+Y+Z.
 ~~~
 
 
