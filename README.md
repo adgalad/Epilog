@@ -108,7 +108,7 @@ Operators have the following procedence, from highest to lowest:
 
 |    Operator      |                    Description            | Associativity |
 |------------------|-------------------------------------------|---------------|
-| `:`, `_`         | Access to array's index or record's field | Left to right |
+| `:`, `_`         | Access to array's index and record's field| Left to right |
 | `-`, `not`       | Unary arithmetic and logical negation     | Right to left |
 | `*`, `/`, `%`    | Multiplicative                            | Left to right |
 | `-`, `+`         | Additive                                  | Left to right |
@@ -150,8 +150,16 @@ Examples:
 
 
 ## Scoping
-***TO DO: Scoping***
 
+EPILOG uses a static scope and support nested scopes. Each `procedure`, `function` 
+has its own scope for their parameters. A block inside a control structure 
+creates a new scope for the variables within it.
+
+- Any identifier declared at the highest scope is a global identifier.
+- Every identifier must be declared before it can be used.
+- Functions and procedures can only be defined at the highest scope.
+- Define a variable identifier twice in the same scope is not allowed.
+- A variable identifier can be redefined in a lower scope.
 
 ## Variables
 ***TO DO: Variables***
@@ -329,6 +337,7 @@ in the section "Constants" under "Lexical considerations".
 
 ### Void
 ***TO DO: Are we even going to have the void type?***
+***if procedures won't return values, No. 'Cuz void is never used***
 
 
 ## Type equivalence and compatibility
