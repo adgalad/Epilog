@@ -13,8 +13,8 @@ nested structured (record) and union (either) type definition.
 ## Lexical considerations
 
 ### Keywords
-The following are keywords. This means they are all reserved and they cannot be
-used as identifiers nor redefined.
+The following are keywords. This means they are all reserved and they
+cannot be used as identifiers nor redefined.
 
 > `and`, `andalso`, `band`, `bnot`, `boolean`, `bor`, `bsl`, `bsr`,
 > `bxor`, `character`, `div`, `either`, `end`, `false`, `finish`,
@@ -104,7 +104,7 @@ The operators and punctuation characters used in Epilog include
 > `bor`, `bsl`, `bsr`, `bxor`, `div`, `is`, `length`, `not`, `or`,
 > `orelse`, `rem`, `xor`
 
-Operators have the following procedence, from highest to lowest:
+Operators have the following precedence, from highest to lowest:
 
 |    Operator            |                    Description                  | Associativity |
 |------------------------|-------------------------------------------------|---------------|
@@ -126,7 +126,7 @@ Operators have the following procedence, from highest to lowest:
 | `xor`                  | Logical XOR                                     | Left to right |
 | `or`                   | Logical OR                                      | Left to right |
 | `andalso`              | Short-circuit conjunction                       | Left to right |
-| `orelse`,              | Short-circuit disjunction                       | Left to right |
+| `orelse`               | Short-circuit disjunction                       | Left to right |
 | `is`                   | Simple assignment                               | Right to left |
 
 The operators `orelse` and `andalso` only evaluate their second argument if
@@ -138,6 +138,9 @@ the `andalso` operator.
 
 The operator `:` takes an array on its left and an integer on its right and
 returns the element type of the array.
+
+The operator `length` takes an array of any type and returns its length, an
+integer.
 
 The operator `_` takes a record or either type on its left and a name on its
 right and returns the named entry or member of the record or either.
@@ -153,9 +156,6 @@ between booleans and return booleans.
 
 The operators `bnot`, `div`, `rem`, `bsl`, `bsr`, `band`, `bxor` and `bor`
 only work between integers, and return integers.
-
-The operator `length` takes an array of any type and returns its length, an
-integer.
 
 The operator `|` only works between integers and returns a boolean.
 
@@ -190,24 +190,38 @@ Examples:
 
 ## Program Structure
 
-A program written with Epilog, consist in a set of data structures called records 
-and either, and a set of methods called procedures and functions. Every program must 
-have a special procedure called with the identifier "main". The main procedure contains
-the first instructions that will be execute by the program.
+An Epilog program consists of zero or more `record`, `either` or `function`
+definitions, as well as one or more `procedure` definitions. One of the
+procedure definitions must be for the special procedure `main`. This
+procedure will be the first one to be executed when running the compiled
+Epilog program, and will be the place from which to call any other
+procedures or functions declared in the program, as well as make use
+of the defined `record`s and `either`s.
 
 Example:
 
 ~~~erlang
     record myRecord :- 
-        integer myInteger,
-        float   myFloat.
+        integer MyInteger,
+        float   MyFloat.
+
+    either myEither :-
+        character CharacterMember,
+        integer IntegerMember.
+
+    procedure proc(character C) :-
+        read(C),
+        C is toCharacter(toInteger(C) + 42).
         
-    function myFunction(integer x) :- 
-        return x+1.
+    function myFunction(integer X) -> integer :- 
+        return X+1.
     
     procedure main() :-
         print("This is the first instruction"),
-        integer y is myFunction(3).
+        integer Y is myFunction(3),
+        character D,
+        proc(D)
+        print(D).
 ~~~
 
 
@@ -235,8 +249,9 @@ To declare a variable use the following syntax:
     <type> <variable_id>,
 ~~~
 
-To assign a value to a variable the assignment operator `is` is used. If a variable is not initialized, 
-it contains whatever the memory contains at the moment of the declaration. 
+To assign a value to a variable the assignment operator `is` is used. If a
+variable is not initialized, it contains whatever the memory contained at the
+moment of the declaration; in other words, its value is undefined. 
 
 Example:
 ~~~erlang
@@ -305,16 +320,17 @@ Examples:
 ~~~
 
 ### Records
-Epilog records are arbitrarily nested structures. This abstraction allows
-Epilog programmers to define their own data types by meaningfully associating
-other data types, which can be native types, arrays, eithers or other records.
+Epilog `record`s are arbitrarily nested structures. This abstraction
+allows Epilog programmers to define their own data types by meaningfully
+associating other data types, which can be native types, arrays, `either`s
+or other `record`s.
 
-It is not possible, however, to define a record containing itself, either
+It is not possible, however, to define a `record` containing itself, either
 directly or indirectly, since this would consume an infinite amount of memory.
 
-All record types must be defined in the global scope.
+All `record` types must be defined in the global scope.
 
-A record type is defined with the following syntax:
+A `record` type is defined with the following syntax:
 ~~~erlang
     record <record_name> :-
         <type_0> <entry_0>
@@ -322,17 +338,18 @@ A record type is defined with the following syntax:
     .
 ~~~
 
-To declare a variable of a record type, the usual declaration syntax is used:
+To declare a variable of a `record` type, the usual declaration syntax is used:
 ~~~erlang
     <record_name> <variable_name>.
 ~~~
 
-To access the entries of a record type, the `_` operator is used, followed
+To access the entries of a `record` type, the `_` operator is used, followed
 by the name of the entry. The syntax is the following:
 ~~~erlang
     <record_variable_name>_<entry_name>.
 ~~~
-Accessing an entry which is not in the definition of the record produces a
+
+Accessing an entry which is not in the definition of the `record` produces a
 compilation time error.
 
 Examples:
@@ -353,18 +370,18 @@ Examples:
 ~~~
 
 ### Eithers
-Either types are structures which might hold a single value at a time. This
+`either` types are structures which might hold a single value at a time. This
 allows the programmer to make efficient use of memory when she considers it
 necessary, since the same memory address can be used for either of the member
-types. The member types of an Either type can be native types, arrays, records
-or other eithers.
+types. The member types of an `either` type can be native types, arrays,
+`record`s or other `either`s.
 
-It is not possible, however, to define an either containing itself, either
+It is not possible, however, to define an `either` containing itself, either
 directly or indirectly, since this would stump the compiler indefinitely.
 
-All either types must be defined in the global scope.
+All `either` types must be defined in the global scope.
 
-An either type is defined with the following syntax:
+An `either` type is defined with the following syntax:
 ~~~erlang
     either <either_name> :-
         <type_0> <member_0>
@@ -372,23 +389,26 @@ An either type is defined with the following syntax:
     .
 ~~~
 
-To declare a variable of an either type, the usual declaration syntax is used:
+To declare a variable of an `either` type, the usual declaration
+syntax is used:
 ~~~erlang
     <either_name> <variable_name>.
 ~~~
 
-To access the members of an either type, the `_` operator is used, followed
+To access the members of an `either` type, the `_` operator is used, followed
 by the name of the member. The syntax is the following:
 ~~~erlang
     <either_variable_name>_<member_name>.
 ~~~
+
 If the member accessed is not the same as the last member that was assigned,
 the value of the resulting value is undefined.
 
-Accessing a member which is not in the definition of the either produces a
+Accessing a member which is not in the definition of the `either` produces a
 compilation time error.
 
 Examples:
+
 ~~~erlang
     either magic :-
         float Float,
@@ -412,13 +432,38 @@ Examples:
 ## Special Types
 
 ### Strings
-Strings are immutable sequences of ASCII characters. They must be initialized
-at the site of declaration. The constraints for string constants are discussed
-in the section "Constants" under "Lexical considerations".
+`string`s are immutable sequences of ASCII characters. They must be
+initialized at the site of declaration. The constraints for `string`
+constants are discussed in the section "Constants" under
+"Lexical considerations".
 
 ### Void
-***TO DO: Are we even going to have the void type?***
-***if procedures won't return values, No. 'Cuz void is never used***
+The `void` type is the return type of procedures. It is not necessary to
+write it on the declaration of a function, and it is not recommended to do
+so, but programmers used to other languages might find it easier to write
+the type anyway. This means that the following two examples are equivalent:
+
+~~~erlang
+    procedure aProcedure(integer X, char C) :-
+        print(X),
+        if
+            (X > 10) -> finish
+        end,
+        read(C).
+~~~
+
+~~~erlang
+    %% Not recommended but still valid.
+    procedure aProcedure(integer X, char C) -> void :-
+        print(X),
+        if
+            (X > 10) -> finish
+        end,
+        read(C).
+~~~
+
+It is not allowed to write any other type as the return value of a procedure,
+and at no point can a `void` variable be declared inside a program.
 
 
 ## Type equivalence and compatibility
@@ -428,19 +473,20 @@ equivalent and compatible with itself. For conversion between native types,
 the predefined functions `toBoolean`, `toCharacter`, `toInteger` and `toFloat`
 are provided, with the following semantics:
 
-| From ↓  | toBoolean            | toChar                          | toInteger                      | toFloat                           |
-|---------|----------------------|---------------------------------|--------------------------------|-----------------------------------|
-| boolean | *                    | `'T'` if `true`, `'F'` if false | `1` if `true`, `0` if `false`  | `1.0` if `true`, `0.0` if `false` |
-| char    | `true` if not `'\0'` | *                               | padded with zeros              | toFloat . toInteger               |
-| integer | `true` if not zero   | truncated to 7 bits             | *                              | ***TO DO: define conversion***    |
-| float   | `true` if not zero   | toChar . toInteger              | ***TO DO: define conversion*** | *                                 |
+| From ↓    | `toBoolean`          | `toChar`                        | `toInteger`                    | `toFloat`                         |
+|-----------|----------------------|---------------------------------|--------------------------------|-----------------------------------|
+| `boolean` | *                    | `'T'` if `true`, `'F'` if false | `1` if `true`, `0` if `false`  | `1.0` if `true`, `0.0` if `false` |
+| `char`    | `true` if not `'\0'` | *                               | padded with zeros              | toFloat . toInteger               |
+| `integer` | `true` if not zero   | truncated to 7 bits             | *                              | ***TO DO: define conversion***    |
+| `float`   | `true` if not zero   | toChar . toInteger              | ***TO DO: define conversion*** | *                                 |
 
 where the cells marked (*) produce compilation time errors for unnecessary
 conversions.
 
-Equivalence between record and either types is strictly by name, which means
-that it is impossible for two values declared as different record types or
-different either types to be equivalent, even if the structures are the same.
+Equivalence between `record` and `either` types is strictly by name, which
+means that it is impossible for two values declared as different `record`
+types or different `either` types to be equivalent, even if the structures
+are the same.
 
 Regarding array types, their equivalence depends completely on the equivalence
 of their element types, the only instance of structural equivalence in the
@@ -624,17 +670,31 @@ Examples:
 ~~~
 
 
-## Procedure and Function invocation
+## Subroutine invocation
+Subroutine (rocedure or function) invocation involves passing the argument 
+alues from the caller to the callee (the subroutine) and executing its body,
+returning a result only in the case of a function. When a subroutine is
+invoked, the actual arguments are evaluated and bound to the formal
+parameters. All Epilog parameters and return values are passed by value.
 
-To invocate a procedure or a function, it is enough by putting its identifier followed 
-by its arguments inside parenthesis. Invocations do not use lazy evaluation, which means,
-if an arguments is an operand or another function call, it is evluated immediately, 
-so what the procedure or function recieves is an concrete value, not an expression.
-
+- The number of actual arguments in a subroutine call must match the
+number of formal parameters.
+- The type of each actual argument in a subroutine call must be compatible
+with the formal parameter.
+- The actual arguments to a subroutine call are evaluated from left to right.
+- A function call returns control to the caller on a return statement
+or when the textual end of the function is reached.
+- A procedure call returns control to the caller on a finish statement
+or when the textual end of the procedure is reached.
+- A function call evaluates to the type of the function’s declared return
+type, and must be assigned to a variable of the same type.
+- A procedure call evaluates to the `void` type and cannot be assigned to
+a variable.
 
 
 ## Run time checks
-***TO DO: Run time checks***
+- Attempting to access an element outside the bounds of an array produces a
+runtime error.
 
 
 # References
@@ -642,6 +702,7 @@ so what the procedure or function recieves is an concrete value, not an expressi
 used of which are [GNU Prolog](http://www.gprolog.org/),
 [SWI-Prolog](http://www.swi-prolog.org/) and
 [SICStus](http://www.sics.se/sicstus/).
+
 
 # Acknowledgements
 The structure of this document is based, in part, on the specification of the
