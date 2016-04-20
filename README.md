@@ -246,7 +246,7 @@ declared by the user. A variable can also be an array of the above types.
 To declare a variable use the following syntax:
 
 ~~~erlang
-    <type> <variable_id>,
+    <type> <variable_id>.
 ~~~
 
 To assign a value to a variable the assignment operator `is` is used. If a
@@ -693,9 +693,9 @@ a variable.
 
 
 ## Run time checks
-- Attempting to access an element outside the bounds of an array produces a
-runtime error.
-
+- When accessing an element of an array, it is verified that the index value
+is between the array's bounds. Attempting to access an element outside the
+bounds of the array produces a runtime error.
 
 # References
 [^1]: Prolog has quite a few different compilers, the most widely
