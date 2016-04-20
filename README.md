@@ -80,20 +80,20 @@ must start and end on a single line, it cannot be split over multiple lines.
 Examples:
 
 ~~~erlang
-    boolean aBoolean is true,
+    boolean ABoolean is true,
 
-    character aCharacter is 'a',
-    character anotherCharacter is '\n',
+    character ACharacter is 'a',
+    character AnotherCharacter is '\n',
 
-    integer aInteger is 42,
-    integer anotherInteger is 0x2A,
+    integer AInteger is 42,
+    integer AnotherInteger is 0x2A,
 
-    float aFloat is 4.2,
-    float anotherFloat is 6.02E23,
-    float yetAnotherFloat is 1.0E-42,
+    float AFloat is 4.2,
+    float AnotherFloat is 6.02E23,
+    float YetAnotherFloat is 1.0E-42,
 
-    string aString is "Privyet Mir!",
-    string anotherString is "This is my new string\nA haiku with two newlines\nRefrigerator".
+    string AString is "Privyet Mir!",
+    string AnotherString is "This is my new string\nA haiku with two newlines\nRefrigerator".
 ~~~
 
 ### Operators
