@@ -232,7 +232,7 @@ declared by the user. A variable can also be an array of the above types.
 To declare a variable use the following syntax:
 
 ~~~erlang
-    <type> <variable_id>,
+    <type> <variable_id>.
 ~~~
 
 To assign a value to a variable the assignment operator `is` is used. If a variable is not initialized, 
@@ -634,7 +634,8 @@ so what the procedure or function recieves is an concrete value, not an expressi
 
 
 ## Run time checks
-***TO DO: Run time checks***
+
+- When accessing an element of an array, it is verified that the index value is between the array's bounds.
 
 
 # References
