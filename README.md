@@ -219,9 +219,10 @@ Example:
     procedure main() :-
         print("This is the first instruction"),
         integer Y is myFunction(3),
-        character D,
-        proc(D)
-        print(D).
+        
+        myEither D,
+        proc(D_CharacterMember),
+        print(D_IntegerMember).
 ~~~
 
 
