@@ -2,9 +2,9 @@ module Tokens (Position(..), Token(..))
 where
 
 
-data Position = Position Int Int
+newtype Position = Position (Int, Int)
 instance Show Position where
-    show (Position l c) = "Line: " ++ show l ++ " Column: " ++ show c
+    show (Position (l,c)) = "Line: " ++ show l ++ ", Column: " ++ show c
 
 
 data Token
@@ -45,8 +45,8 @@ data Token
     | TokenToBoolean Position | TokenToCharacter Position | TokenToFloat Position | TokenToInteger Position 
 
     -- Types
-    | TokenBooleanType Position | TokenCharacterType Position |  TokenFloatType Position 
-    | TokenIntegerType Position | TokenStringType Position    |  TokenVoidType Position
+    | TokenBooleanType Position | TokenCharacterType Position | TokenFloatType Position 
+    | TokenIntegerType Position | TokenStringType    Position | TokenVoidType  Position
 
     -- Identifier
     | TokenIdentifier String Position
@@ -65,6 +65,7 @@ data Token
 
     -- IO
     | TokenPrint Position | TokenRead Position 
+
 
 instance Show Token where
     show token = case token of
@@ -99,16 +100,16 @@ instance Show Token where
 
     -- Relational 
     
-        TokenLessThan           position -> "Token <\n"   ++ show position       
-        TokenLessThanOrEqual    position -> "Token -><\n" ++ show position      
-        TokenGreaterThan        position -> "Token >\n"   ++ show position       
-        TokenGreaterThanOrEqual position -> "Token >->\n" ++ show position     
+        TokenLessThan           position -> "Token <\n"  ++ show position       
+        TokenLessThanOrEqual    position -> "Token =<\n" ++ show position      
+        TokenGreaterThan        position -> "Token >\n"  ++ show position       
+        TokenGreaterThanOrEqual position -> "Token >=\n" ++ show position     
 
     -- Equality
 
     
-        TokenEqualTo    position -> "Token ->\n"  ++ show position       
-        TokenNotEqualTo position -> "Token /->\n" ++ show position     
+        TokenEqualTo    position -> "Token =\n"  ++ show position       
+        TokenNotEqualTo position -> "Token /=\n" ++ show position     
 
     -- Control Structures
     
@@ -142,10 +143,9 @@ instance Show Token where
         TokenBooleanType   position -> "Token BOOLEAN\n"   ++ show position    
         TokenCharacterType position -> "Token CHARACTER\n" ++ show position    
         TokenFloatType     position -> "Token FLOAT\n"     ++ show position    
-    
-        TokenIntegerType position -> "Token INTEGER\n" ++ show position    
-        TokenStringType  position -> "Token STRING\n"  ++ show position         
-        TokenVoidType    position -> "Token VOID\n"    ++ show position     
+        TokenIntegerType   position -> "Token INTEGER\n"   ++ show position    
+        TokenStringType    position -> "Token STRING\n"    ++ show position         
+        TokenVoidType      position -> "Token VOID\n"      ++ show position     
 
     -- Identifier
 
@@ -158,7 +158,9 @@ instance Show Token where
         TokenSemiColon        position -> "Token ;\n"  ++ show position     
         TokenArrow            position -> "Token ->\n" ++ show position    
         TokenOpenParenthesis  position -> "Token (\n"  ++ show position     
-        TokenCloseParenthesis position -> "Token )\n"  ++ show position     
+        TokenCloseParenthesis position -> "Token )\n"  ++ show position
+        TokenOpenCurly        position -> "Token {\n"  ++ show position     
+        TokenCloseCurly       position -> "Token }\n"  ++ show position     
 
     -- Consts
     
@@ -173,7 +175,8 @@ instance Show Token where
 
     -- Assign
     
-        TokenIs position -> "Token IS\n" ++ show position     
+        TokenIs             position -> "Token IS\n" ++ show position     
+        TokenFunctionAssign position -> "Token :-\n" ++ show position
 
     -- IO
     
