@@ -10,39 +10,41 @@ instance Show Position where
 data Token
     = 
     -- Logical Operators 
-    TokenAnd Position    | TokenAndalso Position | TokenOr Position 
-    | TokenOrelse Position | TokenNot Position
+      TokenAnd    Position | TokenAndalso Position | TokenOr Position 
+    | TokenOrelse Position | TokenNot     Position
 
     -- Bitwise Operators
-    | TokenBand Position | TokenBnot Position | TokenBor Position 
-    | TokenBsl Position  | TokenBsr Position  | TokenBxor Position
+    | TokenBand Position | TokenBnot Position | TokenBor  Position 
+    | TokenBsl  Position | TokenBsr  Position | TokenBxor Position
 
     -- Array 
     | TokenLength Position  | TokenColon Position
 
     -- Arithmetic Operators
-    | TokenPlus Position     | TokenMinus Position           | TokenTimes Position 
-    | TokenDivision Position | TokenIntegerDivision Position | TokenRem Position 
+    | TokenPlus     Position | TokenMinus Position | TokenTimes Position 
+    | TokenDivision Position | TokenRem   Position | TokenIntegerDivision Position
 
     -- Relational
-    | TokenLessThan Position    | TokenLessThanOrEqual Position 
+    | TokenLessThan    Position | TokenLessThanOrEqual    Position 
     | TokenGreaterThan Position | TokenGreaterThanOrEqual Position
 
     -- Equality
     | TokenEqualTo Position | TokenNotEqualTo Position
 
     -- Control Structures
-    | TokenEnd Position       | TokenFor Position | TokenIf Position 
+    | TokenEnd       Position | TokenFor   Position | TokenIf Position 
     | TokenOtherwise Position | TokenWhile Position 
 
     -- Functions and Procedures
-    | TokenFinish Position | TokenFunction Position | TokenProcedure Position  | TokenReturn Position
+    | TokenFinish    Position | TokenFunction Position 
+    | TokenProcedure Position | TokenReturn   Position
 
     -- Composite Types
     | TokenEither Position | TokenRecord Position 
 
     -- Conversion
-    | TokenToBoolean Position | TokenToCharacter Position | TokenToFloat Position | TokenToInteger Position 
+    | TokenToBoolean Position | TokenToCharacter Position 
+    | TokenToFloat   Position | TokenToInteger   Position 
 
     -- Types
     | TokenBooleanType Position | TokenCharacterType Position | TokenFloatType Position 
@@ -52,8 +54,9 @@ data Token
     | TokenIdentifier String Position
 
     -- Punctuation
-    | TokenComma Position | TokenDot Position             | TokenSemiColon Position 
-    | TokenArrow Position | TokenOpenParenthesis Position | TokenCloseParenthesis Position 
+    | TokenComma      Position | TokenDot Position             | TokenSemiColon Position 
+    | TokenArrow      Position | TokenOpenParenthesis Position | TokenCloseParenthesis Position 
+    | TokenUnderscore Position | TokenOpenCurly Position | TokenCloseCurly Position 
 
     -- Consts
     | TokenCharacter Char Position | TokenFloat  Float  Position 
@@ -61,7 +64,8 @@ data Token
     | TokenFalse Position | TokenTrue Position
 
     -- Assign
-    | TokenIs Position
+    | TokenIs Position 
+    | TokenFunctionAssign Position
 
     -- IO
     | TokenPrint Position | TokenRead Position 
@@ -161,6 +165,7 @@ instance Show Token where
         TokenCloseParenthesis position -> "Token )\n"  ++ show position
         TokenOpenCurly        position -> "Token {\n"  ++ show position     
         TokenCloseCurly       position -> "Token }\n"  ++ show position     
+        TokenUnderscore       position -> "Token _\n"  ++ show position     
 
     -- Consts
     
@@ -181,4 +186,4 @@ instance Show Token where
     -- IO
     
         TokenPrint position -> "Token PRINT\n" ++ show position    
-        TokenRead  position  -> "Token READ\n"  ++ show position     
+        TokenRead  position -> "Token READ\n"  ++ show position     
