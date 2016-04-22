@@ -1,12 +1,19 @@
-
-Definicion.html
-
-Definicion.pdf
-
-Hola.hs
-
+# Haskell
+dist
+.cabal-sandbox
+cabal.sandbox.config
 *.o
-
 *.hi
+*.chi
+*.chs.h
+.virthualenv
 
-Lexer
+# MIPS files
+*.s
+
+# Editors
+*.swp
+*~
+
+# PDFs
+*.pdf
