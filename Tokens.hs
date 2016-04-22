@@ -4,6 +4,7 @@ module Tokens (
     )
     where
 
+import Data.Int (Int32)
 
 newtype Position = Position (Int, Int)
 instance Show Position where
@@ -62,8 +63,8 @@ data Token
     | TokenUnderscore Position | TokenOpenCurly Position | TokenCloseCurly Position 
 
     -- Consts
-    | TokenCharacter Char Position | TokenFloat  Float  Position 
-    | TokenInteger   Int  Position | TokenString String Position
+    | TokenCharacter Char  Position | TokenFloat  Float  Position 
+    | TokenInteger   Int32 Position | TokenString String Position
     | TokenFalse Position | TokenTrue Position
 
     -- Assign
