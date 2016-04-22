@@ -5,7 +5,7 @@
 module Main (main) where
 
 import Tokens (Position(..), Token(..))
-
+import Data.Int (Int32)
 
 #if __GLASGOW_HASKELL__ >= 603
 #include "ghcconfig.h"
@@ -227,8 +227,15 @@ buildToken token (AlexPn _ line column) _ = token (Position (line,column))
 -- Returns a token, builded with a value and its position. 
 -- The value is obtained by applying a function to the string given by Alex
 buildTokenWithValue :: (b -> Position -> Token) -> (String -> b) -> AlexPosn -> String -> Token
-buildTokenWithValue token f (AlexPn _ line column) str = token (f str) (Position (line,column))
+buildTokenWithValue token f (AlexPn _ line column) str = token (f str) $ Position (line,column)
 
+buildTokenInteger :: (Int32 -> Position -> Token) -> AlexPosn -> String -> Token
+buildTokenInteger token (AlexPn _ line column) str = if n >= -2^31 && n < 2^31 then 
+                                                        token n pos
+                                                      else
+                                                        TokenError ("Integer to large: "++str) pos
+                                                      where n = read str
+                                                            pos = Position (line,column)
 
 main = do
   s <- getLine
@@ -240,10 +247,10 @@ alex_action_3 =  buildToken TokenPlus
 alex_action_4 =  buildToken TokenMinus 
 alex_action_5 =  buildToken TokenTimes 
 alex_action_6 =  buildToken TokenDivision 
-alex_action_7 =  buildTokenWithValue (TokenFloat)   read 
-alex_action_8 =  buildTokenWithValue (TokenInteger) read 
-alex_action_9 =  buildTokenWithValue (TokenInteger) read 
-alex_action_10 =  buildTokenWithValue (TokenInteger) read 
+alex_action_7 =  buildTokenWithValue (TokenFloat) read 
+alex_action_8 =  buildTokenInteger   (TokenInteger) 
+alex_action_9 =  buildTokenInteger   (TokenInteger) 
+alex_action_10 =  buildTokenInteger   (TokenInteger) 
 alex_action_11 =  buildTokenWithValue TokenString (tail.init) 
 alex_action_12 =  buildTokenWithValue TokenError ("Unclosed string: "++)  
 alex_action_13 =  buildTokenWithValue TokenIdentifier id 
