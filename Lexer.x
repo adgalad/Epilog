@@ -5,33 +5,41 @@ import Tokens (Position(..), Token(..))
 
 }
 
-%wrapper "basic"
+
+%wrapper "posn"
 
 $digit = 0-9
 $alpha = [a-zA-Z]
 
-@id    =[A-Z][$alpha $digit \_ \’]*
-@badid = $alpha[$alpha $digit \_ \’]*
+@id    = [A-Z][$alpha $digit  \’ ]*
+@badid = $alpha[$alpha $digit \’ ]*
 
 tokens :-
 
   $white+     ;
   "%%".*      ;
-  is          { \s -> TokenIs $ Position (1,1) }
-  $digit+     { \s -> TokenInteger (read s) $ Position(1,1) }
+  is          { buildToken TokenIs }
+  $digit+     { buildTokenWithValue (TokenInteger) read }
 
-  \".*\"      { \s -> TokenString ((tail.init) s) $ Position (1,1) }
-  \".*        { \s -> TokenError "Unclosed string" $ Position (1,1) }
+  \".*\"      { buildTokenWithValue TokenString (tail.init) }
+  \".*        { buildTokenWithValue TokenError ("Unclosed string: "++)  }
 
-  @id         { \s -> TokenIdentifier s $ Position(1,1) }
-  @badid      { \s -> TokenError ("Identifier " ++show s++" must be capitalized") $ Position (1,1)}
-  .           { \s -> TokenError "Syntax Error" $ Position (1,1)}
+  @id         { buildTokenWithValue TokenIdentifier id }
+  @badid      { buildTokenWithValue TokenError ("Identifier must be capitalized: "++) }
+  .           { buildTokenWithValue TokenError ("Syntax Error: "++) }
 
 
 
 
 
 {
+
+buildToken :: (Position -> Token) -> AlexPosn -> String -> Token
+buildToken token (AlexPn _ line column) _ = token (Position (line,column))
+
+buildTokenWithValue :: (b -> Position -> Token) -> (String -> b) -> AlexPosn -> String -> Token
+buildTokenWithValue token f (AlexPn _ line column) value = token (f value) (Position (line,column))
+
 
 main = do
   s <- getLine

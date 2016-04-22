@@ -1,5 +1,8 @@
-module Tokens (Position(..), Token(..))
-where
+module Tokens ( 
+    Position(..), 
+    Token(..)
+    )
+    where
 
 
 newtype Position = Position (Int, Int)
