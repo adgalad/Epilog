@@ -4,7 +4,7 @@ where
 
 newtype Position = Position (Int, Int)
 instance Show Position where
-    show (Position (l,c)) = "Line: " ++ show l ++ ", Column: " ++ show c
+    show (Position (l,c)) = "Line: " ++ show l ++ ", Column: " ++ show c 
 
 
 data Token
@@ -69,6 +69,10 @@ data Token
 
     -- IO
     | TokenPrint Position | TokenRead Position 
+
+    -- Error
+
+    | TokenError String Position 
 
 
 instance Show Token where
@@ -172,7 +176,7 @@ instance Show Token where
         TokenCharacter value position -> "Token CHARACTER\nValue: " ++ show value ++ "\n" ++ show position    
         TokenFloat     value position -> "Token FLOAT\nValue: "     ++ show value ++ "\n" ++ show position    
         TokenInteger   value position -> "Token INTEGER\nValue: "   ++ show value ++ "\n" ++ show position    
-        TokenString    value position -> "Token STRING\nValue: "    ++ show value ++ "\n" ++ show position   
+        TokenString    value position -> "Token STRING\nValue: "    ++      value ++ "\n" ++ show position   
     
     
         TokenFalse position -> "Token FALSE\n" ++ show position    
@@ -187,3 +191,6 @@ instance Show Token where
     
         TokenPrint position -> "Token PRINT\n" ++ show position    
         TokenRead  position -> "Token READ\n"  ++ show position     
+
+    -- Error
+        TokenError msg position -> "Error: " ++ msg ++ "\n" ++ show position

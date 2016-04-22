@@ -4,3 +4,9 @@ Definicion.html
 Definicion.pdf
 
 Hola.hs
+
+*.o
+
+*.hi
+
+Lexer
