@@ -1,78 +1,200 @@
-{
-module Main (main) where
+{ {-# OPTIONS_GHC -w #-}
+module Language.Epilog.Lexer
+    ( Alex (..)
+    , Token (..)
+    , Lexeme (..)
+    , alexMonadScan
+    , scanner
+    ) where
+--------------------------------------------------------------------------------
+import           Language.Epilog.Error
+import           Language.Epilog.Lexeme
+import           Language.Epilog.Token
 
-import Tokens (Position(..), Token(..))
-
+import           Control.Monad          (liftM, when)
+import           Data.Maybe             (fromJust, isJust)
+import           Data.Sequence          (Seq)
+import qualified Data.Sequence          as Seq (empty, (|>))
+--------------------------------------------------------------------------------
 }
 
-
-%wrapper "posn"
+%wrapper "monadUserState"
 
 $digit = 0-9
-$alpha = [a-zA-Z]
+$upper = [A-Z]
+$lower = [a-z]
+$alpha = [$upper $lower]
 
-$special   = [\(\)\,\;\[\]\`\{\}\"] 
-$ascsymbol = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\\\^\|\-\~\:]
+-- $special   = [\(\)\,\;\[\]\`\{\}\"]
+-- $ascsymbol = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\\\^\|\-\~\:]
 
-@exponent       = [eE] [\-\+]? $digit+
-@floating_point = $digit+ \. $digit+ @exponent? | $digit+ @exponent
-@hexit          = 0[xX][$digit A-F a-f]+
+-- @exponent       = [eE] [\-\+]? $digit+
+-- @floating_point = $digit+ \. $digit+ @exponent? | $digit+ @exponent
+-- @hexit          = 0[xX][$digit A-F a-f]+
 
-@id        = [A-Z][$alpha $digit  \’ ]*
-@badid     = $alpha[$alpha $digit \’ ]*
-@string    = \".*\"
-@badstring = \".*
+-- @id        = [A-Z][$alpha $digit  \’ ]*
+-- @badid     = $alpha[$alpha $digit \’ ]*
+-- @string    = \".*\"
+-- @badstring = \".*
 
 
+--------------------------------------------------------------------------------
 tokens :-
 
-  $white+     ;
-  "%%".*      ;
-  is          { buildToken TokenIs }
-  "+"         { buildToken TokenPlus }
-  "-"         { buildToken TokenMinus }
-  "*"         { buildToken TokenTimes }
-  "/"         { buildToken TokenDivision }
+    -- Whitespace
+    $white+         ;
+
+    -- Comments
+        "%%".*      ;
+    <0> "/%"        { enterNewComment `andBegin` c }
+    <c> "/%"        { embedComment }
+    <c> "%/"        { unembedComment }
+    <c> .           ;
+    <c> "\n"        { skip }
+
+    <0> is          { make TokenIs }
+    <0> "+"         { make TokenPlus }
+    <0> "-"         { make TokenMinus }
+    <0> "*"         { make TokenTimes }
+    <0> "/"         { make TokenDivision }
 
 -- Integer (8,10,16), Float
-  @floating_point { buildTokenWithValue (TokenFloat) read }
+    -- @floating_point { buildTokenWithValue (TokenFloat) read }
 
-  $digit+         { buildTokenInteger   (TokenInteger) }
-  @hexit          { buildTokenInteger   (TokenInteger) }
-  
-  @string     { buildTokenWithValue TokenString (tail.init) }
-  @badstring  { buildTokenWithValue TokenError ("Unclosed string: "++)  }
+    -- $digit+         { buildTokenInteger   (TokenInteger) }
+    -- @hexit          { buildTokenInteger   (TokenInteger) }
 
-  @id         { buildTokenWithValue TokenIdentifier id }
-  @badid      { buildTokenWithValue TokenError ("Identifier must be capitalized: "++) }
-  .           { buildTokenWithValue TokenError ("Syntax Error: "++) }
+    -- @string     { buildTokenWithValue TokenString (tail.init) }
+    -- @badstring  { buildTokenWithValue TokenError ("Unclosed string: "++)  }
 
-
-
-
+    -- @id         { buildTokenWithValue TokenIdentifier id }
+    -- @badid      { buildTokenWithValue TokenError ("Identifier must be capitalized: "++) }
+    -- .           { buildTokenWithValue TokenError ("Syntax Error: "++) }
 
 {
+--------------------------------------------------------------------------------
 
--- Just returns the given token with its position
-buildToken :: (Position -> Token) -> AlexPosn -> String -> Token
-buildToken token (AlexPn _ line column) _ = token (Position (line,column))
+type Action = AlexInput -> Int -> Alex (Lexeme Token)
 
--- Returns a token, builded with a value and its position. 
--- The value is obtained by applying a function to the string given by Alex
-buildTokenWithValue :: (b -> Position -> Token) -> (String -> b) -> AlexPosn -> String -> Token
-buildTokenWithValue token f (AlexPn _ line column) str = token (f str) $ Position (line,column)
+toPosition :: AlexPosn -> Position
+toPosition (AlexPn _ r c) = Position (r, c)
 
--- Check if the string given by Alex is a valid integer. If not returns an error token
-buildTokenInteger :: (Int -> Position -> Token) -> AlexPosn -> String -> Token
-buildTokenInteger token (AlexPn _ line column) str = if n >= -2^31 && n < 2^31 then 
-                                                        token n pos
-                                                      else
-                                                        TokenError ("Integer too large: "++str) pos
-                                                      where n = read str
-                                                            pos = Position (line,column)
+alexEOF :: Alex (Lexeme Token)
+alexEOF = liftM (\x -> Lexeme x TokenEOF) alexGetPosition
 
-main = do
-  s <- getLine
-  putStr $ unlines $ map ((++"\n").show) $ alexScanTokens s
+alexGetPosition :: Alex Position
+alexGetPosition = alexGetInput >>= \(p,_,_,_) -> return $ toPosition p
 
+make :: Token -> Action
+make t (p, _, _, str) _ = return $ Lexeme (toPosition p) t
+
+
+-- states
+state_initial :: Int
+state_initial = 0
+
+-- actions
+enterNewComment, embedComment, unembedComment :: Action
+enterNewComment input len = do
+        setLexerCommentDepth 1
+        skip input len
+embedComment input len = do
+        cd <- getLexerCommentDepth
+        setLexerCommentDepth (cd + 1)
+        skip input len
+unembedComment input len = do
+        cd <- getLexerCommentDepth
+        setLexerCommentDepth (cd - 1)
+        when (cd == 1) (alexSetStartCode state_initial)
+        skip input len
+
+-- The user state monad
+data AlexUserState = AlexUserState
+    { errors            :: Seq Error
+    , lexerCommentDepth :: Int
+    , lexerStringState  :: Bool
+    , lexerStringValue  :: String
+    }
+
+alexInitUserState :: AlexUserState
+alexInitUserState =
+    AlexUserState
+        { errors            = Seq.empty
+        , lexerCommentDepth = 0
+        , lexerStringState  = False
+        , lexerStringValue  = ""
+        }
+
+getFromUserState :: (AlexUserState -> a) -> Alex a
+getFromUserState f =
+    Alex $ \s@AlexState{alex_ust=ust} -> Right (s, f ust)
+modifyUserState :: (AlexUserState -> AlexUserState) -> Alex ()
+modifyUserState f =
+    Alex $ \s -> let st = alex_ust s in Right (s {alex_ust = f st}, ())
+
+getLexerCommentDepth :: Alex Int
+getLexerCommentDepth = getFromUserState lexerCommentDepth
+setLexerCommentDepth :: Int -> Alex ()
+setLexerCommentDepth d = modifyUserState $ \st -> st { lexerCommentDepth = d }
+
+getLexerStringState :: Alex Bool
+getLexerStringState = getFromUserState lexerStringState
+setLexerStringState :: Bool -> Alex ()
+setLexerStringState s = modifyUserState $ \st -> st { lexerStringState = s}
+
+getLexerStringValue :: Alex String
+getLexerStringValue = getFromUserState lexerStringValue
+setLexerStringValue :: String -> Alex ()
+setLexerStringValue v = modifyUserState $ \st -> st { lexerStringValue = v }
+
+addCharToLexerStringValue :: Char -> Alex ()
+addCharToLexerStringValue c =
+    modifyUserState $ \st -> st {lexerStringValue = c:lexerStringValue st}
+
+scanner :: String -> Either String [Lexeme Token]
+scanner str =
+    let loop = do
+            (t, m) <- alexComplementError alexMonadScan
+            when (isJust m) (lexerError (fromJust m))
+            let tok@(Lexeme p cl) = t
+            if (cl == TokenEOF)
+                then do
+                    f1 <- getLexerStringState
+                    d2 <- getLexerCommentDepth
+                    if ((not f1) && (d2 == 0))
+                        then return [tok]
+                        else if (f1)
+                            then alexError "String not closed at end of file"
+                            else alexError "Comment not closed at end of file"
+                else do
+                    toks <- loop
+                    return (tok : toks)
+    in runAlex str loop
+
+lexerError :: String -> Alex a
+lexerError msg =
+    do
+        (p, c, _, inp) <- alexGetInput
+        let inp1 = filter (/= '\r') (takeWhile (/='\n') inp)
+        let inp2 = if (length inp1 > 30)
+                     then trim (take 30 inp1)
+                     else trim inp1
+        let disp = if (null inp)
+                     then " at end of file"
+                     else if (null inp2)
+                             then " before end of line"
+                             else " on char " ++ show c ++ " before : '" ++ inp2 ++ "'"
+        let disp3 = if (null msg)
+                      then "Lexer error"
+                      else trim msg
+        alexError (disp3 ++ " at " ++ show p ++ disp)
+  where
+    trim = reverse . dropWhile (== ' ') . reverse . dropWhile (== ' ')
+
+alexComplementError :: Alex a -> Alex (a, Maybe String)
+alexComplementError (Alex al) =
+    Alex
+        (\s -> case al s of
+            Right (s', x) -> Right (s', (x, Nothing))
+            Left  message -> Right (s, (undefined, Just message)))
 }
