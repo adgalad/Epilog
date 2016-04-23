@@ -1,38 +1,29 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TupleSections  #-}
 
-module Main(main) where
+module Main (main) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Lexer
 
-import           Control.Monad                 (guard, void, when)
-import           Control.Monad.Trans           (liftIO)
-import           Control.Monad.Trans.Maybe     (runMaybeT)
+import           Control.Monad             (guard, void, when)
+import           Control.Monad.Trans       (liftIO)
+import           Control.Monad.Trans.Maybe (runMaybeT)
 
-import           Data.List                     (nub)
+import           Data.List                 (nub)
 
-import           Prelude                       hiding (null)
-import qualified Prelude                       as P (null)
+import           Prelude                   hiding (null)
+import qualified Prelude                   as P (null)
 
-import           System.Console.GetOpt         (ArgDescr (..), ArgOrder (..),
-                                                OptDescr (..), getOpt,
-                                                usageInfo)
-import           System.Environment            (getArgs)
+import           System.Console.GetOpt     (ArgDescr (..), ArgOrder (..),
+                                            OptDescr (..), getOpt, usageInfo)
+import           System.Environment        (getArgs)
 --------------------------------------------------------------------------------
 
-options :: [OptDescr Flag]
-options =
-    [ Option ['h'] ["help"]    (NoArg Help)    "shows this help message"
-    , Option ['v'] ["version"] (NoArg Version) "shows version number"
-    ]
+version :: String
+version = "epilog 0.1.0.0"
 
 help :: String
 help = usageInfo message options
-
-data Flag
-  = Help    -- -h | --help
-  | Version -- -v | --version
-  deriving (Show, Eq)
 
 message :: String
 message = unlines
@@ -42,8 +33,16 @@ message = unlines
     , "\t('^D') character."
     ]
 
-version :: String
-version = "epilog 0.1.0.0"
+options :: [OptDescr Flag]
+options =
+    [ Option ['h'] ["help"]    (NoArg Help)    "shows this help message"
+    , Option ['v'] ["version"] (NoArg Version) "shows version number"
+    ]
+
+data Flag
+  = Help    -- -h | --help
+  | Version -- -v | --version
+  deriving (Show, Eq)
 
 opts :: IO ([Flag], [String])
 opts = do
@@ -57,18 +56,19 @@ main = void $ runMaybeT $ do
     (flags, args) <- liftIO opts
 
     when (Version `elem` flags) . liftIO $ putStrLn version
-    when (Help    `elem` flags) . liftIO $ putStr help
+    when (Help    `elem` flags) . liftIO $ putStr message
 
     guard $ not $ (Help `elem` flags) || (Version `elem` flags)
 
-    (input, file) <- if (P.null args)
-    then liftIO getContents            >>= return . (, "<stdin>")
-    else liftIO (readFile $ head args) >>= return . (, head args)
+    (input, file) <- if P.null args
+    then (, "<stdin>") <$> liftIO getContents
+    else (, head args) <$> liftIO (readFile $ head args)
 
-    liftIO . putStrLn $ ("Beginning analysis of the Epilog program in file " ++ file)
+    liftIO . putStrLn $
+        ("Beginning analysis of the Epilog program in file " ++ file)
 
     let sr = scanner input
     either
-        (\st -> liftIO . error $ st)
-        (\ls -> liftIO . putStrLn $ show ls)
+        (liftIO . error)
+        (liftIO . print)
         sr

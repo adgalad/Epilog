@@ -1,8 +1,9 @@
 module Language.Epilog.Position
-  ( Position(..)
-  , row
-  , col
-  ) where
+    ( Position(..)
+    , row
+    , col
+    ) where
+--------------------------------------------------------------------------------
 
 newtype Position = Position (Int, Int)
   deriving (Bounded, Eq, Ord)

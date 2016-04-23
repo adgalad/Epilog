@@ -1,31 +1,29 @@
 {-# LANGUAGE LambdaCase    #-}
-module Language.Epilog.Error
-  ( Error(..)
-  , isError
-  , LexerError(..)
-  ) where
 
+module Language.Epilog.Error
+    ( Error(..)
+    , isError
+    , LexerError(..)
+    ) where
+--------------------------------------------------------------------------------
 import           Language.Epilog.Token
 import           Language.Epilog.Position
 
--- import           Data.Foldable         (toList)
 import           Data.Function         (on)
--- import           Data.List             (intercalate)
--- import           Data.Sequence         (Seq)
-
+--------------------------------------------------------------------------------
 
 data Error
-  = LError Position LexerError
+    = LError Position LexerError
 
 instance Show Error where
-  show = \case
-    LError p e -> "Lexer error " ++ show p ++ ":\n\t" ++ show e ++ "\n"
+    show = \case
+        LError p e -> "Lexer error " ++ show p ++ ":\n\t" ++ show e ++ "\n"
 
 instance Eq Error where
   (==) = (==) `on` errorPos
 
 instance Ord Error where
-  compare = compare `on` errorPos
+    compare = compare `on` errorPos
 
 isError :: Error -> Bool
 isError _ = True
@@ -38,16 +36,16 @@ data LexerError
     | TokenNotSupported Token
 
 instance Show LexerError where
-  show = \case
-    LexerError msg       ->
-      msg
-    UnexpectedChar c     ->
-      "unexpected character '" ++ [c] ++ "'"
-    StringError str      ->
-      "missing matching quotation mark for string " ++ show str
-    TokenNotSupported tk ->
-      show tk ++ " is not supported yet"
+    show = \case
+        LexerError msg       ->
+            msg
+        UnexpectedChar c     ->
+            "unexpected character '" ++ [c] ++ "'"
+        StringError str      ->
+            "missing matching quotation mark for string " ++ show str
+        TokenNotSupported tk ->
+            show tk ++ " is not supported yet"
 
 errorPos :: Error -> Position
 errorPos = \case
-  LError p _ -> p
+    LError p _ -> p
