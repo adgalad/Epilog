@@ -70,5 +70,5 @@ main = void $ runMaybeT $ do
     let sr = scanner input
     either
         (liftIO . error)
-        (liftIO . print)
+        (liftIO . mapM_ print)
         sr

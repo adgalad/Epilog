@@ -6,6 +6,7 @@ module Language.Epilog.Lexer
     , Lexeme (..)
     , alexMonadScan
     , scanner
+    , niceShow
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Error
@@ -54,7 +55,7 @@ epilog :-
     <0> $white+         ;
 
     -- Comments
-        "%%".*          ;
+    <0> "%%".*          ;
     <0> "/%"            { enterNewComment `andBegin` c }
     <c> "/%"            { embedComment }
     <c> "%/"            { unembedComment }
@@ -149,11 +150,7 @@ epilog :-
     <0> "read"          { make TokenRead }
     <0> "write"         { make TokenWrite }
 
-    -- Identifier
-    <0> @varid          { make' $ TokenVariableIdentifier . id }
-    <0> @genid          { make' $ TokenGeneralIdentifier . id }
-
-    -- Consts
+    -- Literals
     ---- Chars
     <0> \' ($graphic | @escape) \'
                         { make' $ TokenCharacterLiteral . read }
@@ -177,6 +174,10 @@ epilog :-
      |  \0              { leaveStringAbruptly `andBegin` state_initial }
     <s> @escape         { addEscapeToString }
     <s> .               { addCharToString }
+
+    -- Identifier
+    <0> @varid          { make' $ TokenVariableIdentifier . id }
+    <0> @genid          { make' $ TokenGeneralIdentifier . id }
 
     -- Unexpected Token
     <0> .               { make' $ ErrorUnexpectedToken . head }
@@ -249,7 +250,7 @@ leaveStringAbruptly :: Action
 leaveStringAbruptly (p, _, _, str) len = do
     s <- getLexerStringValue
     setLexerStringState False
-    return (Lexeme (toPosition p) (ErrorUnclosedStringLiteral . reverse $ s))
+    return (Lexeme (toPosition p) (ErrorUnclosedStringLiteral . ('"':) . reverse $ s))
 
 addCharToString :: Action
 addCharToString (_, _, _, str) 1 = do

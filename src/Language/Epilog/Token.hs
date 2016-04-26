@@ -1,10 +1,13 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Language.Epilog.Token
     ( Token(..)
+    , niceShow
     ) where
 --------------------------------------------------------------------------------
 import           Data.Int (Int32)
+import Data.List (intercalate)
 --------------------------------------------------------------------------------
 
 data Token
@@ -56,16 +59,16 @@ data Token
     -- IO
     |  TokenRead | TokenWrite
 
-    -- Identifier
-    | TokenVariableIdentifier { unTokenVariableIdentifier :: String }
-    | TokenGeneralIdentifier  { unTokenGeneralIdentifier :: String }
-
     -- Literals
     | TokenCharacterLiteral { unTokenCharacterLiteral :: Char }
     | TokenFloatLiteral     { unTokenFloatLiteral :: Float }
     | TokenIntegerLiteral   { unTokenIntegerLiteral :: Int32 }
     | TokenBooleanLiteral   { unTokenBoolLiteral :: Bool }
     | TokenStringLiteral    { unTokenStringLiteral :: String }
+
+        -- Identifier
+    | TokenVariableIdentifier { unTokenVariableIdentifier :: String }
+    | TokenGeneralIdentifier  { unTokenGeneralIdentifier :: String }
 
     -- Error
     | ErrorUnderflow { unErrorUnderflow :: Integer }
@@ -75,10 +78,13 @@ data Token
 
     -- EOF
     | TokenEOF {- Temporal, no será necesario con el Parser -}
-    deriving (Eq)
+    deriving (Eq, Show, Read)
 
-instance Show Token where
-    show = \case
+class NiceShow a where
+    niceShow :: a -> String
+
+instance NiceShow Token where
+    niceShow = \case
 
     -- Logical Operators
         TokenAnd     -> "Token AND"
@@ -150,12 +156,6 @@ instance Show Token where
         TokenStringType    -> "Token STRING"
         TokenVoidType      -> "Token VOID"
 
-    -- Identifier
-        TokenVariableIdentifier name ->
-            "Token VARID (" ++ name ++ ")"
-        TokenGeneralIdentifier name ->
-            "Token GENERALID (" ++ name ++ ")"
-
     -- Punctuation
         TokenComma            -> "Token ,"
         TokenPeriod           -> "Token ."
@@ -167,18 +167,6 @@ instance Show Token where
         TokenLeftCurly        -> "Token {"
         TokenRightCurly       -> "Token }"
 
-    -- Literals
-        TokenCharacterLiteral value ->
-            "Token CHARACTER (" ++ show value ++ ")"
-        TokenFloatLiteral value ->
-            "Token FLOAT (" ++ show value ++ ")"
-        TokenIntegerLiteral value ->
-            "Token INTEGER (" ++ show value ++ ")"
-        TokenBooleanLiteral value ->
-            "Token BOOLEAN (" ++ show value ++ ")"
-        TokenStringLiteral value ->
-            "Token STRING (" ++ show value ++ ")"
-
     -- Assign
         TokenIs -> "Token IS"
 
@@ -186,13 +174,31 @@ instance Show Token where
         TokenRead  -> "Token READ"
         TokenWrite -> "Token WRITE"
 
+    -- Literals
+        TokenCharacterLiteral value ->
+            "Token CHARACTER (" ++ (tail . init . show $ value) ++ ")"
+        TokenFloatLiteral value ->
+            "Token FLOAT (" ++ show value ++ ")"
+        TokenIntegerLiteral value ->
+            "Token INTEGER (" ++ show value ++ ")"
+        TokenBooleanLiteral value ->
+            "Token BOOLEAN (" ++ (if value then "true" else "false") ++ ")"
+        TokenStringLiteral value ->
+            "Token STRING (" ++ (tail . init . show $ value) ++ ")"
+
+    -- Identifier
+        TokenVariableIdentifier name ->
+            "Token VARID (" ++ name ++ ")"
+        TokenGeneralIdentifier name ->
+            "Token GENERALID (" ++ name ++ ")"
+
     -- Error
         ErrorUnderflow value ->
             "ERROR UNDERFLOW (" ++ show value ++ ")"
         ErrorOverflow value ->
             "ERROR OVERFLOW (" ++ show value ++ ")"
         ErrorUnclosedStringLiteral value ->
-            "ERROR UNCLOSED STRING LITERAL (" ++ show value ++ ")"
+            "ERROR UNCLOSED STRING LITERAL (" ++ value ++ ")"
         ErrorUnexpectedToken value ->
             "ERROR UNEXPECTED TOKEN (" ++ show value ++ ")"
 
