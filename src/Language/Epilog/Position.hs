@@ -12,8 +12,8 @@ newtype Position = Position (Int, Int)
 
 instance NiceShow Position where
     niceShow (Position tuple) = case tuple of
-        (r,0) -> "@" ++ show r
-        (r,c) -> "@" ++ show r ++ ":" ++ show c
+        (r,0) -> "POSITION: row " ++ show r
+        (r,c) -> "POSITION: row " ++ show r ++ ", col " ++ show c
 
 row, col :: Position -> Int
 row (Position (r, _)) = r

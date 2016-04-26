@@ -9,6 +9,7 @@ module Language.Epilog.Token
 import           Language.Epilog.Classes
 
 import           Data.Int                (Int32)
+import           Data.List               (intercalate)
 --------------------------------------------------------------------------------
 
 data Token
@@ -85,120 +86,153 @@ instance NiceShow Token where
     niceShow = \case
 
     -- Logical Operators
-        TokenAnd     -> "Token AND"
-        TokenAndalso -> "Token ANDALSO"
-        TokenOr      -> "Token OR"
-        TokenOrelse  -> "Token ORELSE"
-        TokenNot     -> "Token NOT"
+        TokenAnd     -> "TOKEN: and"
+        TokenAndalso -> "TOKEN: andalso"
+        TokenOr      -> "TOKEN: or"
+        TokenOrelse  -> "TOKEN: orelse"
+        TokenNot     -> "TOKEN: not"
 
     -- Bitwise Operations
-        TokenBand -> "Token BAND"
-        TokenBnot -> "Token BNOT"
-        TokenBor  -> "Token BOR"
-        TokenBsl  -> "Token BSL"
-        TokenBsr  -> "Token BSR"
-        TokenBxor -> "Token BXOR"
+        TokenBand -> "TOKEN: band"
+        TokenBnot -> "TOKEN: bnot"
+        TokenBor  -> "TOKEN: bor"
+        TokenBsl  -> "TOKEN: bsl"
+        TokenBsr  -> "TOKEN: bsr"
+        TokenBxor -> "TOKEN: bxor"
 
     -- Array
-        TokenLength -> "Token LENGTH"
-        TokenColon  -> "Token :"
+        TokenLength -> "TOKEN: length"
+        TokenColon  -> "TOKEN: :"
 
     -- Arithmetic Operators
-        TokenPlus            -> "Token +"
-        TokenMinus           -> "Token -"
-        TokenTimes           -> "Token *"
-        TokenFloatDivision   -> "Token /"
-        TokenIntegerDivision -> "Token DIV"
-        TokenRem             -> "Token REM"
+        TokenPlus            -> "TOKEN: +"
+        TokenMinus           -> "TOKEN: -"
+        TokenTimes           -> "TOKEN: *"
+        TokenFloatDivision   -> "TOKEN: /"
+        TokenIntegerDivision -> "TOKEN: div"
+        TokenRem             -> "TOKEN: rem"
 
     -- Relational
-        TokenLT       -> "Token <"
-        TokenLTE      -> "Token =<"
-        TokenGT       -> "Token >"
-        TokenGTE      -> "Token >="
-        TokenFactorOf -> "Token |"
+        TokenLT       -> "TOKEN: <"
+        TokenLTE      -> "TOKEN: =<"
+        TokenGT       -> "TOKEN: >"
+        TokenGTE      -> "TOKEN: >="
+        TokenFactorOf -> "TOKEN: |"
 
     -- Equality
-        TokenEQ -> "Token ="
-        TokenNE -> "Token /="
+        TokenEQ -> "TOKEN: ="
+        TokenNE -> "TOKEN: /="
 
     -- Control Structures
-        TokenEnd       -> "Token END"
-        TokenFor       -> "Token FOR"
-        TokenIf        -> "Token IF"
-        TokenOtherwise -> "Token OTHERWISE"
-        TokenWhile     -> "Token WHILE"
+        TokenEnd       -> "TOKEN: end"
+        TokenFor       -> "TOKEN: for"
+        TokenIf        -> "TOKEN: if"
+        TokenOtherwise -> "TOKEN: otherwise"
+        TokenWhile     -> "TOKEN: while"
 
     -- Functions and Procedures
-        TokenFinish    -> "Token FINISH"
-        TokenFunction  -> "Token FUNCTION"
-        TokenProcedure -> "Token PROCEDURE"
-        TokenReturn    -> "Token RETURN"
-        TokenDefine    -> "Token :-"
+        TokenFinish    -> "TOKEN: finish"
+        TokenFunction  -> "TOKEN: function"
+        TokenProcedure -> "TOKEN: procedure"
+        TokenReturn    -> "TOKEN: return"
+        TokenDefine    -> "TOKEN: :-"
 
     -- Composite Types
-        TokenEither -> "Token EITHER"
-        TokenRecord -> "Token RECORD"
+        TokenEither -> "TOKEN: either"
+        TokenRecord -> "TOKEN: record"
 
     -- Conversion
-        TokenToBoolean   -> "Token TOBOOLEAN"
-        TokenToCharacter -> "Token TOCHARACTER"
-        TokenToFloat     -> "Token TOFLOAT"
-        TokenToInteger   -> "Token TOINTEGER"
+        TokenToBoolean   -> "TOKEN: toBoolean"
+        TokenToCharacter -> "TOKEN: toCharacter"
+        TokenToFloat     -> "TOKEN: toFloat"
+        TokenToInteger   -> "TOKEN: toInteger"
 
     -- Types
-        TokenBooleanType   -> "Token BOOLEAN"
-        TokenCharacterType -> "Token CHARACTER"
-        TokenFloatType     -> "Token FLOAT"
-        TokenIntegerType   -> "Token INTEGER"
-        TokenStringType    -> "Token STRING"
-        TokenVoidType      -> "Token VOID"
+        TokenBooleanType   -> "TOKEN: boolean"
+        TokenCharacterType -> "TOKEN: character"
+        TokenFloatType     -> "TOKEN: float"
+        TokenIntegerType   -> "TOKEN: integer"
+        TokenStringType    -> "TOKEN: string"
+        TokenVoidType      -> "TOKEN: void"
 
     -- Punctuation
-        TokenComma            -> "Token ,"
-        TokenPeriod           -> "Token ."
-        TokenSemicolon        -> "Token ;"
-        TokenArrow            -> "Token ->"
-        TokenLeftParenthesis  -> "Token ("
-        TokenRightParenthesis -> "Token )"
-        TokenUnderscore       -> "Token _"
-        TokenLeftCurly        -> "Token {"
-        TokenRightCurly       -> "Token }"
+        TokenComma            -> "TOKEN: ,"
+        TokenPeriod           -> "TOKEN: ."
+        TokenSemicolon        -> "TOKEN: ;"
+        TokenArrow            -> "TOKEN: ->"
+        TokenLeftParenthesis  -> "TOKEN: ("
+        TokenRightParenthesis -> "TOKEN: )"
+        TokenUnderscore       -> "TOKEN: _"
+        TokenLeftCurly        -> "TOKEN: {"
+        TokenRightCurly       -> "TOKEN: }"
 
     -- Assign
-        TokenIs -> "Token IS"
+        TokenIs -> "TOKEN: is"
 
     -- IO
-        TokenRead  -> "Token READ"
-        TokenWrite -> "Token WRITE"
+        TokenRead  -> "TOKEN: read"
+        TokenWrite -> "TOKEN: write"
 
     -- Literals
         TokenCharacterLiteral value ->
-            "Token CHARACTER (" ++ (tail . init . show $ value) ++ ")"
+            intercalate "\n"
+                [ "TOKEN: Character Literal"
+                , "VALUE: " ++ (tail . init . show $ value)
+                ]
         TokenFloatLiteral value ->
-            "Token FLOAT (" ++ show value ++ ")"
+            intercalate "\n"
+                [ "TOKEN: Float Literal"
+                , "VALUE: " ++ show value
+                ]
         TokenIntegerLiteral value ->
-            "Token INTEGER (" ++ show value ++ ")"
+            intercalate "\n"
+                [ "TOKEN: Integer Literal"
+                , "VALUE: " ++ show value
+                ]
         TokenBooleanLiteral value ->
-            "Token BOOLEAN (" ++ (if value then "true" else "false") ++ ")"
+            intercalate "\n"
+                [ "TOKEN: Boolean Literal"
+                , "VALUE: " ++ (if value then "true" else "false")
+                ]
         TokenStringLiteral value ->
-            "Token STRING (" ++ (tail . init . show $ value) ++ ")"
+            intercalate "\n"
+                [ "TOKEN: String Literal"
+                , "VALUE: " ++ (tail . init . show $ value)
+                ]
 
     -- Identifier
         TokenVariableIdentifier name ->
-            "Token VARID (" ++ name ++ ")"
+            intercalate "\n"
+                [ "TOKEN: Variable ID"
+                , "VALUE: " ++ name
+                ]
         TokenGeneralIdentifier name ->
-            "Token GENERALID (" ++ name ++ ")"
+            intercalate "\n"
+                [ "TOKEN: General ID"
+                , "VALUE: " ++ name
+                ]
 
     -- Error
         ErrorUnderflow value ->
-            "ERROR UNDERFLOW (" ++ show value ++ ")"
+            intercalate "\n"
+                [ "ERROR: Underflow"
+                , "VALUE: " ++ show value
+                ]
         ErrorOverflow value ->
-            "ERROR OVERFLOW (" ++ show value ++ ")"
+            intercalate "\n"
+                [ "ERROR: Overflow"
+                , "VALUE: " ++ show value
+                ]
         ErrorUnclosedStringLiteral value ->
-            "ERROR UNCLOSED STRING LITERAL (" ++ value ++ ")"
+            intercalate "\n"
+                [ "ERROR: Unclosed String Literal"
+                , "VALUE: " ++ value
+                ]
         ErrorUnexpectedToken value ->
-            "ERROR UNEXPECTED TOKEN (" ++ show value ++ ")"
+            intercalate "\n"
+                [ "ERROR: Unexpected Token"
+                , "VALUE: " ++ [value]
+                ]
 
     -- EOF
-        TokenEOF -> "Token EOF"
+        TokenEOF -> "TOKEN: EOF"

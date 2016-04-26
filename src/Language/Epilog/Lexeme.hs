@@ -14,4 +14,4 @@ data Lexeme a = Lexeme
     } deriving (Eq, Ord, Show, Read)
 
 instance NiceShow a => NiceShow (Lexeme a) where
-    niceShow (Lexeme p a) = niceShow a ++ niceShow p ++ "\n"
+    niceShow (Lexeme p a) = unlines [niceShow a, niceShow p]
