@@ -1,13 +1,14 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase        #-}
 
 module Language.Epilog.Token
     ( Token(..)
     , niceShow
     ) where
 --------------------------------------------------------------------------------
-import           Data.Int (Int32)
-import Data.List (intercalate)
+import           Language.Epilog.Classes
+
+import           Data.Int                (Int32)
 --------------------------------------------------------------------------------
 
 data Token
@@ -79,9 +80,6 @@ data Token
     -- EOF
     | TokenEOF {- Temporal, no será necesario con el Parser -}
     deriving (Eq, Show, Read)
-
-class NiceShow a where
-    niceShow :: a -> String
 
 instance NiceShow Token where
     niceShow = \case
