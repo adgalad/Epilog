@@ -71,6 +71,7 @@ data Token
     | ErrorUnderflow { unErrorUnderflow :: Integer }
     | ErrorOverflow { unErrorOverflow :: Integer }
     | ErrorUnclosedStringLiteral { unErrorUnclosedStringLiteral :: String }
+    | ErrorUnexpectedToken { unUnexpectedToken :: Char }
 
     -- EOF
     | TokenEOF {- Temporal, no será necesario con el Parser -}
@@ -192,6 +193,8 @@ instance Show Token where
             "ERROR OVERFLOW (" ++ show value ++ ")"
         ErrorUnclosedStringLiteral value ->
             "ERROR UNCLOSED STRING LITERAL (" ++ show value ++ ")"
+        ErrorUnexpectedToken value ->
+            "ERROR UNEXPECTED TOKEN (" ++ show value ++ ")"
 
     -- EOF
         TokenEOF -> "Token EOF"

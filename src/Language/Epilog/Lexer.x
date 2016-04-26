@@ -26,7 +26,7 @@ $digit       = [0-9]
 $hexit       = [0-9 A-F a-f]
 
 @octal       = 0[oO] $octit+
-@decimal     = [\-\+]?$digit+
+@decimal     = [\-]?$digit+
 @hexadecimal = 0[xX] $hexit+
 
 @exponent    = [eE][\-\+]? $digit+
@@ -177,6 +177,9 @@ epilog :-
      |  \0              { leaveStringAbruptly `andBegin` state_initial }
     <s> @escape         { addEscapeToString }
     <s> .               { addCharToString }
+
+    -- Unexpected Token
+    <0> .               { make' $ ErrorUnexpectedToken . head }
 
 { ------------------------------------------------------------------------------
 
