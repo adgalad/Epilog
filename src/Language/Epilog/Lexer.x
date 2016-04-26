@@ -63,12 +63,14 @@ tokens :-
     <0> "for"       { make' TokenFor    }
     <0> "if"        { make' TokenIf     }
     <0> "is"        { make' TokenIs     } 
+    <0> "length"    { make' TokenLength }
     <0> "otherwise" { make' TokenOtherwise  }
     <0> "record"    { make' TokenRecord }
     <0> "return"    { make' TokenReturn }
     <0> "while"     { make' TokenWhile  }
     <0> "read"      { make' TokenRead  }
     <0> "print"     { make' TokenPrint  }
+
         -- Conversion
         <0> "toBolean"  { make' TokenToBoolean   }
         <0> "toCharacter" { make' TokenToCharacter }
@@ -82,6 +84,8 @@ tokens :-
         <0> "integer"   { make' TokenIntegerType }
         <0> "string"    { make' TokenStringType  }
         <0> "void"      { make' TokenVoidType    }
+
+
 
     -- Language Punctuation
 
