@@ -13,4 +13,4 @@ data Lexeme a = Lexeme
     } deriving (Eq, Ord)
 
 instance Show a => Show (Lexeme a) where
-    show (Lexeme p a) = show p ++ ": " ++ show a
+    show (Lexeme p a) = show p ++ ": " ++ show a ++"\n"

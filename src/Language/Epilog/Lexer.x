@@ -1,4 +1,5 @@
 { {-# OPTIONS_GHC -w #-}
+
 module Language.Epilog.Lexer
     ( Alex (..)
     , Token (..)
@@ -25,17 +26,19 @@ $upper = [A-Z]
 $lower = [a-z]
 $alpha = [$upper $lower]
 
--- $special   = [\(\)\,\;\[\]\`\{\}\"]
--- $ascsymbol = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\\\^\|\-\~\:]
 
--- @exponent       = [eE] [\-\+]? $digit+
--- @floating_point = $digit+ \. $digit+ @exponent? | $digit+ @exponent
--- @hexit          = 0[xX][$digit A-F a-f]+
 
--- @id        = [A-Z][$alpha $digit  \’ ]*
--- @badid     = $alpha[$alpha $digit \’ ]*
--- @string    = \".*\"
--- @badstring = \".*
+
+@exponent       = [eE] [\-\+]? $digit+
+@float = $digit+ \. $digit+ @exponent? | $digit+ @exponent
+@hexit          = 0[xX][$digit A-F a-f]+
+
+@id        = [A-Z][$alpha $digit \’]*
+@badid     = $alpha[$alpha $digit \’ ]*
+
+@char      = \'.?\'
+@string    = \".*\"
+@boolean   = "true" | "false"
 
 
 --------------------------------------------------------------------------------
@@ -52,24 +55,96 @@ tokens :-
     <c> .           ;
     <c> "\n"        { skip }
 
-    <0> is          { make TokenIs }
-    <0> "+"         { make TokenPlus }
-    <0> "-"         { make TokenMinus }
-    <0> "*"         { make TokenTimes }
-    <0> "/"         { make TokenDivision }
+    -- Language Keywords
 
--- Integer (8,10,16), Float
-    -- @floating_point { buildTokenWithValue (TokenFloat) read }
+    <0> "either"    { make' TokenEither }
+    <0> "end"       { make' TokenEnd    }
+    <0> "finish"    { make' TokenFinish }
+    <0> "for"       { make' TokenFor    }
+    <0> "if"        { make' TokenIf     }
+    <0> "is"        { make' TokenIs     } 
+    <0> "otherwise" { make' TokenOtherwise  }
+    <0> "record"    { make' TokenRecord }
+    <0> "return"    { make' TokenReturn }
+    <0> "while"     { make' TokenWhile  }
+    <0> "read"      { make' TokenRead  }
+    <0> "print"     { make' TokenPrint  }
+        -- Conversion
+        <0> "toBolean"  { make' TokenToBoolean   }
+        <0> "toCharacter" { make' TokenToCharacter }
+        <0> "toFloat"   { make' TokenToFloat     }
+        <0> "toInteger" { make' TokenToInteger   }
 
-    -- $digit+         { buildTokenInteger   (TokenInteger) }
-    -- @hexit          { buildTokenInteger   (TokenInteger) }
+        -- Types
+        <0> "boolean"   { make' TokenBooleanType }
+        <0> "character" { make' TokenCharacterType }
+        <0> "float"     { make' TokenFloatType   }
+        <0> "integer"   { make' TokenIntegerType }
+        <0> "string"    { make' TokenStringType  }
+        <0> "void"      { make' TokenVoidType    }
 
-    -- @string     { buildTokenWithValue TokenString (tail.init) }
-    -- @badstring  { buildTokenWithValue TokenError ("Unclosed string: "++)  }
+    -- Language Punctuation
 
-    -- @id         { buildTokenWithValue TokenIdentifier id }
-    -- @badid      { buildTokenWithValue TokenError ("Identifier must be capitalized: "++) }
-    -- .           { buildTokenWithValue TokenError ("Syntax Error: "++) }
+    <0> ","         { make' TokenComma            }
+    <0> "."         { make' TokenDot              }
+    <0> ";"         { make' TokenSemiColon        }
+    <0> ":"         { make' TokenColon            }
+    <0> "->"        { make' TokenArrow            }
+    <0> "("         { make' TokenOpenParenthesis  }
+    <0> ")"         { make' TokenCloseParenthesis }
+    <0> "{"         { make' TokenOpenCurly        }
+    <0> "}"         { make' TokenCloseCurly       }
+    <0> "_"         { make' TokenUnderscore       }
+
+    -- Relational
+    <0> "=<"        { make' TokenLessThanOrEqual     }
+    <0> "<"         { make' TokenLessThan            }
+    <0> ">="        { make' TokenGreaterThanOrEqual  }
+    <0> ">"         { make' TokenGreaterThan         }
+    <0> "|"         { make' TokenFactorOf            }
+
+    -- Equality
+    <0> "="         { make' TokenEqualTo     }
+    <0> "/="        { make' TokenNotEqualTo  }
+
+    -- Bitwise Operators
+    <0> "band"      { make' TokenBand }
+    <0> "bnot"      { make' TokenBnot }
+    <0> "bor"       { make' TokenBor  }
+    <0> "bsl"       { make' TokenBsl  }
+    <0> "bsr"       { make' TokenBsr  }
+    <0> "bxor"      { make' TokenBxor }
+
+    -- Arithmetic Operators
+    <0> "+"         { make' TokenPlus   }
+    <0> "-"         { make' TokenMinus  }
+    <0> "*"         { make' TokenTimes  }
+    <0> "/"         { make' TokenDivision }
+    <0> "div"       { make' TokenIntegerDivision }
+    <0> "rem"       { make' TokenRem    }
+
+    -- Logical Operators
+    <0> "andalso"   { make' TokenAndalso }
+    <0> "and"       { make' TokenAnd        }
+    <0> "orelse"    { make' TokenOrelse  }
+    <0> "or"        { make' TokenOr      }
+    <0> "not"       { make' TokenNot     }
+
+    -- Literals 
+    <0> @boolean    { make $ TokenBoolean   . (\x -> if x == "true" then True else False) }
+    <0> @char       { make $ TokenCharacter . read }
+    <0> $digit+     { make $ TokenInteger   . read }
+    <0> @float      { make $ TokenFloat     . read }
+    <0> @hexit      { make $ TokenInteger   . read }
+    <0> @string     { make $ TokenString    . init . tail   }
+    
+
+    -- Identifiers
+    <0> @id         { make $ TokenVariableIdentifier . id }
+    <0> @badid      { make $ TokenErrorIdentifier . id}
+
+
+
 
 {
 --------------------------------------------------------------------------------
@@ -85,9 +160,12 @@ alexEOF = liftM (\x -> Lexeme x TokenEOF) alexGetPosition
 alexGetPosition :: Alex Position
 alexGetPosition = alexGetInput >>= \(p,_,_,_) -> return $ toPosition p
 
-make :: Token -> Action
-make t (p, _, _, str) _ = return $ Lexeme (toPosition p) t
 
+make :: (String -> Token) -> Action
+make t (p, _, _, str) size = return $ Lexeme (toPosition p) (t $ take size str)
+
+make' :: Token -> Action
+make' = make . const
 
 -- states
 state_initial :: Int

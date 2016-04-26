@@ -14,7 +14,7 @@ data Token
     | TokenBand | TokenBnot | TokenBor | TokenBsl  | TokenBsr  | TokenBxor
 
     -- Array
-    | TokenLength | TokenColon
+    | TokenLength 
 
     -- Arithmetic Operators
     | TokenPlus | TokenMinus | TokenTimes | TokenDivision | TokenRem
@@ -49,7 +49,7 @@ data Token
     | TokenGeneralIdentifier { unTokenGeneralIdentifier   :: String }
 
     -- Punctuation
-    | TokenComma      | TokenDot             | TokenSemiColon
+    | TokenComma      | TokenDot             | TokenSemiColon | TokenColon
     | TokenArrow      | TokenOpenParenthesis | TokenCloseParenthesis
     | TokenUnderscore | TokenOpenCurly | TokenCloseCurly
 
@@ -67,7 +67,10 @@ data Token
     | TokenPrint | TokenRead
 
     -- Error
-    | TokenError String
+    | TokenErrorIdentifier String
+    | TokenErrorFloat String
+    | TokenErrorChar String
+    | TokenErrorString String
 
     -- EOF
     | TokenEOF
@@ -94,7 +97,6 @@ instance Show Token where
 
     -- Array
         TokenLength -> "Token LENGTH"
-        TokenColon  -> "Token :"
 
     -- Arithmetic Operators
         TokenPlus            -> "Token +"
@@ -127,7 +129,7 @@ instance Show Token where
         TokenFunction  -> "Token FUNCTION"
         TokenProcedure -> "Token PROCEDURE"
         TokenReturn    -> "Token RETURN"
-        TokenDefine    -> "Token :-"
+
 
     -- Composite Types
         TokenEither -> "Token EITHER"
@@ -149,15 +151,17 @@ instance Show Token where
 
     -- Identifier
         TokenVariableIdentifier name ->
-            "Token VARIABLEIDENTIFIER " ++ name
+            "Token VARID " ++ name
         TokenGeneralIdentifier name ->
-            "Token GENERALIDENTIFIER " ++ name
+            "Token GENERALID " ++ name
 
     -- Punctuation
         TokenComma            -> "Token ,"
         TokenDot              -> "Token ."
         TokenSemiColon        -> "Token ;"
+        TokenColon            -> "Token :"
         TokenArrow            -> "Token ->"
+        TokenDefine    -> "Token :-"
         TokenOpenParenthesis  -> "Token ("
         TokenCloseParenthesis -> "Token )"
         TokenOpenCurly        -> "Token {"
@@ -184,8 +188,8 @@ instance Show Token where
         TokenRead  -> "Token READ"
 
     -- Error
-        TokenError msg ->
-            "Error: " ++ msg
+        TokenErrorIdentifier str -> "lexical error: Bad Id: " ++ str
+        
 
     -- EOF
         TokenEOF -> "Token EOF"
