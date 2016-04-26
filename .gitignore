@@ -6,7 +6,7 @@ cabal.sandbox.config
 *.hi
 *.chi
 *.chs.h
-.virthualenv
+.virtualenv
 
 # MIPS files
 *.s
