@@ -4,13 +4,13 @@ module Language.Epilog.Lexeme
     , module Language.Epilog.Position
     ) where
 --------------------------------------------------------------------------------
-import Language.Epilog.Position
+import           Language.Epilog.Position
 --------------------------------------------------------------------------------
 
 data Lexeme a = Lexeme
     { position :: Position
-    , token :: a
+    , token    :: a
     } deriving (Eq, Ord)
 
 instance Show a => Show (Lexeme a) where
-    show (Lexeme p a) = show p ++ ": " ++ show a
+    show (Lexeme p a) = unwords [show a, show p]

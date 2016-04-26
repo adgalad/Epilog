@@ -4,6 +4,8 @@ module Language.Epilog.Token
     ( Token(..)
     ) where
 --------------------------------------------------------------------------------
+import           Data.Int (Int32)
+--------------------------------------------------------------------------------
 
 data Token
 
@@ -17,18 +19,17 @@ data Token
     | TokenLength | TokenColon
 
     -- Arithmetic Operators
-    | TokenPlus | TokenMinus | TokenTimes | TokenDivision | TokenRem
+    | TokenPlus | TokenMinus | TokenTimes | TokenFloatDivision | TokenRem
     | TokenIntegerDivision
 
     -- Relational
-    | TokenLessThan | TokenLessThanOrEqual | TokenGreaterThan
-    | TokenGreaterThanOrEqual | TokenFactorOf
+    | TokenLT | TokenLTE | TokenGT | TokenGTE | TokenFactorOf
 
     -- Equality
-    | TokenEqualTo | TokenNotEqualTo
+    | TokenEQ | TokenNE
 
     -- Control Structures
-    | TokenEnd | TokenFor   | TokenIf | TokenOtherwise | TokenWhile
+    | TokenEnd | TokenFor | TokenIf | TokenOtherwise | TokenWhile
 
     -- Functions and Procedures
     | TokenFinish | TokenFunction | TokenProcedure | TokenReturn
@@ -38,41 +39,42 @@ data Token
     | TokenEither | TokenRecord
 
     -- Conversion
-    | TokenToBoolean | TokenToCharacter | TokenToFloat   | TokenToInteger
+    | TokenToBoolean | TokenToCharacter | TokenToFloat | TokenToInteger
 
     -- Types
     | TokenBooleanType | TokenCharacterType | TokenFloatType
     | TokenIntegerType | TokenStringType    | TokenVoidType
 
-    -- Identifier
-    | TokenVariableIdentifier { unTokenVariableIdentifier :: String }
-    | TokenGeneralIdentifier { unTokenGeneralIdentifier   :: String }
-
     -- Punctuation
-    | TokenComma      | TokenDot             | TokenSemiColon
-    | TokenArrow      | TokenOpenParenthesis | TokenCloseParenthesis
-    | TokenUnderscore | TokenOpenCurly | TokenCloseCurly
+    | TokenComma      | TokenPeriod          | TokenSemicolon
+    | TokenArrow      | TokenLeftParenthesis | TokenRightParenthesis
+    | TokenUnderscore | TokenLeftCurly       | TokenRightCurly
 
-    -- Consts
-    | TokenCharacter { unTokenCharacter :: Char   }
-    | TokenFloat     { unTokenFloat     :: Float  }
-    | TokenInteger   { unTokenInteger   :: Int    }
-    | TokenString    { unTokenString    :: String }
-    | TokenBoolean   { unTokenBool      :: Bool   }
-
-    -- Assign
+    -- Assignment
     | TokenIs
 
     -- IO
-    | TokenPrint | TokenRead
+    |  TokenRead | TokenWrite
+
+    -- Identifier
+    | TokenVariableIdentifier { unTokenVariableIdentifier :: String }
+    | TokenGeneralIdentifier  { unTokenGeneralIdentifier :: String }
+
+    -- Literals
+    | TokenCharacterLiteral { unTokenCharacterLiteral :: Char }
+    | TokenFloatLiteral     { unTokenFloatLiteral :: Float }
+    | TokenIntegerLiteral   { unTokenIntegerLiteral :: Int32 }
+    | TokenBooleanLiteral   { unTokenBoolLiteral :: Bool }
+    | TokenStringLiteral    { unTokenStringLiteral :: String }
 
     -- Error
-    | TokenError String
+    | ErrorUnderflow { unErrorUnderflow :: Integer }
+    | ErrorOverflow { unErrorOverflow :: Integer }
+    | ErrorUnclosedStringLiteral { unErrorUnclosedStringLiteral :: String }
 
     -- EOF
-    | TokenEOF
+    | TokenEOF {- Temporal, no será necesario con el Parser -}
     deriving (Eq)
-
 
 instance Show Token where
     show = \case
@@ -100,20 +102,20 @@ instance Show Token where
         TokenPlus            -> "Token +"
         TokenMinus           -> "Token -"
         TokenTimes           -> "Token *"
-        TokenDivision        -> "Token /"
+        TokenFloatDivision   -> "Token /"
         TokenIntegerDivision -> "Token DIV"
         TokenRem             -> "Token REM"
 
     -- Relational
-        TokenLessThan           -> "Token <"
-        TokenLessThanOrEqual    -> "Token =<"
-        TokenGreaterThan        -> "Token >"
-        TokenGreaterThanOrEqual -> "Token >="
-        TokenFactorOf           -> "Token |"
+        TokenLT       -> "Token <"
+        TokenLTE      -> "Token =<"
+        TokenGT       -> "Token >"
+        TokenGTE      -> "Token >="
+        TokenFactorOf -> "Token |"
 
     -- Equality
-        TokenEqualTo    -> "Token ="
-        TokenNotEqualTo -> "Token /="
+        TokenEQ -> "Token ="
+        TokenNE -> "Token /="
 
     -- Control Structures
         TokenEnd       -> "Token END"
@@ -149,43 +151,47 @@ instance Show Token where
 
     -- Identifier
         TokenVariableIdentifier name ->
-            "Token VARIABLEIDENTIFIER " ++ name
+            "Token VARID (" ++ name ++ ")"
         TokenGeneralIdentifier name ->
-            "Token GENERALIDENTIFIER " ++ name
+            "Token GENERALID (" ++ name ++ ")"
 
     -- Punctuation
         TokenComma            -> "Token ,"
-        TokenDot              -> "Token ."
-        TokenSemiColon        -> "Token ;"
+        TokenPeriod           -> "Token ."
+        TokenSemicolon        -> "Token ;"
         TokenArrow            -> "Token ->"
-        TokenOpenParenthesis  -> "Token ("
-        TokenCloseParenthesis -> "Token )"
-        TokenOpenCurly        -> "Token {"
-        TokenCloseCurly       -> "Token }"
+        TokenLeftParenthesis  -> "Token ("
+        TokenRightParenthesis -> "Token )"
         TokenUnderscore       -> "Token _"
+        TokenLeftCurly        -> "Token {"
+        TokenRightCurly       -> "Token }"
 
-    -- Consts
-        TokenCharacter value ->
+    -- Literals
+        TokenCharacterLiteral value ->
             "Token CHARACTER (" ++ show value ++ ")"
-        TokenFloat value ->
+        TokenFloatLiteral value ->
             "Token FLOAT (" ++ show value ++ ")"
-        TokenInteger value ->
+        TokenIntegerLiteral value ->
             "Token INTEGER (" ++ show value ++ ")"
-        TokenString value ->
-            "Token STRING (" ++ show value ++ ")"
-        TokenBoolean value ->
+        TokenBooleanLiteral value ->
             "Token BOOLEAN (" ++ show value ++ ")"
+        TokenStringLiteral value ->
+            "Token STRING (" ++ show value ++ ")"
 
     -- Assign
         TokenIs -> "Token IS"
 
     -- IO
-        TokenPrint -> "Token PRINT"
         TokenRead  -> "Token READ"
+        TokenWrite -> "Token WRITE"
 
     -- Error
-        TokenError msg ->
-            "Error: " ++ msg
+        ErrorUnderflow value ->
+            "ERROR UNDERFLOW (" ++ show value ++ ")"
+        ErrorOverflow value ->
+            "ERROR OVERFLOW (" ++ show value ++ ")"
+        ErrorUnclosedStringLiteral value ->
+            "ERROR UNCLOSED STRING LITERAL (" ++ show value ++ ")"
 
     -- EOF
         TokenEOF -> "Token EOF"

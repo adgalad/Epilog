@@ -1,0 +1,46 @@
+record listaDE :-
+    ref nodo Cabeza,
+    ref nodo Ultimo,
+        int  Longitud.
+
+record nodo :-
+    int Elemento,
+    ref nodo Anterior,
+    ref nodo Siguiente.
+
+procedure crearLista(out listaDE Lista) :-
+    Lista is new listaDE,
+    Lista_Longitud is 0,
+    Lista_Cabeza is null,
+    Lista_Ultimo is null.
+
+procedure insertarAlFinal(int Elemento, listaDE Lista) :-
+    nodo Nodo is new nodo,
+    Nodo_Elemento is Elemento,
+    if
+        Lista_Ultimo = null ->
+            Nodo_Anterior is null,
+            Nodo_Siguiente is null,
+            Lista_Cabeza is Lista_Ultimo is ref Nodo,
+            Lista_Longitud is 1;
+        otherwise ->
+            Lista_Ultimo_Siguiente is ref Nodo,
+            Nodo_Anterior is Lista_Ultimo,
+            Lista_Ultimo is ref Nodo,
+            Lista_Longitud is Lista_Longitud + 1
+    end.
+
+procedure doble(int Simple, out int Doble) :-
+    Doble is 2*Simple.
+
+procedure main() :-
+    lista MiLista,
+    crearLista(MiLista),
+    int Actual,
+    for I in {0..length myNums - 1} ->
+        read(Actual),
+        insertarAlFinal(Actual, MiLista)
+    end.
+
+
+

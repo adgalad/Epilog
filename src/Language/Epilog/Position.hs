@@ -10,8 +10,8 @@ newtype Position = Position (Int, Int)
 
 instance Show Position where
   show (Position tuple) = case tuple of
-    (r,0) -> "at " ++ show r
-    (r,c) -> "at " ++ show r ++ ":" ++ show c
+    (r,0) -> "@" ++ show r
+    (r,c) -> "@" ++ show r ++ ":" ++ show c
 
 row, col :: Position -> Int
 row (Position (r, _)) = r
