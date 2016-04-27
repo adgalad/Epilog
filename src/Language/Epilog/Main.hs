@@ -9,8 +9,8 @@ import           Control.Monad             (guard, void, when)
 import           Control.Monad.Trans       (liftIO)
 import           Control.Monad.Trans.Maybe (runMaybeT)
 
-import           System.IO                 (stderr, hPutStr)                         
 import           Data.List                 (nub)
+import           System.IO                 (hPutStr, stderr)
 
 import           Prelude                   hiding (null)
 import qualified Prelude                   as P (null)
@@ -69,17 +69,17 @@ main = void $ runMaybeT $ do
         ("Beginning analysis of the Epilog program in file " ++ file)
 
     let sr = scanner input
-    
-    case sr of 
+
+    case sr of
         Left a -> liftIO (error a)
-        Right b -> do 
-            let (tokens, errors) = split b 
+        Right b -> do
+            let (tokens, errors) = split b
             liftIO $ mapM_  ((hPutStr stderr) . niceShow) errors
-            liftIO $ mapM_  (putStrLn . niceShow) errors
-            where 
+            liftIO $ mapM_  (putStrLn . niceShow) tokens
+            where
                 split x = (getTokens x, getErrors x)
                 getTokens [] = []
-                getTokens (x:xs) = case x of 
+                getTokens (x:xs) = case x of
                                         Lexeme _ (ErrorUnderflow _) -> getTokens xs
                                         Lexeme _ (ErrorOverflow _) -> getTokens xs
                                         Lexeme _ (ErrorUnclosedStringLiteral _)-> getTokens xs
@@ -90,6 +90,5 @@ main = void $ runMaybeT $ do
                                         Lexeme _ (ErrorUnderflow _) -> x:(getErrors xs)
                                         Lexeme _ (ErrorOverflow _) -> x:(getErrors xs)
                                         Lexeme _ (ErrorUnclosedStringLiteral _)-> x:(getErrors xs)
-                                        Lexeme _ (ErrorUnexpectedToken _) -> x:(getErrors xs) 
+                                        Lexeme _ (ErrorUnexpectedToken _) -> x:(getErrors xs)
                                         otherwise -> getErrors xs
-                                
