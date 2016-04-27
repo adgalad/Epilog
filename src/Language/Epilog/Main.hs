@@ -9,6 +9,7 @@ import           Control.Monad             (guard, void, when)
 import           Control.Monad.Trans       (liftIO)
 import           Control.Monad.Trans.Maybe (runMaybeT)
 
+import           System.IO                 (stderr, hPutStr)                         
 import           Data.List                 (nub)
 
 import           Prelude                   hiding (null)
@@ -68,7 +69,27 @@ main = void $ runMaybeT $ do
         ("Beginning analysis of the Epilog program in file " ++ file)
 
     let sr = scanner input
-    either
-        (liftIO . error)
-        (liftIO . mapM_ (putStrLn . niceShow))
-        sr
+    
+    case sr of 
+        Left a -> liftIO (error a)
+        Right b -> do 
+            let (tokens, errors) = split b 
+            liftIO $ mapM_  ((hPutStr stderr) . niceShow) errors
+            liftIO $ mapM_  (putStrLn . niceShow) errors
+            where 
+                split x = (getTokens x, getErrors x)
+                getTokens [] = []
+                getTokens (x:xs) = case x of 
+                                        Lexeme _ (ErrorUnderflow _) -> getTokens xs
+                                        Lexeme _ (ErrorOverflow _) -> getTokens xs
+                                        Lexeme _ (ErrorUnclosedStringLiteral _)-> getTokens xs
+                                        Lexeme _ (ErrorUnexpectedToken _) -> getTokens xs
+                                        otherwise -> x:(getTokens xs)
+                getErrors [] = []
+                getErrors (x:xs) = case x of
+                                        Lexeme _ (ErrorUnderflow _) -> x:(getErrors xs)
+                                        Lexeme _ (ErrorOverflow _) -> x:(getErrors xs)
+                                        Lexeme _ (ErrorUnclosedStringLiteral _)-> x:(getErrors xs)
+                                        Lexeme _ (ErrorUnexpectedToken _) -> x:(getErrors xs) 
+                                        otherwise -> getErrors xs
+                                
