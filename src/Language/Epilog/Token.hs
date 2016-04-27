@@ -216,22 +216,26 @@ instance NiceShow Token where
     -- Error
         ErrorUnderflow value ->
             intercalate "\n"
-                [ "ERROR: Underflow"
+                [ "ERROR"
+                , "REASON: Underflow"
                 , "VALUE: " ++ show value
                 ]
         ErrorOverflow value ->
             intercalate "\n"
-                [ "ERROR: Overflow"
+                [ "ERROR"
+                , "REASON: Overflow"
                 , "VALUE: " ++ show value
                 ]
         ErrorUnclosedStringLiteral value ->
             intercalate "\n"
-                [ "ERROR: Unclosed String Literal"
+                [ "ERROR"
+                , "REASON: Unclosed String Literal"
                 , "VALUE: " ++ value
                 ]
         ErrorUnexpectedToken value ->
             intercalate "\n"
-                [ "ERROR: Unexpected Token"
+                [ "ERROR"
+                , "REASON: Unexpected Token"
                 , "VALUE: " ++ [value]
                 ]
 

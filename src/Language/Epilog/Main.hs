@@ -10,7 +10,7 @@ import           Control.Monad.Trans       (liftIO)
 import           Control.Monad.Trans.Maybe (runMaybeT)
 
 import           Data.List                 (nub)
-import           System.IO                 (hPutStr, stderr)
+import           System.IO                 (hPutStrLn, stderr)
 
 import           Prelude                   hiding (null)
 import qualified Prelude                   as P (null)
@@ -74,7 +74,7 @@ main = void $ runMaybeT $ do
         Left a -> liftIO (error a)
         Right b -> do
             let (tokens, errors) = split b
-            liftIO $ mapM_  (hPutStr stderr . niceShow) errors
+            liftIO $ mapM_  (hPutStrLn stderr . niceShow) errors
             liftIO $ mapM_  (putStrLn . niceShow) tokens
             where
                 split x = (getTokens x, getErrors x)

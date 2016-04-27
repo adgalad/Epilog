@@ -17,9 +17,9 @@ procedure main() :-
 
 	write(y),
 	writef(f(9))
-	float a[5] is [1,2,3,4,-1],
+	float a_5 is [1,2,3,4,-1],
 	for i from 0 to 4 ->
-		write(a[i])
+		write(a_i)
 	end.
 
 %% complex Numbers
