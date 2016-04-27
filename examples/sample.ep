@@ -63,7 +63,7 @@ function power(integer Base, integer Exponent) -> integer :-
     Exponent  = 0 -> Result is 1;
     Exponent  = 1 -> Result is Base;
     2  | Exponent -> Result is power(Base * Base, Exponent/2);
-    2 !| Exponent -> Result is Base * power(Base * Base, (Exponent - 1) / 2)
+    otherwise     -> Result is Base * power(Base * Base, (Exponent - 1) / 2)
   end,
 
   return(Result).

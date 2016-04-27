@@ -85,6 +85,8 @@ procedure q(integer X, integer Y, integer Z):
 		X is X+10,
 		Y is Z+Y,
 		Z is Z-1,
+		W is "a
+		
 		q(Y, X, Z)
 	end.
 
