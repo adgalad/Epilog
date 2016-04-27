@@ -68,27 +68,11 @@ main = void $ runMaybeT $ do
     liftIO . putStrLn $
         ("Beginning analysis of the Epilog program in file " ++ file)
 
-    let sr = scanner input
-
-    case sr of
-        Left a -> liftIO (error a)
-        Right b -> do
-            let (tokens, errors) = split b
-            liftIO $ mapM_  (hPutStrLn stderr . niceShow) errors
-            liftIO $ mapM_  (putStrLn . niceShow) tokens
+    case scanner input of
+        Left msg -> liftIO (error msg)
+        Right tokens -> liftIO $ mapM_ split tokens
             where
-                split x = (getTokens x, getErrors x)
-                getTokens [] = []
-                getTokens (x:xs) = case x of
-                                        Lexeme _ (ErrorUnderflow _) -> getTokens xs
-                                        Lexeme _ (ErrorOverflow _) -> getTokens xs
-                                        Lexeme _ (ErrorUnclosedStringLiteral _)-> getTokens xs
-                                        Lexeme _ (ErrorUnexpectedToken _) -> getTokens xs
-                                        _ -> x:getTokens xs
-                getErrors [] = []
-                getErrors (x:xs) = case x of
-                                        Lexeme _ (ErrorUnderflow _) -> x:getErrors xs
-                                        Lexeme _ (ErrorOverflow _) -> x:getErrors xs
-                                        Lexeme _ (ErrorUnclosedStringLiteral _)-> x:getErrors xs
-                                        Lexeme _ (ErrorUnexpectedToken _) -> x:getErrors xs
-                                        _ -> getErrors xs
+                split l@(Lexeme _ t) =
+                    (if isError t
+                        then hPutStrLn stderr
+                        else putStrLn) . niceShow $ l

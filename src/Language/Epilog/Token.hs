@@ -4,12 +4,15 @@
 module Language.Epilog.Token
     ( Token(..)
     , niceShow
+    , isError
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Classes
 
+import           Data.Char               (showLitChar)
 import           Data.Int                (Int32)
 import           Data.List               (intercalate)
+import           GHC.Show                (showLitString)
 --------------------------------------------------------------------------------
 
 data Token
@@ -82,6 +85,13 @@ data Token
     -- EOF
     | TokenEOF {- Temporal, no será necesario con el Parser -}
     deriving (Eq, Show, Read)
+
+isError :: Token -> Bool
+isError (ErrorUnderflow             _) = True
+isError (ErrorOverflow              _) = True
+isError (ErrorUnclosedStringLiteral _) = True
+isError (ErrorUnexpectedToken       _) = True
+isError _                              = False
 
 instance NiceShow Token where
     niceShow = \case
@@ -178,7 +188,7 @@ instance NiceShow Token where
         TokenCharacterLiteral value ->
             intercalate "\n"
                 [ "TOKEN: Character Literal"
-                , "VALUE: " ++ (tail . init . show $ value)
+                , "VALUE: " ++ showLitChar value ""
                 ]
         TokenFloatLiteral value ->
             intercalate "\n"
@@ -198,7 +208,7 @@ instance NiceShow Token where
         TokenStringLiteral value ->
             intercalate "\n"
                 [ "TOKEN: String Literal"
-                , "VALUE: " ++ (tail . init . show $ value)
+                , "VALUE: " ++ showLitString value ""
                 ]
 
     -- Identifier

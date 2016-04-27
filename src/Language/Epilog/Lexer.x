@@ -5,12 +5,12 @@ module Language.Epilog.Lexer
     , Token (..)
     , Lexeme (..)
     , alexMonadScan
-    , scanner
+    , isError
     , niceShow
     , runAlex
+    , scanner
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.Error
 import           Language.Epilog.Lexeme
 import           Language.Epilog.Token
 
@@ -28,7 +28,7 @@ $digit       = [0-9]
 $hexit       = [0-9 A-F a-f]
 
 @octal       = 0[oO] $octit+
-@decimal     = [\-]?$digit+
+@decimal     = \-?$digit+
 @hexadecimal = 0[xX] $hexit+
 
 @exponent    = [eE][\-\+]? $digit+
@@ -43,11 +43,18 @@ $idchar      = [$alpha $digit \']
 @varid       = $upper $idchar*
 @genid       = $lower $idchar*
 
-$symbol      = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\^\|\-\~\(\)\,\:\;\[\]\`\{\}]
+$symbol      = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\^\|\-\~\(\)\,\:\;\[\]\`\{\}\ ]
 $graphic     = [$alpha $digit $symbol]
 
 $charesc     = [0nt\\\'\"]
 @escape      = \\ ($charesc)
+
+@charval     = ($graphic | @escape)
+@stringval   = @charval*
+
+@char        = \' @charval \'
+@string      = \" @stringval \"
+@badstring   = \" @stringval
 
 --------------------------------------------------------------------------------
 epilog :-
@@ -153,8 +160,7 @@ epilog :-
 
     -- Literals
     ---- Chars
-    <0> \' ($graphic | @escape) \'
-                        { make' $ TokenCharacterLiteral . read }
+    <0> @char           { make' $ TokenCharacterLiteral . read }
 
     ---- Floats
     <0> @float          { make' $ TokenFloatLiteral . read }
@@ -169,12 +175,8 @@ epilog :-
     <0> "false"         { make $ TokenBooleanLiteral False }
 
     ---- Strings
-    <0> \"              { enterNewString `andBegin` s }
-    <s> \"              { leaveString `andBegin` state_initial }
-    <s> \n
-     |  \0              { leaveStringAbruptly `andBegin` state_initial }
-    <s> @escape         { addEscapeToString }
-    <s> .               { addCharToString }
+    <0> @string         { make' $ TokenStringLiteral . read }
+    <0> @badstring      { make' $ ErrorUnclosedStringLiteral . id }
 
     -- Identifier
     <0> @varid          { make' $ TokenVariableIdentifier . id }
@@ -234,54 +236,19 @@ unembedComment input len = do
         when (cd == 1) (alexSetStartCode state_initial)
         skip input len
 
----- strings
-enterNewString :: Action
-enterNewString input len = do
-    setLexerStringState True
-    setLexerStringValue ""
-    alexMonadScan
-
-leaveString :: Action
-leaveString (p, _, _, str) len = do
-    s <- getLexerStringValue
-    setLexerStringState False
-    return (Lexeme (toPosition p) (TokenStringLiteral . reverse $ s))
-
-leaveStringAbruptly :: Action
-leaveStringAbruptly (p, _, _, str) len = do
-    s <- getLexerStringValue
-    setLexerStringState False
-    return (Lexeme (toPosition p) (ErrorUnclosedStringLiteral . ('"':) . reverse $ s))
-
-addCharToString :: Action
-addCharToString (_, _, _, str) 1 = do
-    addCharToLexerStringValue . head $ str
-    alexMonadScan
-addCharToString _ len =
-    error $ "Invalid call to `addCharToString` " ++ show len
-
-addEscapeToString :: Action
-addEscapeToString (p, _, _, (_:c:cs)) 2 = do
-    addCharToLexerStringValue . read $ "'\\" ++ c:"'"
-    alexMonadScan
-addEscapeToString _ len =
-    error $ "Invalid call to `addEscapeToString` " ++ show len
-
 -- The user state monad
 data AlexUserState = AlexUserState
-    { errors            :: Seq Error
-    , lexerCommentDepth :: Int
-    , lexerStringState  :: Bool
-    , lexerStringValue  :: String
+    { --errors            :: Seq Error
+    --,
+        lexerCommentDepth :: Int
     }
 
 alexInitUserState :: AlexUserState
 alexInitUserState =
     AlexUserState
-        { errors            = Seq.empty
-        , lexerCommentDepth = 0
-        , lexerStringState  = False
-        , lexerStringValue  = ""
+        { --errors            = Seq.empty
+        --,
+            lexerCommentDepth = 0
         }
 
 getFromUserState :: (AlexUserState -> a) -> Alex a
@@ -295,20 +262,6 @@ getLexerCommentDepth :: Alex Int
 getLexerCommentDepth = getFromUserState lexerCommentDepth
 setLexerCommentDepth :: Int -> Alex ()
 setLexerCommentDepth d = modifyUserState $ \st -> st { lexerCommentDepth = d }
-
-getLexerStringState :: Alex Bool
-getLexerStringState = getFromUserState lexerStringState
-setLexerStringState :: Bool -> Alex ()
-setLexerStringState s = modifyUserState $ \st -> st { lexerStringState = s}
-
-getLexerStringValue :: Alex String
-getLexerStringValue = getFromUserState lexerStringValue
-setLexerStringValue :: String -> Alex ()
-setLexerStringValue v = modifyUserState $ \st -> st { lexerStringValue = v }
-
-addCharToLexerStringValue :: Char -> Alex ()
-addCharToLexerStringValue c =
-    modifyUserState $ \st -> st {lexerStringValue = c:lexerStringValue st}
 
 {- Esta función no será necesaria con el Parser -}
 scanner :: String -> Either String [Lexeme Token]
