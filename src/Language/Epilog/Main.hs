@@ -74,7 +74,7 @@ main = void $ runMaybeT $ do
         Left a -> liftIO (error a)
         Right b -> do
             let (tokens, errors) = split b
-            liftIO $ mapM_  ((hPutStr stderr) . niceShow) errors
+            liftIO $ mapM_  (hPutStr stderr . niceShow) errors
             liftIO $ mapM_  (putStrLn . niceShow) tokens
             where
                 split x = (getTokens x, getErrors x)
@@ -84,11 +84,11 @@ main = void $ runMaybeT $ do
                                         Lexeme _ (ErrorOverflow _) -> getTokens xs
                                         Lexeme _ (ErrorUnclosedStringLiteral _)-> getTokens xs
                                         Lexeme _ (ErrorUnexpectedToken _) -> getTokens xs
-                                        otherwise -> x:(getTokens xs)
+                                        _ -> x:getTokens xs
                 getErrors [] = []
                 getErrors (x:xs) = case x of
-                                        Lexeme _ (ErrorUnderflow _) -> x:(getErrors xs)
-                                        Lexeme _ (ErrorOverflow _) -> x:(getErrors xs)
-                                        Lexeme _ (ErrorUnclosedStringLiteral _)-> x:(getErrors xs)
-                                        Lexeme _ (ErrorUnexpectedToken _) -> x:(getErrors xs)
-                                        otherwise -> getErrors xs
+                                        Lexeme _ (ErrorUnderflow _) -> x:getErrors xs
+                                        Lexeme _ (ErrorOverflow _) -> x:getErrors xs
+                                        Lexeme _ (ErrorUnclosedStringLiteral _)-> x:getErrors xs
+                                        Lexeme _ (ErrorUnexpectedToken _) -> x:getErrors xs
+                                        _ -> getErrors xs
