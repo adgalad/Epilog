@@ -37,7 +37,7 @@ procedure main() :-
     lista MiLista,
     crearLista(MiLista),
     int Actual,
-    for I in {0..length myNums - 1} ->
+    for I from 0 to length myNums - 1 ->
         read(Actual),
         insertarAlFinal(Actual, MiLista)
     end.

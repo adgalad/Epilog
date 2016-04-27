@@ -7,6 +7,7 @@ module Language.Epilog.Lexer
     , alexMonadScan
     , scanner
     , niceShow
+    , runAlex
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Error
@@ -103,6 +104,8 @@ epilog :-
     -- Control Structures
     <0> "end"           { make TokenEnd }
     <0> "for"           { make TokenFor }
+    <0> "from"          { make TokenFrom }
+    <0> "to"            { make TokenTo }
     <0> "if"            { make TokenIf }
     <0> "otherwise"     { make TokenOtherwise }
     <0> "while"         { make TokenWhile }
@@ -140,8 +143,6 @@ epilog :-
     <0> "("             { make TokenLeftParenthesis }
     <0> ")"             { make TokenRightParenthesis }
     <0> "_"             { make TokenUnderscore }
-    <0> "{"             { make TokenLeftCurly }
-    <0> "}"             { make TokenRightCurly }
 
     -- Assignment
     <0> "is"            { make TokenIs }

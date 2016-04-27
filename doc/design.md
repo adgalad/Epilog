@@ -99,10 +99,9 @@ Examples:
 ### Operators
 The operators and punctuation characters used in Epilog include
 
-> `(`, `)`, `*`, `+`, `,`, `-`, `.`, `/=`, `/`, `:`, `<`, `=<`, `=`,
-> `>=`, `>`, `_`, `{`, `|`, `}`, `and`, `andalso`, `band`, `bnot`,
-> `bor`, `bsl`, `bsr`, `bxor`, `div`, `is`, `length`, `not`, `or`,
-> `orelse`, `rem`, `xor`
+> `(`, `)`, `*`, `+`, `,`, `-`, `.`, `/=`, `/`, `:`, `<`, `=<`, `=`, `>=`,
+> `>`, `_`, `|`, `and`, `andalso`, `band`, `bnot`, `bor`, `bsl`, `bsr`,
+> `bxor`, `div`, `is`, `length`, `not`, `or`, `orelse`, `rem`, `xor`
 
 Operators have the following precedence, from highest to lowest:
 
@@ -180,7 +179,7 @@ Examples:
     /%
      % While this is
      % a block comment.
-     %/ 
+     %/
 ~~~
 
 
@@ -201,7 +200,7 @@ of the defined `record`s and `either`s.
 Example:
 
 ~~~erlang
-    record myRecord :- 
+    record myRecord :-
         integer MyInteger,
         float   MyFloat.
 
@@ -212,14 +211,14 @@ Example:
     procedure proc(character C) :-
         read(C),
         C is toCharacter(toInteger(C) + 42).
-        
-    function myFunction(integer X) -> integer :- 
+
+    function myFunction(integer X) -> integer :-
         return X+1.
-    
+
     procedure main() :-
         print("This is the first instruction"),
         integer Y is myFunction(3),
-        
+
         myEither D,
         proc(D_CharacterMember),
         print(D_IntegerMember).
@@ -241,7 +240,7 @@ inside them. Every block inside a control structure creates a new scope too.
 
 ## Variables
 
-Each variable must be declared with its type. Variables can have any of the 
+Each variable must be declared with its type. Variables can have any of the
 scalar types given by the language, except void, or any of the composite type
 declared by the user. A variable can also be an array of the above types.
 To declare a variable use the following syntax:
@@ -252,7 +251,7 @@ To declare a variable use the following syntax:
 
 To assign a value to a variable the assignment operator `is` is used. If a
 variable is not initialized, it contains whatever the memory contained at the
-moment of the declaration; in other words, its value is undefined. 
+moment of the declaration; in other words, its value is undefined.
 
 Example:
 ~~~erlang
@@ -262,7 +261,7 @@ Example:
 ~~~
 
 
-## Scalar types 
+## Scalar types
 
 ### boolean
 Takes either of the values `true` or `false`.
@@ -304,14 +303,14 @@ runtime error.
 Examples:
 ~~~erlang
     integer:100 myNums,
-    for I in {0..length myNums - 1} ->
+    for I from 0 to length myNums - 1 ->
         read(myNums:I)
     end,
 
     <...>,
 
     integer Z,
-    for I in {0..length myNums - 1} ->
+    for I from 0 to length myNums - 1 ->
         Z is Z + myNums:I
     end,
 
@@ -594,14 +593,14 @@ in the scope of the `for` statement, it is shadowed by the iteration variable.
 
 Syntax:
 ~~~erlang
-    for <variable_name> in {<lower_bound>..<upper_bound>} ->
+    for <variable_name> from <lower_bound> to <upper_bound> ->
         <instruction_0> [, <instruction_j>]
     end
 ~~~
 
 Examples:
 ~~~erlang
-    for I in {0..42} ->
+    for I from 0 to 42 ->
         if
             15 | I -> print("fizzbuzz");
             3  | I -> print("fizz");
@@ -617,14 +616,14 @@ Examples:
 
 
 ## Procedures
-A procedure is used to define a routine, so it can be called at any point of 
+A procedure is used to define a routine, so it can be called at any point of
 the code. Procedures are declared using the keyword `procedure` followed
 by its name and parameters. Procedures can receive one or more parameters
 and always return void. If the programmer wishes to exit from a procedure
 before reaching its last line, the keyword `finish` can be used.
 
 Syntax:
-~~~erlang 
+~~~erlang
     procedure <procedure_name> (<type_0> <parameter_0> [, <type_i> <parameter_i>]) :-
         <instruction_0> [, <instruction_j>].
 ~~~
@@ -649,7 +648,7 @@ Examples:
 
 
 ## Functions
-Functions are pure, which means that evaluating a function has no side effects. 
+Functions are pure, which means that evaluating a function has no side effects.
 A function looks like a procedure but unlike a procedure, it is declared using
 the keyword `function`, its arguments are read only, global variables are not
 allowed within its scope and the return type must always be declared
@@ -657,7 +656,7 @@ explicitly. Additionally, they must always return a value. Functions can
 return a value of any type, except void.
 
 Syntax:
-~~~erlang 
+~~~erlang
     function <function_name> (<type_0> <parameter_0> [, <type_i> <parameter_i>]) -> <return_type> :-
         <instruction_0> [, <instruction_j>].
 ~~~
@@ -672,7 +671,7 @@ Examples:
 
 
 ## Subroutine invocation
-Subroutine (rocedure or function) invocation involves passing the argument 
+Subroutine (rocedure or function) invocation involves passing the argument
 alues from the caller to the callee (the subroutine) and executing its body,
 returning a result only in the case of a function. When a subroutine is
 invoked, the actual arguments are evaluated and bound to the formal

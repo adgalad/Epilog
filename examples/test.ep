@@ -1,98 +1,92 @@
 
-Struct H: Int x, Char y, String a.
+record h :-
+	integer x,
+	char y,
+	string a.
 
-Struct Bn:
-	Int x,
-	Char y,
-	String str,
-	H hola
-.
+record bn :-
+	integer x,
+	char y,
+	string str,
+	h hola.
 
+procedure main() :-
+	float Y    is f(10),
+	complex C1 is C(1,3),
+	complex C2 is C(4,5),
 
+	write(y),
+	writef(f(9))
+	float a[5] is [1,2,3,4,-1],
+	for i from 0 to 4 ->
+		write(a[i])
+	end.
 
+%% complex Numbers
 
+record complex:
+	float Real,
+	float Imaginary.
 
-
-Procedure main():
-	Int y :- f(10),
-	Complex c1 :- C(1,3),
-	Complex c2 :- C(4,5),
-
-	print(y),
-	printf(f(9))
-	Int a[5] :- [1,2,3,4,-1],
-	for i in {0..4}:
-		print(a[i]).
-.
-
-
-
-
-%% Complex Numbers
-
-Struct Complex: Int real, Int imaginary.
-
-Function C(Int x, Int y) -> Complex:
-	Complex c,
-	c_real :- x,
-	c_imaginary :- y,
+function C(float x, float y) -> complex:
+	complex c,
+	c_real is x,
+	c_imaginary is y,
 	return c.
 
-Function sum(Complex a, Complex b) -> Complex:
-	Complex c,
-	c_real      :- a_real      + b_real,
-	c_imaginary :- a_imaginary + b_imaginary,
+function sum(complex a, complex b) -> complex:
+	complex c,
+	c_real      is a_real      + b_real,
+	c_imaginary is a_imaginary + b_imaginary,
 	return c.
 
-Function negative(Complex a) -> Complex:
-	Complex c,
-	c_real 		:- -a_real,
-	c_imaginary :- -a_imaginary,
+function negative(complex a) -> complex:
+	complex c,
+	c_real 		is -a_real,
+	c_imaginary is -a_imaginary,
 	return c.
 
-Function prod(Complex a, Complex b) -> Complex:
-	Complex c,
-	c_real 		:- (a_real * b_real) 	 + (a_imaginary * b_imaginary),
-	c_imaginary :- (a_real * b_imaginary) + (a_imaginary * b_real),
+function prod(complex a, complex b) -> complex:
+	complex c,
+	c_real 		is (a_real * b_real) 	 + (a_imaginary * b_imaginary),
+	c_imaginary is (a_real * b_imaginary) + (a_imaginary * b_real),
 	return c.
-
-
-
 
 %% Funciones
-Function f(Int x) -> Int:
+function f(integer X) -> integer:
 	%% stuffs
-	Bool b :- x < 10 and ((((True)))) and (True or (False) or (False and True)),
-	if (b):
-		printf("True\n"),
-		Int x :- 1 + 4 * (4 + 5), 
-		Int z :- -5
-		for i in {1..10}:
-			Int x :- 4, 
-			Int y :- 5,
-			x :- x+y+z
-			return x.
-	else:
-		if (not b):
-			print("False\n").
-			return 10.
-		else:
-			print("Algo muy malo ocurrio\n"),
-			Int y :- x - x,
-			y :- y/y,
-			return -121827397.
-	return x
-.
+	boolean B is X < 10 and ((((true)))) and (true or (false) or (false and true)),
+	if B ->
+		writef("true\n"),
+		integer X is 1 + 4 * (4 + 5),
+		integer Z is -5,
+		for I from 1 to 10 ->
+			integer X is 4,
+			integer Y is 5,
+			X is X+Y+Z,
+			print(X)
+		end;
+	otherwise ->
+		if (not B) ->
+			write("false\n"),
+			return 10;
+		otherwise ->
+			write("Algo muy malo ocurrio\n"),
+			integer Y is X - X,
+			Y is Y/Y,
+			return -121827397
+		end
+	end,
+	return X.
 
 %% Procedimientos
-Procedure q(Int x, Int y, Int z):
-	if z > 0:
-		x :- x+10,
-		y :- z+y,
-		z :- z-1,
-		q(y,x,z)
-	.
-.
+procedure q(integer X, integer Y, integer Z):
+	if Z > 0 ->
+		X is X+10,
+		Y is Z+Y,
+		Z is Z-1,
+		q(Y, X, Z)
+	end.
 
 
 

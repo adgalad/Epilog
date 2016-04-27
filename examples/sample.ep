@@ -84,12 +84,12 @@ function min(integer A, integer B) -> integer :-
 function f(integer X) -> integer :-
   %% stuffs
   bool B is X < 10 and ((((True)))) and (True or (False) or (False and True)),
-  
+
   if B ->
-    print("True\n"),
-    integer X is 1 + 4 * (4 + 5), 
+    write("True\n"),
+    integer X is 1 + 4 * (4 + 5),
     integer Z is -5;
-    for I in {1..10} ->
+    for I from 1 to 10 ->
       integer XX is 4,
       integer YY is 5,
       XX is XX+YY+Z
@@ -97,10 +97,10 @@ function f(integer X) -> integer :-
     return X.
   otherwise ->
     if not B ->
-      print("False\n"),
+      write("False\n"),
       return 10;
     otherwise ->
-      print("Algo muy malo ocurrio\n"),  
+      write("Algo muy malo ocurrio\n"),
       integer Y is X - X,
       Y is Y/Y,
       return -121827397
@@ -117,27 +117,27 @@ procedure q(integer X, integer Y, integer Z) :-
     q(Y,X,Z)
   end.
 
-procedure main() :- 
+procedure main() :-
   integer X, read(X),
   integer Y, read(Y),
 
   integer Base is max(X, Y),
   integer Exponent is min(X,Y),
 
-  print(Base),
-  print(Exponent),
+  write(Base),
+  write(Exponent),
 
   integer Z is power(Base, Exponent),
 
-  print(Z),
+  write(Z),
 
   while Z > 0 ->
     Z is Z / 2,
-    print(Z)
+    write(Z)
   end,
 
   integer:5 Warr,
-  for I in {0..4} ->
+  for I from 0 to 4 ->
     Warr:I is 0
   end,
 
@@ -148,14 +148,14 @@ procedure main() :-
   end
 
   %% The following will be a runtime error if K_I was set.
-  print(K_C),
+  write(K_C),
 
   %% Given the comment in (*), the syntax kind of allows the following
   %% blocks as well:
   %% (Which I guess would just perform the actions in order.)
-  for
-    I in {0..5} -> something();
-    I in {3..10} -> somethingElse()
+  for I
+    from 0 to 5 -> something();
+    from 3 to 10 -> somethingElse()
   end,
 
   while

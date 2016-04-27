@@ -34,7 +34,8 @@ data Token
     | TokenEQ | TokenNE
 
     -- Control Structures
-    | TokenEnd | TokenFor | TokenIf | TokenOtherwise | TokenWhile
+    | TokenEnd | TokenFor | TokenFrom | TokenTo | TokenIf | TokenOtherwise
+    | TokenWhile
 
     -- Functions and Procedures
     | TokenFinish | TokenFunction | TokenProcedure | TokenReturn
@@ -53,7 +54,7 @@ data Token
     -- Punctuation
     | TokenComma      | TokenPeriod          | TokenSemicolon
     | TokenArrow      | TokenLeftParenthesis | TokenRightParenthesis
-    | TokenUnderscore | TokenLeftCurly       | TokenRightCurly
+    | TokenUnderscore
 
     -- Assignment
     | TokenIs
@@ -126,6 +127,8 @@ instance NiceShow Token where
     -- Control Structures
         TokenEnd       -> "TOKEN: end"
         TokenFor       -> "TOKEN: for"
+        TokenFrom      -> "TOKEN: from"
+        TokenTo        -> "TOKEN: to"
         TokenIf        -> "TOKEN: if"
         TokenOtherwise -> "TOKEN: otherwise"
         TokenWhile     -> "TOKEN: while"
@@ -163,8 +166,6 @@ instance NiceShow Token where
         TokenLeftParenthesis  -> "TOKEN: ("
         TokenRightParenthesis -> "TOKEN: )"
         TokenUnderscore       -> "TOKEN: _"
-        TokenLeftCurly        -> "TOKEN: {"
-        TokenRightCurly       -> "TOKEN: }"
 
     -- Assign
         TokenIs -> "TOKEN: is"
