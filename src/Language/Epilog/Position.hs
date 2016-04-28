@@ -4,14 +4,12 @@ module Language.Epilog.Position
     , col
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.Classes
---------------------------------------------------------------------------------
 
 newtype Position = Position (Int, Int)
-  deriving (Bounded, Eq, Ord, Show, Read)
+    deriving (Bounded, Eq, Ord)
 
-instance NiceShow Position where
-    niceShow (Position tuple) = case tuple of
+instance Show Position where
+    show (Position tuple) = case tuple of
         (r,0) -> "POSITION: row " ++ show r
         (r,c) -> "POSITION: row " ++ show r ++ ", col " ++ show c
 

@@ -4,13 +4,14 @@
 module Main (main) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Lexer
+import           Language.Epilog.Parser
 
 import           Control.Monad             (guard, void, when)
 import           Control.Monad.Trans       (liftIO)
-import           Control.Monad.Trans.Maybe (runMaybeT)
+import           Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
 
 import           Data.List                 (nub)
-import           System.IO                 (hPutStrLn, stderr)
+import           System.IO                 (hPrint, stderr)
 
 import           Prelude                   hiding (null)
 import qualified Prelude                   as P (null)
@@ -34,16 +35,24 @@ message = unlines
     , "\t('^D') character."
     ]
 
+data Flag
+  = Help
+  | Version
+  | Lex
+  | Parse
+  deriving (Show, Eq)
+
 options :: [OptDescr Flag]
 options =
-    [ Option ['h'] ["help"]    (NoArg Help)    "shows this help message"
-    , Option ['v'] ["version"] (NoArg Version) "shows version number"
+    [ Option ['h'] ["help"]    (NoArg Help)
+        "shows this help message"
+    , Option ['v'] ["version"] (NoArg Version)
+        "shows version number"
+    , Option ['l'] ["lex"]     (NoArg Lex)
+        "Performs the lexical analysis of the file"
+    , Option ['p'] ["parse"]   (NoArg Parse)
+        "Performs the lexical and syntactic analysis of the file"
     ]
-
-data Flag
-  = Help    -- -h | --help
-  | Version -- -v | --version
-  deriving (Show, Eq)
 
 opts :: IO ([Flag], [String])
 opts = do
@@ -56,8 +65,8 @@ main :: IO ()
 main = void $ runMaybeT $ do
     (flags, args) <- liftIO opts
 
-    when (Version `elem` flags) . liftIO $ putStrLn version
-    when (Help    `elem` flags) . liftIO $ putStr message
+    when (Version `elem` flags) doVersion
+    when (Help    `elem` flags) doHelp
 
     guard $ not $ (Help `elem` flags) || (Version `elem` flags)
 
@@ -65,8 +74,21 @@ main = void $ runMaybeT $ do
     then (, "<stdin>") <$> liftIO getContents
     else (, head args) <$> liftIO (readFile $ head args)
 
+    (if Lex `elem` flags
+        then doLex
+        else doParse) input file
+
+
+doVersion :: MaybeT IO ()
+doVersion = liftIO $ putStrLn version
+
+doHelp :: MaybeT IO ()
+doHelp = liftIO $ putStr message
+
+doLex :: String -> String -> MaybeT IO ()
+doLex input file = do
     liftIO . putStrLn $
-        ("Beginning analysis of the Epilog program in file " ++ file)
+        unwords ["Lexing", file]
 
     case scanner input of
         Left msg -> liftIO (error msg)
@@ -74,5 +96,13 @@ main = void $ runMaybeT $ do
             where
                 split l@(Lexeme _ t) =
                     (if isError t
-                        then hPutStrLn stderr
-                        else putStrLn) . niceShow $ l
+                        then hPrint stderr
+                        else print) l
+
+doParse :: String -> String -> MaybeT IO ()
+doParse input file = do
+    liftIO . putStrLn $
+        unwords ["Parsing", file]
+
+    let (prog, plerrs) = parseProgram input
+    liftIO $ print prog

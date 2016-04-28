@@ -1,14 +1,10 @@
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
 
 module Language.Epilog.Token
     ( Token(..)
-    , niceShow
     , isError
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.Classes
-
 import           Data.Char               (showLitChar)
 import           Data.Int                (Int32)
 import           Data.List               (intercalate)
@@ -83,8 +79,8 @@ data Token
     | ErrorUnexpectedToken { unUnexpectedToken :: Char }
 
     -- EOF
-    | TokenEOF {- Temporal, no será necesario con el Parser -}
-    deriving (Eq, Show, Read)
+    | EOF {- Temporal, no será necesario con el Parser -}
+    deriving (Eq)
 
 isError :: Token -> Bool
 isError (ErrorUnderflow             _) = True
@@ -93,8 +89,8 @@ isError (ErrorUnclosedStringLiteral _) = True
 isError (ErrorUnexpectedToken       _) = True
 isError _                              = False
 
-instance NiceShow Token where
-    niceShow = \case
+instance Show Token where
+    show = \case
 
     -- Logical Operators
         TokenAnd     -> "TOKEN: and"
@@ -240,7 +236,7 @@ instance NiceShow Token where
             intercalate "\n"
                 [ "ERROR"
                 , "REASON: Unclosed String Literal"
-                , "VALUE: " ++ value
+                , "VALUE: \"" ++ value
                 ]
         ErrorUnexpectedToken value ->
             intercalate "\n"
@@ -250,4 +246,4 @@ instance NiceShow Token where
                 ]
 
     -- EOF
-        TokenEOF -> "TOKEN: EOF"
+        EOF -> "TOKEN: EOF"

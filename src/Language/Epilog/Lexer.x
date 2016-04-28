@@ -6,8 +6,7 @@ module Language.Epilog.Lexer
     , Lexeme (..)
     , alexMonadScan
     , isError
-    , niceShow
-    , runAlex
+    , runAlex'
     , scanner
     ) where
 --------------------------------------------------------------------------------
@@ -176,7 +175,7 @@ epilog :-
 
     ---- Strings
     <0> @string         { make' $ TokenStringLiteral . read }
-    <0> @badstring      { make' $ ErrorUnclosedStringLiteral . id }
+    <0> @badstring      { make' $ ErrorUnclosedStringLiteral . tail }
 
     -- Identifier
     <0> @varid          { make' $ TokenVariableIdentifier . id }
@@ -208,7 +207,7 @@ integerLiteral str = do
 
 {- Esta función no será necesaria con el Parser -}
 alexEOF :: Alex (Lexeme Token)
-alexEOF = liftM (\x -> Lexeme x TokenEOF) alexGetPosition
+alexEOF = liftM (\x -> Lexeme x EOF) alexGetPosition
 
 {- Esta función no será necesaria con el Parser -}
 alexGetPosition :: Alex Position
@@ -270,7 +269,7 @@ scanner str =
             (t, m) <- alexComplementError alexMonadScan
             when (isJust m) (lexerError (fromJust m))
             let tok@(Lexeme p cl) = t
-            if (cl == TokenEOF)
+            if (cl == EOF)
                 then return []
                 else do
                     toks <- loop
@@ -305,4 +304,21 @@ alexComplementError (Alex al) =
         (\s -> case al s of
             Right (s', x) -> Right (s', (x, Nothing))
             Left  message -> Right (s, (undefined, Just message)))
+
+
+runAlex' :: String -> Alex a -> (a, String)
+runAlex' input (Alex f) =
+    let Right (st, a) = f state
+        ust = ""
+    in (a, ust)
+    where
+        state :: AlexState
+        state = AlexState
+            { alex_pos   = alexStartPos
+            , alex_inp   = input
+            , alex_chr   = '\n'
+            , alex_bytes = []
+            , alex_ust   = alexInitUserState
+            , alex_scd   = 0
+            }
 }
