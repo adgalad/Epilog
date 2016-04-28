@@ -60,7 +60,7 @@ Expression :: { Lexeme Expression }
     | Expression "*" Expression   { BinaryExp (Times <$ $2) $1 $3 <$ $1 }
     | Expression "/" Expression   { BinaryExp (FloatDivision <$ $2) $1 $3 <$ $1 }
     | Expression "div" Expression { BinaryExp (IntegerDivision <$ $2) $1 $3 <$ $1 }
-    | Expression "rem" Expression { BinaryExp (IntegerDivision <$ $2) $1 $3 <$ $1 }
+    | Expression "rem" Expression { BinaryExp (Rem <$ $2) $1 $3 <$ $1 }
 Int :: { Lexeme Int32 }
       : int       { unTokenIntegerLiteral `fmap` $1 }
 

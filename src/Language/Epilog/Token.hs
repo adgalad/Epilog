@@ -73,8 +73,8 @@ data Token
     | TokenGeneralIdentifier  { unTokenGeneralIdentifier :: String }
 
     -- Error
-    | ErrorUnderflow { unErrorUnderflow :: Integer }
-    | ErrorOverflow { unErrorOverflow :: Integer }
+    | ErrorUnderflow { unErrorUnderflow :: String }
+    | ErrorOverflow { unErrorOverflow :: String }
     | ErrorUnclosedStringLiteral { unErrorUnclosedStringLiteral :: String }
     | ErrorUnexpectedToken { unUnexpectedToken :: Char }
 
@@ -224,13 +224,13 @@ instance Show Token where
             intercalate "\n"
                 [ "ERROR"
                 , "REASON: Underflow"
-                , "VALUE: " ++ show value
+                , "VALUE: " ++ value
                 ]
         ErrorOverflow value ->
             intercalate "\n"
                 [ "ERROR"
                 , "REASON: Overflow"
-                , "VALUE: " ++ show value
+                , "VALUE: " ++ value
                 ]
         ErrorUnclosedStringLiteral value ->
             intercalate "\n"

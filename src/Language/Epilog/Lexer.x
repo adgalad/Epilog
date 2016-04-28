@@ -13,6 +13,8 @@ module Language.Epilog.Lexer
 import           Language.Epilog.Lexeme
 import           Language.Epilog.Token
 
+import           Numeric.Limits         (minValue, maxValue)
+import           Data.Int               (Int32)
 import           Control.Monad          (liftM, when)
 import           Data.Maybe             (fromJust, isJust)
 import           Data.Sequence          (Seq)
@@ -162,7 +164,7 @@ epilog :-
     <0> @char           { make' $ TokenCharacterLiteral . read }
 
     ---- Floats
-    <0> @float          { make' $ TokenFloatLiteral . read }
+    <0> @float          { make' floatLiteral }
 
     ---- Ints
     <0> @decimal
@@ -198,11 +200,20 @@ make' t (p, _, _, str) size =
 make :: Token -> Action
 make  = make' . const
 
+floatLiteral :: String -> Token
+floatLiteral str = if 
+    | value < (minValue :: Float) -> ErrorUnderflow str
+    | value < (minValue :: Float) -> ErrorUnderflow str
+    | otherwise -> TokenFloatLiteral value
+    where value = read str :: Float
+
+
+
 integerLiteral :: String -> Token
 integerLiteral str = do
     let value = read str :: Integer
-    if  | value < -2147483648 -> ErrorUnderflow value
-        | value >  2147483647 -> ErrorOverflow value
+    if  | value < fromIntegral (minBound :: Int32) -> ErrorUnderflow str
+        | value > fromIntegral (maxBound :: Int32) -> ErrorOverflow str
         | otherwise -> TokenIntegerLiteral . fromIntegral $ value
 
 {- Esta función no será necesaria con el Parser -}
