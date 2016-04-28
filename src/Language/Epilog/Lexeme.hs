@@ -14,5 +14,7 @@ data Lexeme a = Lexeme
     , token    :: a
     } deriving (Eq, Ord, Functor)
 
+
 instance Show a => Show (Lexeme a) where
     show (Lexeme p a) = unlines [show a, show p]
+
