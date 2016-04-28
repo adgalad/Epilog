@@ -203,7 +203,7 @@ make  = make' . const
 floatLiteral :: String -> Token
 floatLiteral str = if 
     | value < (minValue :: Float) -> ErrorUnderflow str
-    | value < (minValue :: Float) -> ErrorUnderflow str
+    | value > (maxValue :: Float) -> ErrorOverflow str
     | otherwise -> TokenFloatLiteral value
     where value = read str :: Float
 
