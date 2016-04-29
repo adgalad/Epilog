@@ -5,6 +5,7 @@ module Language.Epilog.Expression
      ,BinaryOperator(..)
      ,UnaryOperator(..)
     ) where
+         
 --------------------------------------------------------------------------------
 import           Language.Epilog.Lexeme
 
@@ -34,9 +35,10 @@ instance Show Expression where
 
 data BinaryOperator 
     = Plus | Minus | Times | FloatDivision| IntegerDivision | Rem
+    | And  | Or | Andalso | Orelse | Band | Bor | Bsl | Bsr | Bxor        
     deriving (Eq, Show)
 
 data UnaryOperator 
-    = Uminus | Not
+    = Uminus | Not | Bnot | Length
     deriving (Eq, Show)
 
