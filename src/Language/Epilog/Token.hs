@@ -65,7 +65,7 @@ data Token
     | TokenCharacterLiteral { unTokenCharacterLiteral :: Char }
     | TokenFloatLiteral     { unTokenFloatLiteral :: Float }
     | TokenIntegerLiteral   { unTokenIntegerLiteral :: Int32 }
-    | TokenBooleanLiteral   { unTokenBoolLiteral :: Bool }
+    | TokenBooleanLiteral   { unTokenBooleanLiteral :: Bool }
     | TokenStringLiteral    { unTokenStringLiteral :: String }
 
         -- Identifier
