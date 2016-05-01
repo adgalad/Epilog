@@ -111,9 +111,9 @@ Operators have the following precedence, from highest to lowest:
 | `()`                   | Function/Procedure call                         | Left to right |
 | `:`                    | Array subscripting                              | Left to right |
 | `_`                    | Record entry and union member access            | Left to right |
-| `-`, `not`, `bnot`     | Unary arithmetic, logical, and bitwise negation | Right to left |
+| `-`, `not`, `bnot`     | Unary arithmetic, logical, and bitwise negation | Left to right |
 | `*`, `/`, `div`, `rem` | Multiplicative                                  | Left to right |
-| `-`, `+`               | Additive                                        | Left to right |
+| `+`, `-`               | Additive                                        | Left to right |
 | `bsl`, `bsr`           | Bitwise left shift and right shift              | Left to right |
 | `<`,`=<`,`>`,`>=`      | Relational                                      |      None     |
 | `|`                    | "divisor of" operator                           |      None     |

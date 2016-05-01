@@ -4,261 +4,291 @@ module Language.Epilog.Parser
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Lexer
-import           Language.Epilog.Expression
-import           Language.Epilog.Instruction
-import           Data.Int                (Int32)
+import           Language.Epilog.AST.Expression
+import           Language.Epilog.AST.Program
+import           Language.Epilog.AST.Instruction
 
+import           Data.Int                (Int32)
 import           Data.Sequence           (Seq, empty, fromList, index,
                                           singleton, (><), (|>), (<|))
 --------------------------------------------------------------------------------
 }
 
 %name parser
-%tokentype { Lexeme Token }
+%tokentype { At Token }
 %monad { Alex }
-%lexer { lexer } { Lexeme _ EOF }
+%lexer { lexer } { EOF :@ _ }
 %error { parseError }
-
 
 -- Tokens
 %token
-    -- Arithmetic
-    "+"         { Lexeme _ TokenPlus            }
-    "-"         { Lexeme _ TokenMinus           }
-    "*"         { Lexeme _ TokenTimes           }
-    "/"         { Lexeme _ TokenFloatDivision   }
-    "rem"       { Lexeme _ TokenRem             }
-    "div"       { Lexeme _ TokenIntegerDivision }
+    -- Operators
+    ---- Logical
+    "and"           { TokenAnd     :@ _ }
+    "andalso"       { TokenAndalso :@ _ }
+    "or"            { TokenOr      :@ _ }
+    "orelse"        { TokenOrelse  :@ _ }
+    "xor"           { TokenXor     :@ _ }
+    "not"           { TokenNot     :@ _ }
 
-    -- Logical
-    "and"       { Lexeme _ TokenAnd     }
-    "andalso"   { Lexeme _ TokenAndalso }
-    "or"        { Lexeme _ TokenOr      }
-    "orelse"    { Lexeme _ TokenOrelse  }
-    "not"       { Lexeme _ TokenNot     }
+    ---- Bitwise
+    "band"          { TokenBand :@ _ }
+    "bor"           { TokenBor  :@ _ }
+    "bnot"          { TokenBnot :@ _ }
+    "bsl"           { TokenBxor :@ _ }
+    "bsr"           { TokenBxor :@ _ }
+    "bxor"          { TokenBxor :@ _ }
 
-    -- Bitwise
-    "band"      { Lexeme _ TokenBand }
-    "bor"       { Lexeme _ TokenBor  }
-    "bxor"      { Lexeme _ TokenBxor }
-    "bnot"      { Lexeme _ TokenBnot }
+    ---- Array / Record / Either
+    "length"        { TokenLength     :@ _ }
+    ":"             { TokenColon      :@ _ }
+    "_"             { TokenUnderscore :@ _ }
 
-    -- Relational
-    "<"         { Lexeme _ TokenLT       }
-    "=<"        { Lexeme _ TokenLTE      }
-    ">"         { Lexeme _ TokenGT       }
-    ">="        { Lexeme _ TokenGTE      }
-    "|"         { Lexeme _ TokenFactorOf }
+    ---- Arithmetic
+    "+"             { TokenPlus     :@ _ }
+    "-"             { TokenMinus    :@ _ }
+    "*"             { TokenTimes    :@ _ }
+    "/"             { TokenFloatDiv :@ _ }
+    "div"           { TokenIntDiv   :@ _ }
+    "rem"           { TokenRem      :@ _ }
 
-    -- Equality
-    "="         { Lexeme _ TokenEQ }
-    "/="        { Lexeme _ TokenNE }
-
-    -- Punctuation
-    "->"        { Lexeme _ TokenArrow }
-    ","         { Lexeme _ TokenComma }
-    ";"         { Lexeme _ TokenSemicolon }
-    "."         { Lexeme _ TokenPeriod }
-    "is"        { Lexeme _ TokenIs }
-    "("         { Lexeme _ TokenLeftParenthesis }
-    ")"         { Lexeme _ TokenRightParenthesis }
+    ---- Relational
+    "<"             { TokenLT        :@ _ }
+    "=<"            { TokenLE        :@ _ }
+    ">"             { TokenGT        :@ _ }
+    ">="            { TokenGE        :@ _ }
+    "="             { TokenEQ        :@ _ }
+    "/="            { TokenNE        :@ _ }
+    "|"             { TokenFactor    :@ _ }
+    "!|"            { TokenNotFactor :@ _ }
 
     -- Control Structures
-    "end"       { Lexeme _ TokenEnd       }
-    "for"       { Lexeme _ TokenFor       }
-    "from"      { Lexeme _ TokenFrom      }
-    "to"        { Lexeme _ TokenTo        }
-    "if"        { Lexeme _ TokenIf        }
-    "otherwise" { Lexeme _ TokenOtherwise }
-    "while"     { Lexeme _ TokenWhile     }
+    "end"           { TokenEnd       :@ _ }
+    "for"           { TokenFor       :@ _ }
+    "from"          { TokenFrom      :@ _ }
+    "to"            { TokenTo        :@ _ }
+    "if"            { TokenIf        :@ _ }
+    "otherwise"     { TokenOtherwise :@ _ }
+    "while"         { TokenWhile     :@ _ }
 
     -- Functions and Procedures
-    "finish"    { Lexeme _ TokenFinish    }
-    "function"  { Lexeme _ TokenFunction  }
-    "procedure" { Lexeme _ TokenProcedure }
-    "return"    { Lexeme _ TokenReturn    }
-    ":-"        { Lexeme _ TokenDefine    }
+    "finish"        { TokenFinish    :@ _ }
+    func            { TokenFunction  :@ _ }
+    proc            { TokenProcedure :@ _ }
+    "return"        { TokenReturn    :@ _ }
+    ":-"            { TokenDefine    :@ _ }
 
+    -- Composite Types
+    "either"        { TokenEither :@ _ }
+    "record"        { TokenRecord :@ _ }
 
-    "true"      { Lexeme _ ( TokenBooleanLiteral   _ ) }
-    "false"     { Lexeme _ ( TokenBooleanLiteral   _ ) }
-    char        { Lexeme _ ( TokenCharacterLiteral _ ) }
-    float       { Lexeme _ ( TokenFloatLiteral     _ ) }
-    int         { Lexeme _ ( TokenIntegerLiteral   _ ) }
-    string      { Lexeme _ ( TokenStringLiteral    _ ) }
+    -- Conversion
+    "toBoolean"     { TokenToBool  :@ _ }
+    "toCharacter"   { TokenToChar  :@ _ }
+    "toFloat"       { TokenToFloat :@ _ }
+    "toInteger"     { TokenToInt   :@ _ }
 
-    varid       { Lexeme _ ( TokenVariableIdentifier _ ) }
-    genid       { Lexeme _ ( TokenGeneralIdentifier  _ ) }
+    -- Types
+    "bool"          { TokenBoolType   :@ _ }
+    "char"          { TokenCharType   :@ _ }
+    "int"           { TokenIntType    :@ _ }
+    "float"         { TokenFloatType  :@ _ }
+    "string"        { TokenStringType :@ _ }
 
-    boolType    { Lexeme _ TokenBooleanType   }
-    charType    { Lexeme _ TokenCharacterType }
-    floatType   { Lexeme _ TokenFloatType     }
-    intType     { Lexeme _ TokenIntegerType   }
-    strType     { Lexeme _ TokenStringType    }
+    -- Punctuation
+    ","             { TokenComma      :@ _ }
+    "."             { TokenPeriod     :@ _ }
+    ";"             { TokenSemicolon  :@ _ }
+    "->"            { TokenArrow      :@ _ }
+    "("             { TokenLeftPar    :@ _ }
+    ")"             { TokenRightPar   :@ _ }
+
+    -- Assignment
+    "is"            { TokenIs :@ _ }
+
+    -- IO
+    "read"          { TokenRead  :@ _ }
+    "write"         { TokenWrite :@ _ }
+
+    -- Literals
+    boolLit         { ( TokenBoolLit   _ ) :@ _ }
+    charLit         { ( TokenCharLit   _ ) :@ _ }
+    intLit          { ( TokenIntLit    _ ) :@ _ }
+    floatLit        { ( TokenFloatLit  _ ) :@ _ }
+    stringLit       { ( TokenStringLit _ ) :@ _ }
+
+    -- Identifier
+    varId           { ( TokenVarId _ ) :@ _ }
+    genId           { ( TokenGenId _ ) :@ _ }
+
 
 -- Precedence
+%right    "is"
 
--- -- Bitwise
+%left     "orelse"
+%left     "andalso"
+%left     "or"
+%left     "xor"
+%left     "and"
 %left     "bor"
 %left     "bxor"
 %left     "band"
-%right    "bnot"
 
--- -- Logical
-%left     "or" "orelse"
-%left     "and" "andalso"
-%right    "not"
-
--- -- -- Compare
 %left     "=" "/="
+%nonassoc "|" "!|"
 %nonassoc "<" "=<" ">" ">="
 
--- -- Arithmetic
+%left     "bsl" "bsr"
 %left     "+" "-"
-%left     "*" "/" "rem" "div"
-%right    "-"
-%nonassoc "|"
+%left     "*" "/" "div" "rem"
 
--- -- Assign
-%right    "is"
+%left     NEG
+
+%left     "_"
+%left     ":"
+%nonassoc "length"
 
 %% -----------------------------------------------------------------------------
 -- Grammar
 
--- Instruction 
-ProcDef :: { Lexeme Method }
-    : "procedure" GenId "(" ParamList ")" ":-" InstList "."  
-        { Proc $2 $4 $7 <$ $1 }
-    | "function" GenId "(" ParamList ")" "->" Type ":-" InstList "."
-        { Func $2 $4 $7 $9 <$ $1 }
+Program :: { Program }
+    : ProcDefs          { Program $1 }
 
+ProcDefs :: { Declarations }
+    : ProcDef           { singleton $1 }
+    | ProcDef ProcDefs  { $1 <| $2 }
 
-ParamList :: { InstBlock }
-    : Type VarId                { fromList [Declaration $1 $2 <$ $1] }
-    | ParamList "," Type VarId  { $1 |> (Declaration $3 $4 <$ $3) }
+-- Top Level Declarations
+ProcDef :: { At Declaration }
+    : proc GenId "(" Params ")" ":-" Insts "."
+        { ProcD $2 $4 $7 <$ $1 }
+    | func GenId "(" Params ")" "->" Type ":-" Insts "."
+        { FunD $2 $4 $7 $9 <$ $1 }
+    -- Case for either
+    -- Case for record
+    -- Case for global
 
-InstList :: { InstBlock }
-    : Instruction               { $1 }
-    | InstList "," Instruction  { $1 >< $3 }
+Params :: { InstBlock }
+    : Type VarId             { singleton (Declaration $1 $2 <$ $1) }
+    | Type VarId "," Params  { (Declaration $1 $2 <$ $1) <| $4 }
 
-Instruction :: { InstBlock }
-    :{- λ -}                { empty }
-    | Assign                { fromList [$1] }
-    | Declaration           { fromList [$1] }
-    | "if" GuardList "end"  { fromList [If $2 <$ $1] }
-    | "return" Expression   { fromList [Return $2 <$ $1] }
+Insts :: { InstBlock }
+    : Instruction            { singleton $1 }
+    | Instruction "," Insts  { $1   <|   $3 }
 
+Instruction :: { At Instruction }
+    : Assign                { $1 }
+    | Declaration           { $1 }
+    | If                    { $1 }
+    | "finish"              { Finish <$ $1 }
+    | "return" Expression   { Return $2 <$ $1 }
 
-Assign :: { Lexeme Instruction }
+Assign :: { At Instruction }
     : VarId "is" Expression   { Assign (VarId $1 <$ $1) $3 <$ $1 }
 
-Declaration :: { Lexeme Instruction }
+Declaration :: { At Instruction }
     : Type VarId  { Declaration $1 $2 <$ $1 }
     | Type Assign { Initialization $1 $2 <$ $1}
 
+If :: { At Instruction }
+    : "if" GuardList "end" { If $2 <$ $1 }
+
 GuardList :: { InstBlock }
-    : Expression "->" InstList               { fromList [Guard $1 $3 <$ $1]}
-    | GuardList ";" Expression "->" InstList { $1 |> (Guard $3 $5 <$ $3) }
+    : Expression "->" Insts               { fromList [Guard $1 $3 <$ $1]}
+    | GuardList ";" Expression "->" Insts { $1 |> (Guard $3 $5 <$ $3) }
 
-
-
-
-
-
-Type :: { Lexeme Type }
-    : boolType  { BoolT <$ $1 }
-    | charType  { CharT <$ $1 }
-    | floatType { FloatT <$ $1 }
-    | intType   { IntT <$ $1 }
-    | strType   { StringT <$ $1 }
+Type :: { At Type }
+    : "bool"   { BoolT <$ $1 }
+    | "char"   { CharT <$ $1 }
+    | "float"  { FloatT <$ $1 }
+    | "int"    { IntT <$ $1 }
+    | "string" { StringT <$ $1 }
 
 -- Expressions
-Expression :: { Lexeme Expression }
-    : Char      { LitChar $1 <$ $1}
+Expression :: { At Expression }
+    : "(" Expression ")" { $2 }
+
+    | Char      { LitChar $1 <$ $1}
     | Bool      { LitBool $1 <$ $1}
     | Float     { LitFloat $1 <$ $1}
     | Int       { LitInt $1 <$ $1}
     | String    { LitString $1 <$ $1 }
     | VarId     { VarId $1 <$ $1 }
     | GenId     { GenId $1 <$ $1 }
-    -- | "(" Expression ")"          { }
 
-    -- -- Arithmetic
-    | Expression "+" Expression  { BinaryExp (Plus <$ $2) $1 $3 <$ $1 }
-    | Expression "-" Expression  { BinaryExp (Minus <$ $2) $1 $3 <$ $1 }
-    | Expression "*" Expression  { BinaryExp (Times <$ $2) $1 $3 <$ $1 }
-    | Expression "/" Expression  { BinaryExp (FloatDivision <$ $2) $1 $3 <$ $1 }
-    | Expression "div" Expression{ BinaryExp (IntegerDivision <$ $2) $1 $3 <$ $1 }
-    | Expression "rem" Expression{ BinaryExp (Rem <$ $2) $1 $3 <$ $1 }
-
-    -- -- Logical
+    ---- Logical
     | Expression "and"     Expression { BinaryExp (And     <$ $2) $1 $3 <$ $1 }
+    | Expression "andalso" Expression { BinaryExp (Andalso <$ $2) $1 $3 <$ $1 }
     | Expression "or"      Expression { BinaryExp (Or      <$ $2) $1 $3 <$ $1 }
     | Expression "orelse"  Expression { BinaryExp (Orelse  <$ $2) $1 $3 <$ $1 }
-    | Expression "andalso" Expression { BinaryExp (Andalso <$ $2) $1 $3 <$ $1 }
-    |            "not"     Expression { UnaryExp  (Not     <$ $1) $2 <$ $1 }
+    | Expression "xor"     Expression { BinaryExp (Xor     <$ $2) $1 $3 <$ $1 }
+    | "not" Expression %prec NEG      { UnaryExp  (Not     <$ $1)    $2 <$ $1 }
 
-
-    -- -- Bitwise
+    ---- Bitwise
     | Expression "band" Expression { BinaryExp (Band <$ $2) $1 $3 <$ $1 }
     | Expression "bor"  Expression { BinaryExp (Bor  <$ $2) $1 $3 <$ $1 }
+    | Expression "bsl"  Expression { BinaryExp (Bsl  <$ $2) $1 $3 <$ $1 }
+    | Expression "bsr"  Expression { BinaryExp (Bsr  <$ $2) $1 $3 <$ $1 }
     | Expression "bxor" Expression { BinaryExp (Bxor <$ $2) $1 $3 <$ $1 }
-    |            "bnot" Expression { UnaryExp  (Bnot <$ $1) $2 <$ $1 }
+    | "bnot" Expression %prec NEG  { UnaryExp  (Bnot <$ $1) $2 <$ $1 }
 
-    -- -- Comparison
-    | Expression "<" Expression    { BinaryExp (LTop <$ $2) $1 $3 <$ $1 }
-    | Expression "=<" Expression   { BinaryExp (LTEop <$ $2) $1 $3 <$ $1 }
-    | Expression ">" Expression    { BinaryExp (GTop <$ $2) $1 $3 <$ $1 }
-    | Expression ">=" Expression   { BinaryExp (GTEop <$ $2) $1 $3 <$ $1 }
-    | Expression "|" Expression    { BinaryExp (FactorOf <$ $2) $1 $3 <$ $1 }
+    ---- Array / Record / Either
+    | Expression ":"  Expression  { BinaryExp (Colon      <$ $2) $1 $3 <$ $1 }
+    | Expression "_"  Expression  { BinaryExp (Underscore <$ $2) $1 $3 <$ $1 }
+    | "length" Expression         { UnaryExp  (Length <$ $2) $2 <$ $1 }
 
-    -- -- Relational
-    | Expression "=" Expression    { BinaryExp (Equal <$ $2) $1 $3 <$ $1 }
-    | Expression "/=" Expression   { BinaryExp (NoEqual <$ $2) $1 $3 <$ $1 }
+    ---- Arithmetic
+    | Expression "+"   Expression { BinaryExp (Plus     <$ $2) $1 $3 <$ $1 }
+    | Expression "-"   Expression { BinaryExp (Minus    <$ $2) $1 $3 <$ $1 }
+    | Expression "*"   Expression { BinaryExp (Times    <$ $2) $1 $3 <$ $1 }
+    | Expression "/"   Expression { BinaryExp (FloatDiv <$ $2) $1 $3 <$ $1 }
+    | Expression "div" Expression { BinaryExp (IntDiv   <$ $2) $1 $3 <$ $1 }
+    | Expression "rem" Expression { BinaryExp (Rem      <$ $2) $1 $3 <$ $1 }
+    | "-" Expression %prec NEG    { UnaryExp  (Uminus   <$ $2)    $2 <$ $1 }
 
-Bool   :: { Lexeme Bool }
-    : "true"   { unTokenBooleanLiteral `fmap` $1 }
-    | "false"  { unTokenBooleanLiteral `fmap` $1 }
+    ---- Relational
+    | Expression "<" Expression  { BinaryExp (LTop      <$ $2) $1 $3 <$ $1 }
+    | Expression "=<" Expression { BinaryExp (LEop      <$ $2) $1 $3 <$ $1 }
+    | Expression ">" Expression  { BinaryExp (GTop      <$ $2) $1 $3 <$ $1 }
+    | Expression ">=" Expression { BinaryExp (GEop      <$ $2) $1 $3 <$ $1 }
+    | Expression "=" Expression  { BinaryExp (EQop      <$ $2) $1 $3 <$ $1 }
+    | Expression "/=" Expression { BinaryExp (NEop      <$ $2) $1 $3 <$ $1 }
+    | Expression "|" Expression  { BinaryExp (Factor    <$ $2) $1 $3 <$ $1 }
+    | Expression "!|" Expression { BinaryExp (NotFactor <$ $2) $1 $3 <$ $1 }
 
-Char   :: { Lexeme Char }
-    : char   { unTokenCharacterLiteral `fmap` $1 }
+Bool :: { At Bool } : boolLit           { unTokenBoolLit  `fmap` $1 }
 
-Float  :: { Lexeme Float }
-    : float  { unTokenFloatLiteral   `fmap` $1 }
+Char :: { At Char } : charLit           { unTokenCharLit   `fmap` $1 }
 
-Int    :: { Lexeme Int32 }
-    : int    { unTokenIntegerLiteral `fmap` $1 }
+Float :: { At Float } : floatLit        { unTokenFloatLit  `fmap` $1 }
 
-String :: { Lexeme String }
-    : string { unTokenStringLiteral  `fmap` $1 }
+Int :: { At Int32 } : intLit            { unTokenIntLit    `fmap` $1 }
 
-VarId :: { Lexeme String }
-    : varid { unTokenVariableIdentifier `fmap` $1 }
+String :: { At String } : stringLit     { unTokenStringLit `fmap` $1 }
 
-GenId :: { Lexeme String }
-    : genid { unTokenGeneralIdentifier  `fmap` $1 }
+VarId :: { At String } : varId          { unTokenVarId     `fmap` $1 }
 
-
+GenId :: { At String } : genId          { unTokenGenId     `fmap` $1 }
 
 
 { ------------------------------------------------------------------------------
 -- Parser
-lexer :: (Lexeme Token -> Alex a) -> Alex a
+lexer :: (At Token -> Alex a) -> Alex a
 lexer cont = do
-    l@(Lexeme _ t) <- alexMonadScan
+    l@(t :@ _) <- alexMonadScan
     case t of
         ErrorUnderflow _ -> do
             lexer cont
         ErrorOverflow _ -> do
             lexer cont
-        ErrorUnclosedStringLiteral s -> do
-            cont $ TokenStringLiteral s <$ l
+        ErrorUnclosedStringLit s -> do
+            cont $ TokenStringLit s <$ l
         ErrorUnexpectedToken _ -> do
             lexer cont
         _ -> cont l
 
-parseError :: Lexeme Token -> Alex a
-parseError (Lexeme p t) = fail $ show p ++ ": Parse error on Token: " ++ show t ++ "\n"
+parseError :: At Token -> Alex a
+parseError (t :@ (r, c)) = fail $ show r ++ show c ++ ": Parse error on Token: " ++ show t ++ "\n"
 
 -- parseProgram :: String -> (Expression, String)
 parseProgram input = runAlex' input parser

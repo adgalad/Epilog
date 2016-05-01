@@ -1,7 +1,6 @@
-
 function chao (integer X) -> integer :-
 	integer X is 6,
-	if 
+	if
 		true = false -> X is 5;
 		true /= X    -> Y is 5, X is 5
-	end.	
+	end.

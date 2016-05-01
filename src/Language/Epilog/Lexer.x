@@ -2,23 +2,21 @@
   {-# LANGUAGE MultiWayIf #-}
 module Language.Epilog.Lexer
     ( Alex (..)
+    , At (..)
     , Token (..)
-    , Lexeme (..)
     , alexMonadScan
     , isError
     , runAlex'
     , scanner
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.Lexeme
+import           Language.Epilog.At
 import           Language.Epilog.Token
 
 import           Numeric.Limits         (minValue, maxValue)
 import           Data.Int               (Int32)
 import           Control.Monad          (liftM, when)
 import           Data.Maybe             (fromJust, isJust)
-import           Data.Sequence          (Seq)
-import qualified Data.Sequence          as Seq (empty, (|>))
 --------------------------------------------------------------------------------
 }
 
@@ -29,7 +27,7 @@ $digit       = [0-9]
 $hexit       = [0-9 A-F a-f]
 
 @octal       = 0[oO] $octit+
-@decimal     = \-?$digit+
+@decimal     = $digit+
 @hexadecimal = 0[xX] $hexit+
 
 @exponent    = [eE][\-\+]? $digit+
@@ -61,168 +59,161 @@ $charesc     = [0nt\\\'\"]
 epilog :-
 
     -- Whitespace
-    <0> $white+         ;
+    <0> $white+                 ;
 
     -- Comments
-    <0> "%%".*          ;
-    <0> "/%"            { enterNewComment `andBegin` c }
-    <c> "/%"            { embedComment }
-    <c> "%/"            { unembedComment }
-    <c> .               ;
-    <c> "\n"            { skip }
+    <0> "%%".*                  ;
+    <0> "/%"                    { enterNewComment `andBegin` c }
+    <c> "/%"                    { embedComment   }
+    <c> "%/"                    { unembedComment }
+    <c> .                       ;
+    <c> "\n"                    { skip }
 
-    -- Logical Operators
-    <0> "and"           { make TokenAnd }
-    <0> "andalso"       { make TokenAndalso }
-    <0> "or"            { make TokenOr }
-    <0> "orelse"        { make TokenOrelse }
-    <0> "not"           { make TokenNot }
+    -- Operators
+    ---- Logical
+    <0> "and"                   { make TokenAnd     }
+    <0> "andalso"               { make TokenAndalso }
+    <0> "or"                    { make TokenOr      }
+    <0> "orelse"                { make TokenOrelse  }
+    <0> "xor"                   { make TokenXor  }
+    <0> "not"                   { make TokenNot     }
 
-    -- Bitwise Operations
-    <0> "band"          { make TokenBand }
-    <0> "bnot"          { make TokenBnot }
-    <0> "bor"           { make TokenBor }
-    <0> "bsl"           { make TokenBsl }
-    <0> "bsr"           { make TokenBsr }
-    <0> "bxor"          { make TokenBxor }
+    ---- Bitwise
+    <0> "band"                  { make TokenBand }
+    <0> "bor"                   { make TokenBor  }
+    <0> "bnot"                  { make TokenBnot }
+    <0> "bsl"                   { make TokenBsl  }
+    <0> "bsr"                   { make TokenBsr  }
+    <0> "bxor"                  { make TokenBxor }
 
-    -- Array
-    <0> "length"        { make TokenLength }
-    <0> ":"             { make TokenColon }
+    ---- Array / Record / Either
+    <0> "length"                { make TokenLength     }
+    <0> ":"                     { make TokenColon      }
+    <0> "_"                     { make TokenUnderscore }
 
-    -- Arithmetic Operators
-    <0> "+"             { make TokenPlus }
-    <0> "-"             { make TokenMinus }
-    <0> "*"             { make TokenTimes }
-    <0> "/"             { make TokenFloatDivision }
-    <0> "div"           { make TokenIntegerDivision }
-    <0> "rem"           { make TokenRem }
+    ---- Arithmetic
+    <0> "+"                     { make TokenPlus     }
+    <0> "-"                     { make TokenMinus    }
+    <0> "*"                     { make TokenTimes    }
+    <0> "/"                     { make TokenFloatDiv }
+    <0> "div"                   { make TokenIntDiv   }
+    <0> "rem"                   { make TokenRem      }
 
-    -- Relational
-    <0> "<"             { make TokenLT }
-    <0> "=<"            { make TokenLTE }
-    <0> ">"             { make TokenGT }
-    <0> ">="            { make TokenGTE }
-    <0> "|"             { make TokenFactorOf }
-
-    -- Equality
-    <0> "="             { make TokenEQ }
-    <0> "/="            { make TokenNE }
+    ---- Relational
+    <0> "<"                     { make TokenLT        }
+    <0> "=<"                    { make TokenLE       }
+    <0> ">"                     { make TokenGT        }
+    <0> ">="                    { make TokenGE       }
+    <0> "="                     { make TokenEQ        }
+    <0> "/="                    { make TokenNE        }
+    <0> "|"                     { make TokenFactor    }
+    <0> "!|"                    { make TokenNotFactor }
 
     -- Control Structures
-    <0> "end"           { make TokenEnd }
-    <0> "for"           { make TokenFor }
-    <0> "from"          { make TokenFrom }
-    <0> "to"            { make TokenTo }
-    <0> "if"            { make TokenIf }
-    <0> "otherwise"     { make TokenOtherwise }
-    <0> "while"         { make TokenWhile }
+    <0> "end"                   { make TokenEnd       }
+    <0> "for"                   { make TokenFor       }
+    <0> "from"                  { make TokenFrom      }
+    <0> "to"                    { make TokenTo        }
+    <0> "if"                    { make TokenIf        }
+    <0> "otherwise"             { make TokenOtherwise }
+    <0> "while"                 { make TokenWhile     }
 
     -- Functions and Procedures
-    <0> "finish"        { make TokenFinish }
-    <0> "function"      { make TokenFunction }
-    <0> "procedure"     { make TokenProcedure }
-    <0> "return"        { make TokenReturn }
-    <0> ":-"            { make TokenDefine }
+    <0> "finish"                { make TokenFinish    }
+    <0> "function"              { make TokenFunction  }
+    <0> "procedure"             { make TokenProcedure }
+    <0> "return"                { make TokenReturn    }
+    <0> ":-"                    { make TokenDefine    }
 
     -- Composite Types
-    <0> "either"        { make TokenEither }
-    <0> "record"        { make TokenRecord }
+    <0> "either"                { make TokenEither }
+    <0> "record"                { make TokenRecord }
+
+    -- Global Declaration
+    <0> "global"                { make TokenGlobal }
 
     -- Conversion
-    <0> "toBoolean"     { make TokenToBoolean }
-    <0> "toCharacter"   { make TokenToCharacter }
-    <0> "toFloat"       { make TokenToFloat }
-    <0> "toInteger"     { make TokenToInteger }
+    <0> "toBoolean"             { make TokenToBool  }
+    <0> "toCharacter"           { make TokenToChar  }
+    <0> "toInteger"             { make TokenToInt   }
+    <0> "toFloat"               { make TokenToFloat }
 
     -- Types
-    <0> "boolean"       { make TokenBooleanType }
-    <0> "character"     { make TokenCharacterType }
-    <0> "float"         { make TokenFloatType }
-    <0> "integer"       { make TokenIntegerType }
-    <0> "string"        { make TokenStringType }
-    <0> "void"          { make TokenVoidType }
+    <0> "void"                  { make TokenVoidType   }
+    <0> "boolean"               { make TokenBoolType   }
+    <0> "character"             { make TokenCharType   }
+    <0> "integer"               { make TokenIntType    }
+    <0> "float"                 { make TokenFloatType  }
+    <0> "string"                { make TokenStringType }
 
     -- Punctuation
-    <0> ","             { make TokenComma }
-    <0> "."             { make TokenPeriod }
-    <0> ";"             { make TokenSemicolon }
-    <0> "->"            { make TokenArrow }
-    <0> "("             { make TokenLeftParenthesis }
-    <0> ")"             { make TokenRightParenthesis }
-    <0> "_"             { make TokenUnderscore }
+    <0> ","                     { make TokenComma     }
+    <0> "."                     { make TokenPeriod    }
+    <0> ";"                     { make TokenSemicolon }
+    <0> "->"                    { make TokenArrow     }
+    <0> "("                     { make TokenLeftPar   }
+    <0> ")"                     { make TokenRightPar  }
 
     -- Assignment
-    <0> "is"            { make TokenIs }
+    <0> "is"                    { make TokenIs  }
 
     -- IO
-    <0> "read"          { make TokenRead }
-    <0> "write"         { make TokenWrite }
+    <0> "read"                  { make TokenRead  }
+    <0> "write"                 { make TokenWrite }
 
     -- Literals
+    ---- Bools
+    <0> "true"                  { make $ TokenBoolLit True  }
+    <0> "false"                 { make $ TokenBoolLit False }
+
     ---- Chars
-    <0> @char           { make' $ TokenCharacterLiteral . read }
+    <0> @char                   { make' $ TokenCharLit . read }
 
     ---- Floats
-    <0> @float          { make' floatLiteral }
+    <0> 0 \. 0+ @exponent ?     { make $ TokenFloatLit 0.0 }
+    <0> @float                  { make' floatLiteral       }
 
     ---- Ints
     <0> @decimal
      |  @octal
-     |  @hexadecimal    { make' integerLiteral }
-
-    ---- Bools
-    <0> "true"          { make $ TokenBooleanLiteral True }
-    <0> "false"         { make $ TokenBooleanLiteral False }
+     |  @hexadecimal            { make' integerLiteral }
 
     ---- Strings
-    <0> @string         { make' $ TokenStringLiteral . read }
-    <0> @badstring      { make' $ ErrorUnclosedStringLiteral . tail }
+    <0> @string                 { make' $ TokenStringLit . read         }
+    <0> @badstring              { make' $ ErrorUnclosedStringLit . tail }
 
     -- Identifier
-    <0> @varid          { make' $ TokenVariableIdentifier . id }
-    <0> @genid          { make' $ TokenGeneralIdentifier . id }
+    <0> @varid                  { make' $ TokenVarId . id }
+    <0> @genid                  { make' $ TokenGenId . id }
 
     -- Unexpected Token
-    <0> .               { make' $ ErrorUnexpectedToken . head }
+    <0> .                       { make' $ ErrorUnexpectedToken . head }
 
 { ------------------------------------------------------------------------------
 
-type Action = AlexInput -> Int -> Alex (Lexeme Token)
+type Action = AlexInput -> Int -> Alex (At Token)
 
-toPosition :: AlexPosn -> Position
-toPosition (AlexPn _ r c) = Position (r, c)
+toPair :: AlexPosn -> (Int, Int)
+toPair (AlexPn _ r c) = (r, c)
 
 make' :: (String -> Token) -> Action
 make' t (p, _, _, str) size =
-    return $ Lexeme (toPosition p) (t $ take size str)
+    return $ (t $ take size str) :@ (toPair p)
 
 make :: Token -> Action
 make  = make' . const
 
 floatLiteral :: String -> Token
-floatLiteral str = if 
-    | value < (minValue :: Float) -> ErrorUnderflow str
-    | value > (maxValue :: Float) -> ErrorOverflow str
-    | otherwise -> TokenFloatLiteral value
+floatLiteral str = if
+    | value > ( maxValue :: Float) -> ErrorOverflow str
+    | otherwise -> TokenFloatLit value
     where value = read str :: Float
 
-
-
 integerLiteral :: String -> Token
-integerLiteral str = do
-    let value = read str :: Integer
-    if  | value < fromIntegral (minBound :: Int32) -> ErrorUnderflow str
-        | value > fromIntegral (maxBound :: Int32) -> ErrorOverflow str
-        | otherwise -> TokenIntegerLiteral . fromIntegral $ value
-
-{- Esta función no será necesaria con el Parser -}
-alexEOF :: Alex (Lexeme Token)
-alexEOF = liftM (\x -> Lexeme x EOF) alexGetPosition
-
-{- Esta función no será necesaria con el Parser -}
-alexGetPosition :: Alex Position
-alexGetPosition = alexGetInput >>= \(p,_,_,_) -> return $ toPosition p
+integerLiteral str = if
+    | value > fromIntegral (maxBound :: Int32) -> ErrorOverflow str
+    | otherwise -> TokenIntLit . fromIntegral $ value
+    where value = read str :: Integer
 
 -- states
 state_initial :: Int
@@ -247,19 +238,10 @@ unembedComment input len = do
         skip input len
 
 -- The user state monad
-data AlexUserState = AlexUserState
-    { --errors            :: Seq Error
-    --,
-        lexerCommentDepth :: Int
-    }
+data AlexUserState = AlexUserState { lexerCommentDepth :: Int }
 
 alexInitUserState :: AlexUserState
-alexInitUserState =
-    AlexUserState
-        { --errors            = Seq.empty
-        --,
-            lexerCommentDepth = 0
-        }
+alexInitUserState = AlexUserState { lexerCommentDepth = 0 }
 
 getFromUserState :: (AlexUserState -> a) -> Alex a
 getFromUserState f =
@@ -273,50 +255,25 @@ getLexerCommentDepth = getFromUserState lexerCommentDepth
 setLexerCommentDepth :: Int -> Alex ()
 setLexerCommentDepth d = modifyUserState $ \st -> st { lexerCommentDepth = d }
 
-{- Esta función no será necesaria con el Parser -}
-scanner :: String -> Either String [Lexeme Token]
+-- The basic lexer
+alexEOF :: Alex (At Token)
+alexEOF = (EOF :@) . toPair . fst4 <$> alexGetInput
+    where
+        fst4 (x,_,_,_) = x
+
+scanner :: String -> Either String [At Token]
 scanner str =
     let loop = do
-            (t, m) <- alexComplementError alexMonadScan
-            when (isJust m) (lexerError (fromJust m))
-            let tok@(Lexeme p cl) = t
-            if (cl == EOF)
+            t <- alexMonadScan
+            let tok@(i :@ (r, c)) = t
+            if (i == EOF)
                 then return []
                 else do
                     toks <- loop
                     return (tok : toks)
     in runAlex str loop
 
-{- Esta función no será necesaria con el Parser -}
-lexerError :: String -> Alex a
-lexerError msg =
-    do
-        (p, c, _, inp) <- alexGetInput
-        let inp1 = filter (/= '\r') (takeWhile (/='\n') inp)
-        let inp2 = if (length inp1 > 30)
-                     then trim (take 30 inp1)
-                     else trim inp1
-        let disp = if (null inp)
-                     then " at end of file"
-                     else if (null inp2)
-                             then " before end of line"
-                             else " on char " ++ show c ++ " before : '" ++ inp2 ++ "'"
-        let disp3 = if (null msg)
-                      then "Lexer error"
-                      else trim msg
-        alexError (disp3 ++ " at " ++ show p ++ disp)
-  where
-    trim = reverse . dropWhile (== ' ') . reverse . dropWhile (== ' ')
-
-{- Esta función no será necesaria con el Parser -}
-alexComplementError :: Alex a -> Alex (a, Maybe String)
-alexComplementError (Alex al) =
-    Alex
-        (\s -> case al s of
-            Right (s', x) -> Right (s', (x, Nothing))
-            Left  message -> Right (s, (undefined, Just message)))
-
-
+-- The lexer for happy
 runAlex' :: String -> Alex a -> (a, String)
 runAlex' input (Alex f) =
     let Right (st, a) = f state

@@ -11,7 +11,6 @@ import           Control.Monad.Trans       (liftIO)
 import           Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
 
 import           Data.List                 (nub)
-import           System.IO                 (hPrint, stderr)
 
 import           Prelude                   hiding (null)
 import qualified Prelude                   as P (null)
@@ -19,6 +18,7 @@ import qualified Prelude                   as P (null)
 import           System.Console.GetOpt     (ArgDescr (..), ArgOrder (..),
                                             OptDescr (..), getOpt, usageInfo)
 import           System.Environment        (getArgs)
+import           System.IO                 (hPrint, stderr)
 --------------------------------------------------------------------------------
 
 version :: String
@@ -87,22 +87,20 @@ doHelp = liftIO $ putStr message
 
 doLex :: String -> String -> MaybeT IO ()
 doLex input file = do
-    liftIO . putStrLn $
-        unwords ["Lexing", file]
+    liftIO . putStrLn $ unwords ["Lexing", file]
 
     case scanner input of
         Left msg -> liftIO (error msg)
         Right tokens -> liftIO $ mapM_ split tokens
             where
-                split l@(Lexeme _ t) =
+                split l@(t :@ _) =
                     (if isError t
                         then hPrint stderr
                         else print) l
 
 doParse :: String -> String -> MaybeT IO ()
 doParse input file = do
-    liftIO . putStrLn $
-        unwords ["Parsing", file]
+    liftIO . putStrLn $ unwords ["Parsing", file]
 
     let (prog, plerrs) = parseProgram input
     liftIO $ print prog

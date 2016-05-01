@@ -12,25 +12,24 @@ import           GHC.Show                (showLitString)
 --------------------------------------------------------------------------------
 
 data Token
+    -- Operators
+    ---- Logical
+    = TokenAnd | TokenAndalso | TokenOr | TokenOrelse | TokenXor | TokenNot
 
-    -- Logical Operators
-    = TokenAnd | TokenAndalso | TokenOr | TokenOrelse | TokenNot
+    ---- Bitwise
+    | TokenBand | TokenBor | TokenBnot | TokenBsl  | TokenBsr  | TokenBxor
 
-    -- Bitwise Operators
-    | TokenBand | TokenBnot | TokenBor | TokenBsl  | TokenBsr  | TokenBxor
+    ---- Array / Record / Either
+    | TokenLength | TokenColon | TokenUnderscore
 
-    -- Array
-    | TokenLength | TokenColon
+    ---- Arithmetic
+    | TokenPlus | TokenMinus | TokenTimes | TokenFloatDiv
+    | TokenIntDiv | TokenRem
 
-    -- Arithmetic Operators
-    | TokenPlus | TokenMinus | TokenTimes | TokenFloatDivision | TokenRem
-    | TokenIntegerDivision
-
-    -- Relational
-    | TokenLT | TokenLTE | TokenGT | TokenGTE | TokenFactorOf
-
-    -- Equality
-    | TokenEQ | TokenNE
+    ---- Relational
+    | TokenLT     | TokenLE | TokenGT | TokenGE
+    | TokenEQ     | TokenNE
+    | TokenFactor | TokenNotFactor
 
     -- Control Structures
     | TokenEnd | TokenFor | TokenFrom | TokenTo | TokenIf | TokenOtherwise
@@ -43,17 +42,19 @@ data Token
     -- Composite Types
     | TokenEither | TokenRecord
 
+    -- Global Declaration
+    | TokenGlobal
+
     -- Conversion
-    | TokenToBoolean | TokenToCharacter | TokenToFloat | TokenToInteger
+    | TokenToBool | TokenToChar | TokenToInt | TokenToFloat
 
     -- Types
-    | TokenBooleanType | TokenCharacterType | TokenFloatType
-    | TokenIntegerType | TokenStringType    | TokenVoidType
+    | TokenVoidType | TokenBoolType  | TokenCharType
+    | TokenIntType  | TokenFloatType | TokenStringType
 
     -- Punctuation
-    | TokenComma      | TokenPeriod          | TokenSemicolon
-    | TokenArrow      | TokenLeftParenthesis | TokenRightParenthesis
-    | TokenUnderscore
+    | TokenComma | TokenPeriod  | TokenSemicolon
+    | TokenArrow | TokenLeftPar | TokenRightPar
 
     -- Assignment
     | TokenIs
@@ -62,73 +63,75 @@ data Token
     |  TokenRead | TokenWrite
 
     -- Literals
-    | TokenCharacterLiteral { unTokenCharacterLiteral :: Char }
-    | TokenFloatLiteral     { unTokenFloatLiteral :: Float }
-    | TokenIntegerLiteral   { unTokenIntegerLiteral :: Int32 }
-    | TokenBooleanLiteral   { unTokenBooleanLiteral :: Bool }
-    | TokenStringLiteral    { unTokenStringLiteral :: String }
+    | TokenBoolLit   { unTokenBoolLit   :: Bool   }
+    | TokenCharLit   { unTokenCharLit   :: Char   }
+    | TokenIntLit    { unTokenIntLit    :: Int32  }
+    | TokenFloatLit  { unTokenFloatLit  :: Float  }
+    | TokenStringLit { unTokenStringLit :: String }
 
-        -- Identifier
-    | TokenVariableIdentifier { unTokenVariableIdentifier :: String }
-    | TokenGeneralIdentifier  { unTokenGeneralIdentifier :: String }
+    -- Identifier
+    | TokenVarId { unTokenVarId :: String }
+    | TokenGenId { unTokenGenId :: String }
 
     -- Error
-    | ErrorUnderflow { unErrorUnderflow :: String }
-    | ErrorOverflow { unErrorOverflow :: String }
-    | ErrorUnclosedStringLiteral { unErrorUnclosedStringLiteral :: String }
-    | ErrorUnexpectedToken { unUnexpectedToken :: Char }
+    | ErrorUnderflow         { unErrorUnderflow :: String }
+    | ErrorOverflow          { unErrorOverflow :: String }
+    | ErrorUnclosedStringLit { unErrorUnclosedStringLit :: String }
+    | ErrorUnexpectedToken   { unUnexpectedToken :: Char }
 
     -- EOF
-    | EOF {- Temporal, no será necesario con el Parser -}
+    | EOF
     deriving (Eq)
 
 isError :: Token -> Bool
 isError (ErrorUnderflow             _) = True
 isError (ErrorOverflow              _) = True
-isError (ErrorUnclosedStringLiteral _) = True
+isError (ErrorUnclosedStringLit _) = True
 isError (ErrorUnexpectedToken       _) = True
 isError _                              = False
 
 instance Show Token where
     show = \case
 
-    -- Logical Operators
+    -- Operators
+    ---- Logical
         TokenAnd     -> "TOKEN: and"
         TokenAndalso -> "TOKEN: andalso"
         TokenOr      -> "TOKEN: or"
         TokenOrelse  -> "TOKEN: orelse"
+        TokenXor     -> "TOKEN: xor"
         TokenNot     -> "TOKEN: not"
 
-    -- Bitwise Operations
+    ---- Bitwise
         TokenBand -> "TOKEN: band"
-        TokenBnot -> "TOKEN: bnot"
         TokenBor  -> "TOKEN: bor"
+        TokenBnot -> "TOKEN: bnot"
         TokenBsl  -> "TOKEN: bsl"
         TokenBsr  -> "TOKEN: bsr"
         TokenBxor -> "TOKEN: bxor"
 
-    -- Array
+    ---- Array
         TokenLength -> "TOKEN: length"
         TokenColon  -> "TOKEN: :"
+        TokenUnderscore -> "TOKEN: _"
 
-    -- Arithmetic Operators
-        TokenPlus            -> "TOKEN: +"
-        TokenMinus           -> "TOKEN: -"
-        TokenTimes           -> "TOKEN: *"
-        TokenFloatDivision   -> "TOKEN: /"
-        TokenIntegerDivision -> "TOKEN: div"
-        TokenRem             -> "TOKEN: rem"
+    ---- Arithmetic
+        TokenPlus     -> "TOKEN: +"
+        TokenMinus    -> "TOKEN: -"
+        TokenTimes    -> "TOKEN: *"
+        TokenFloatDiv -> "TOKEN: /"
+        TokenIntDiv   -> "TOKEN: div"
+        TokenRem      -> "TOKEN: rem"
 
-    -- Relational
-        TokenLT       -> "TOKEN: <"
-        TokenLTE      -> "TOKEN: =<"
-        TokenGT       -> "TOKEN: >"
-        TokenGTE      -> "TOKEN: >="
-        TokenFactorOf -> "TOKEN: |"
-
-    -- Equality
-        TokenEQ -> "TOKEN: ="
-        TokenNE -> "TOKEN: /="
+    ---- Relational
+        TokenLT        -> "TOKEN: <"
+        TokenLE       -> "TOKEN: =<"
+        TokenGT        -> "TOKEN: >"
+        TokenGE       -> "TOKEN: >="
+        TokenEQ        -> "TOKEN: ="
+        TokenNE        -> "TOKEN: /="
+        TokenFactor    -> "TOKEN: |"
+        TokenNotFactor -> "TOKEN: !|"
 
     -- Control Structures
         TokenEnd       -> "TOKEN: end"
@@ -150,28 +153,30 @@ instance Show Token where
         TokenEither -> "TOKEN: either"
         TokenRecord -> "TOKEN: record"
 
+    -- Global Declaration
+        TokenGlobal -> "TOKEN: global"
+
     -- Conversion
-        TokenToBoolean   -> "TOKEN: toBoolean"
-        TokenToCharacter -> "TOKEN: toCharacter"
-        TokenToFloat     -> "TOKEN: toFloat"
-        TokenToInteger   -> "TOKEN: toInteger"
+        TokenToBool  -> "TOKEN: toBoolean"
+        TokenToChar  -> "TOKEN: toCharacter"
+        TokenToFloat -> "TOKEN: toFloat"
+        TokenToInt   -> "TOKEN: toInteger"
 
     -- Types
-        TokenBooleanType   -> "TOKEN: boolean"
-        TokenCharacterType -> "TOKEN: character"
-        TokenFloatType     -> "TOKEN: float"
-        TokenIntegerType   -> "TOKEN: integer"
-        TokenStringType    -> "TOKEN: string"
-        TokenVoidType      -> "TOKEN: void"
+        TokenVoidType   -> "TOKEN: void"
+        TokenBoolType   -> "TOKEN: boolean"
+        TokenCharType   -> "TOKEN: character"
+        TokenIntType    -> "TOKEN: integer"
+        TokenFloatType  -> "TOKEN: float"
+        TokenStringType -> "TOKEN: string"
 
     -- Punctuation
-        TokenComma            -> "TOKEN: ,"
-        TokenPeriod           -> "TOKEN: ."
-        TokenSemicolon        -> "TOKEN: ;"
-        TokenArrow            -> "TOKEN: ->"
-        TokenLeftParenthesis  -> "TOKEN: ("
-        TokenRightParenthesis -> "TOKEN: )"
-        TokenUnderscore       -> "TOKEN: _"
+        TokenComma      -> "TOKEN: ,"
+        TokenPeriod     -> "TOKEN: ."
+        TokenSemicolon  -> "TOKEN: ;"
+        TokenArrow      -> "TOKEN: ->"
+        TokenLeftPar    -> "TOKEN: ("
+        TokenRightPar   -> "TOKEN: )"
 
     -- Assign
         TokenIs -> "TOKEN: is"
@@ -181,39 +186,39 @@ instance Show Token where
         TokenWrite -> "TOKEN: write"
 
     -- Literals
-        TokenCharacterLiteral value ->
-            intercalate "\n"
-                [ "TOKEN: Character Literal"
-                , "VALUE: " ++ showLitChar value ""
-                ]
-        TokenFloatLiteral value ->
-            intercalate "\n"
-                [ "TOKEN: Float Literal"
-                , "VALUE: " ++ show value
-                ]
-        TokenIntegerLiteral value ->
-            intercalate "\n"
-                [ "TOKEN: Integer Literal"
-                , "VALUE: " ++ show value
-                ]
-        TokenBooleanLiteral value ->
+        TokenBoolLit value ->
             intercalate "\n"
                 [ "TOKEN: Boolean Literal"
                 , "VALUE: " ++ (if value then "true" else "false")
                 ]
-        TokenStringLiteral value ->
+        TokenCharLit value ->
+            intercalate "\n"
+                [ "TOKEN: Character Literal"
+                , "VALUE: " ++ showLitChar value ""
+                ]
+        TokenIntLit value ->
+            intercalate "\n"
+                [ "TOKEN: Integer Literal"
+                , "VALUE: " ++ show value
+                ]
+        TokenFloatLit value ->
+            intercalate "\n"
+                [ "TOKEN: Float Literal"
+                , "VALUE: " ++ show value
+                ]
+        TokenStringLit value ->
             intercalate "\n"
                 [ "TOKEN: String Literal"
                 , "VALUE: " ++ showLitString value ""
                 ]
 
     -- Identifier
-        TokenVariableIdentifier name ->
+        TokenVarId name ->
             intercalate "\n"
                 [ "TOKEN: Variable ID"
                 , "VALUE: " ++ name
                 ]
-        TokenGeneralIdentifier name ->
+        TokenGenId name ->
             intercalate "\n"
                 [ "TOKEN: General ID"
                 , "VALUE: " ++ name
@@ -232,7 +237,7 @@ instance Show Token where
                 , "REASON: Overflow"
                 , "VALUE: " ++ value
                 ]
-        ErrorUnclosedStringLiteral value ->
+        ErrorUnclosedStringLit value ->
             intercalate "\n"
                 [ "ERROR"
                 , "REASON: Unclosed String Literal"
