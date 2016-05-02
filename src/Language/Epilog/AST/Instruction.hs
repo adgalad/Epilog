@@ -81,10 +81,9 @@ instance Treelike Instruction where
     toTree = \case
         Assign exp0 exp1 ->
             Node "Assign" [ toTree exp0, toTree exp1 ]
-        Declaration (t_pe :@ typePos) var -> declTree t_pe var
+        Declaration    (t_pe :@ typePos) var -> declTree t_pe var
         Initialization (t_pe :@ typePos) (inst :@ instPos) ->
             Node (show t_pe) [ toTree inst ]
-
         If guards ->
             Node "If" (toList . fmap ifTree $ guards)
         Case (var :@ varPos) sets ->
@@ -116,6 +115,7 @@ instance Treelike Instruction where
                         , toTree var 
                         ]
                 otherwise -> Node (show t) [ toTree var ]
+                
             ifTree :: Guard -> Tree String
             ifTree (cond, insts) = 
                 Node "Guard" 

@@ -21,8 +21,8 @@ type Decs = Seq Dec
 
 data Declaration
     = GlobalD Inst
-    | EitherD Exp Insts
-    | RecordD Exp Insts
+    | EitherD (At String) Insts
+    | RecordD (At String) Insts
     | ProcD
         { procName  :: At String
         , procVars  :: Insts
@@ -39,16 +39,10 @@ data Declaration
 instance Treelike Declaration where
     toTree = \case
         GlobalD var -> Node "Global" [toTree var]
-        EitherD genid insts -> 
-            Node "Either" 
-                [ Node "Name" [toTree genid]
-                , Node "Body" (toForest insts)
-                ]
-        RecordD genid insts -> 
-            Node "Record" 
-                [ Node "Name" [toTree genid]
-                , Node "Body" (toForest insts)
-                ]
+        EitherD (name :@_) insts -> 
+            Node ("Either "++name) [ Node "Body" (toForest insts) ]
+        RecordD (name :@_) insts -> 
+            Node ("Record "++name) [ Node "Body" (toForest insts) ]
         ProcD (name :@_) param insts ->
             Node (unwords ["Procedure", name])
                 [ paramTree param

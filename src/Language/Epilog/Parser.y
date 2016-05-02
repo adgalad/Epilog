@@ -166,8 +166,8 @@ TopDec :: { Dec }
                                     { ProcD $2 $4 $7 <$ $1 }
     | func GenId "(" Params ")" "->" Type ":-" Insts "."
                                     { FunD $2 $4 $7 $9 <$ $1 }
-    | either GenId ":-" Insts "."   { EitherD (GenId $2 <$ $1) $4 <$ $1 }
-    | record GenId ":-" Insts "."   { RecordD (GenId $2 <$ $1) $4 <$ $1 }
+    | either GenId ":-" Insts "."   { EitherD $2 $4 <$ $1 }
+    | record GenId ":-" Insts "."   { RecordD $2 $4 <$ $1 }
     | Declaration "."               { GlobalD $1 <$ $1}
     | Initialization "."            { GlobalD $1 <$ $1}
 
@@ -203,7 +203,7 @@ Assign :: { Inst }
 
 Declaration :: { Inst }
     : Type VarId                    { Declaration $1 (VarId $2 <$ $1) <$ $1 }
-    | Array VarId                   { Declaration $1 (VarId $2 <$ $1) <$ $1 }
+    | Type ArraySize VarId          { Declaration (Array $1 $2 <$ $1) (VarId $3 <$ $1) <$ $1 }
 
 Initialization :: { Inst }
     : Type Assign                   { Initialization $1 $2 <$ $1}
@@ -216,10 +216,6 @@ Type :: { At Type }
     | float                         { FloatT <$ $1 }
     | int                           { IntT <$ $1 }
     | string                        { StringT <$ $1 }
-
-
-Array :: { At Type }
-    : Type ArraySize                { Array $1 $2 <$ $1 }
 
 ArraySize :: { Exps }
     : ":" Exp                       { Seq.singleton $2 }
