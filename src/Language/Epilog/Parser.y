@@ -203,9 +203,11 @@ Assign :: { Inst }
 
 Declaration :: { Inst }
     : Type VarId                    { Declaration $1 (VarId $2 <$ $1) <$ $1 }
+    | Array VarId                   { Declaration $1 (VarId $2 <$ $1) <$ $1 }
 
 Initialization :: { Inst }
     : Type Assign                   { Initialization $1 $2 <$ $1}
+
 
 
 Type :: { At Type }
@@ -214,6 +216,14 @@ Type :: { At Type }
     | float                         { FloatT <$ $1 }
     | int                           { IntT <$ $1 }
     | string                        { StringT <$ $1 }
+
+
+Array :: { At Type }
+    : Type ArraySize                { Array $1 $2 <$ $1 }
+
+ArraySize :: { Exps }
+    : ":" Exp                       { Seq.singleton $2 }
+    | ArraySize ":" Exp             { $1 |> $3 }
 
 ---- If --------------------------------
 If :: { Inst }

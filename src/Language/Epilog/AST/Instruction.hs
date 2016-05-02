@@ -81,7 +81,12 @@ instance Treelike Instruction where
     toTree = \case
         Assign exp0 exp1 ->
             Node "Assign" [ toTree exp0, toTree exp1 ]
-
+        Declaration ((Array (t_pe :@ typePos) s) :@ pos) (var :@ varPos) ->
+             Node "Array" 
+                [ Node (show t_pe) []
+                , Node "Size" (toForest s)
+                , toTree var 
+                ]
         Declaration (t_pe :@ typePos) (var :@ varPos) ->
             Node (show t_pe) [ toTree var ]
         Initialization (t_pe :@ typePos) (inst :@ instPos) ->
@@ -139,5 +144,15 @@ instance Treelike Instruction where
                     , Node "Body" (toForest insts)
                     ]
 
+
 data Type
-    = IntT | CharT | FloatT | BoolT | StringT deriving (Eq, Show)
+    = IntT | CharT | FloatT | BoolT | StringT | Array (At Type) Exps   deriving (Eq, Show)
+
+instance Treelike Type where
+    toTree = \case 
+        Array t sizes -> 
+            Node "Array" 
+                [ Node (show t) []
+                , Node "Size" (toForest sizes)
+                ]
+
