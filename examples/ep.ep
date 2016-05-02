@@ -1,4 +1,9 @@
 procedure main () :-
+    for integer I
+        from 1 to 3 -> X is 5, Y is 5;
+        from 5 to 10 -> X is Y, read(X)
+    end,
+
     while (4 >= 5 = true) ->
         integer X is 5,
         X is 5 + 0x1AF,
@@ -8,4 +13,31 @@ procedure main () :-
         X is X + toInteger W - toInteger Y,
         Hola is 5,
         return 4
+    end,
+
+    if 
+        X =< 10 -> Zombie is "Dead"        , Human is "Alive";
+        X >  10 -> Zombie is "Eating Human", Human is "Eaten"
+    end,
+
+    case I of 
+        1,2,3     -> X is "Im 1 or 2 or 3 :)";
+        4,5,6     -> X is "Im neither 1 nor 2 nor 3 :(";
+        otherwise -> X is "Im whatever"
     end.
+
+
+either hola :- 
+    integer X,
+    integer Y,
+    character Z.
+
+%% Copy  %%
+%% Paste %%
+record person :-
+    string Name,
+    integer Age,
+    boolean IsRegistered.
+
+integer SoyGlobal.
+string  TmbSoyGlobal is "Y estoy Init".

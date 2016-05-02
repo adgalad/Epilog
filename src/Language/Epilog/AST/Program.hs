@@ -8,6 +8,7 @@ module Language.Epilog.AST.Program
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Instruction
+import           Language.Epilog.AST.Expression
 import           Language.Epilog.At
 import           Language.Epilog.Treelike
 
@@ -19,9 +20,9 @@ type Dec = At Declaration
 type Decs = Seq Dec
 
 data Declaration
-    = GlobalD
-    | EitherD
-    | RecordD
+    = GlobalD Inst
+    | EitherD Exp Insts
+    | RecordD Exp Insts
     | ProcD
         { procName  :: At String
         , procVars  :: Insts
@@ -37,23 +38,33 @@ data Declaration
 
 instance Treelike Declaration where
     toTree = \case
-        GlobalD -> Node undefined []
-        EitherD -> Node undefined []
-        RecordD -> Node undefined []
-        ProcD (name :@_) vars insts ->
-            Node (unwords ["Procedure", name])
-                [ varsTree vars
+        GlobalD var -> Node "Global" [toTree var]
+        EitherD genid insts -> 
+            Node "Either" 
+                [ Node "Name" [toTree genid]
                 , Node "Body" (toForest insts)
                 ]
-        FunD  (name :@_) vars (t_pe:@_) insts ->
+        RecordD genid insts -> 
+            Node "Record" 
+                [ Node "Name" [toTree genid]
+                , Node "Body" (toForest insts)
+                ]
+        ProcD (name :@_) param insts ->
+            Node (unwords ["Procedure", name])
+                [ paramTree param
+                , Node "Body" (toForest insts)
+                ]
+        FunD  (name :@_) param (t_pe:@_) insts ->
             Node (unwords ["Function", name, "->", show t_pe])
-                [ varsTree vars
+                [ paramTree param
                 , Node "Body" (toForest insts)
                 ]
         where
-            varsTree vars = if vars == Seq.empty
-                then Node "No vars" []
-                else Node "Vars" (toForest vars)
+
+
+            paramTree param = if param == Seq.empty
+                then Node "No parameters" []
+                else Node "Parameters" (toForest param)
 
 data Program = Program Decs deriving (Eq, Show)
 

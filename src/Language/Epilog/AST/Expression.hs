@@ -71,9 +71,9 @@ instance Treelike Expression where
             Node (show val) []
 
         VarId (name :@ _) ->
-            Node (show name) []
+            Node ("Var "++name) []
         GenId (name :@ _) ->
-            Node (show name) []
+            Node ("Gen "++name) []
 
         ToBoolean   expr ->
             Node "toBoolean" [ toTree expr]
@@ -110,22 +110,22 @@ instance Show BinaryOp where
         Bsl        -> "bsl"
         Bsr        -> "bsr"
         Bxor       -> "bxor"
-        Colon      -> ":"
-        Underscore -> "_"
-        Plus       -> "+"
-        Minus      -> "-"
-        Times      -> "*"
-        FloatDiv   -> "/"
+        Colon      -> "(:)"
+        Underscore -> "(_)"
+        Plus       -> "(+)"
+        Minus      -> "(-)"
+        Times      -> "(*)"
+        FloatDiv   -> "(/)"
         IntDiv     -> "div"
         Rem        -> "rem"
-        LTop       -> "<"
-        LEop       -> "=<"
-        GTop       -> ">"
-        GEop       -> ">="
-        EQop       -> "="
-        NEop       -> "/="
-        FAop       -> "|"
-        NFop       -> "!|"
+        LTop       -> "(<)"
+        LEop       -> "(=<)"
+        GTop       -> "(>)"
+        GEop       -> "(>=)"
+        EQop       -> "(=)"
+        NEop       -> "(/=)"
+        FAop       -> "(|)"
+        NFop       -> "(!|)"
 
 data UnaryOp
     = Not

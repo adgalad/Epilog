@@ -166,17 +166,18 @@ TopDec :: { Dec }
                                     { ProcD $2 $4 $7 <$ $1 }
     | func GenId "(" Params ")" "->" Type ":-" Insts "."
                                     { FunD $2 $4 $7 $9 <$ $1 }
-    -- Case for either
-    -- Case for record
-    -- Case for global
+    | either GenId ":-" Insts "."   { EitherD (GenId $2 <$ $1) $4 <$ $1 }
+    | record GenId ":-" Insts "."   { RecordD (GenId $2 <$ $1) $4 <$ $1 }
+    | Declaration "."               { GlobalD $1 <$ $1}
+    | Initialization "."            { GlobalD $1 <$ $1}
 
 Params :: { Insts }
     : {- lambda -}                  { Seq.empty }
-    | Params                        { $1 }
+    | Params1                       { $1 }
 
 Params1 :: { Insts }
-    : Type VarId                    { Seq.singleton (Declaration $1 $2 <$ $1) }
-    | Type VarId "," Params1        { (Declaration $1 $2 <$ $1) <| $4 }
+    : Declaration                   { Seq.singleton ($1) }
+    | Declaration "," Params1        { $1 <| $3 }
 
 -- Instructions ------------------------
 Insts :: { Insts }
@@ -186,6 +187,7 @@ Insts :: { Insts }
 Inst :: { Inst }
     : Assign                        { $1 }
     | Declaration                   { $1 }
+    | Initialization                { $1 }
     | If                            { $1 }
     | Case                          { $1 }
     | For                           { $1 }
@@ -195,13 +197,16 @@ Inst :: { Inst }
     | finish                        { Finish <$ $1 }
     | return Exp                    { Return $2 <$ $1 }
 
----- Assignment ------------------------
+---- Declaration and Assignment ------------------------
 Assign :: { Inst }
     : VarId is Exp                  { Assign (VarId $1 <$ $1) $3 <$ $1 }
 
 Declaration :: { Inst }
-    : Type VarId                    { Declaration $1 $2 <$ $1 }
-    | Type Assign                   { Initialization $1 $2 <$ $1}
+    : Type VarId                    { Declaration $1 (VarId $2 <$ $1) <$ $1 }
+
+Initialization :: { Inst }
+    : Type Assign                   { Initialization $1 $2 <$ $1}
+
 
 Type :: { At Type }
     : bool                          { BoolT <$ $1 }
@@ -223,7 +228,7 @@ Guard :: { Guard }
 
 ---- Case ------------------------------
 Case :: { Inst }
-    : case VarId of Sets end        { Case $2 $4 <$ $1 }
+    : case VarId of Sets end        { Case (VarId $2 <$ $1) $4 <$ $1 }
 
 Sets :: { Sets }
     : Set                           { Seq.singleton $1 }
@@ -238,7 +243,8 @@ Set :: { Set }
 
 ---- For loops -------------------------
 For :: { Inst }
-    : for VarId Ranges end          { For $2 $3 <$ $1 }
+    : for VarId Ranges end          { For (VarId $2 <$ $1) $3 <$ $1 }
+    | for Declaration Ranges end    { ForD $2 $3 <$ $1 }
 
 Ranges :: { Ranges }
     : Range                         { Seq.singleton $1 }

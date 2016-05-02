@@ -43,12 +43,13 @@ type Conds  = Seq Cond
 data Instruction
     = EmptyInst
     | Assign Exp Exp
-    | Declaration (At Type) (At String)
+    | Declaration (At Type) Exp
     | Initialization (At Type) (At Instruction)
 
     | If Guards
-    | Case (At String) Sets
-    | For (At String) Ranges
+    | Case Exp Sets
+    | For  Exp Ranges
+    | ForD (At Instruction) Ranges
     | While Conds
 
     | Read Exp
@@ -79,19 +80,21 @@ data Instruction
 instance Treelike Instruction where
     toTree = \case
         Assign exp0 exp1 ->
-            Node "UNDEFINED" []
+            Node "Assign" [ toTree exp0, toTree exp1 ]
 
-        Declaration (t_pe :@ typePos) (string :@ stringPos) ->
-            Node "UNDEFINED" []
+        Declaration (t_pe :@ typePos) (var :@ varPos) ->
+            Node (show t_pe) [ toTree var ]
         Initialization (t_pe :@ typePos) (inst :@ instPos) ->
-            Node "UNDEFINED" []
+            Node (show t_pe) [ toTree inst ]
 
         If guards ->
-            Node "UNDEFINED" []
-        Case (string :@ stringPos) sets ->
-            Node "UNDEFINED" []
-        For (string :@ stringPos) ranges ->
-            Node "UNDEFINED" []
+            Node "If" (toList . fmap ifTree $ guards)
+        Case (var :@ varPos) sets ->
+            Node "Case" $ (toTree var):(toList . fmap caseTree $ sets)
+        For var ranges ->
+            Node "For" $ (toTree var):(toList . fmap forTree $ ranges) 
+        ForD decl ranges ->
+            Node "For" $ (toTree decl):(toList . fmap forTree $ ranges) 
         While conds ->
             Node "While" (toList . fmap whileTree $ conds )
 
@@ -106,6 +109,29 @@ instance Treelike Instruction where
             Node "Return" [toTree expr]
 
         where
+            ifTree :: Guard -> Tree String
+            ifTree (cond, insts) = 
+                Node "Guard" 
+                    [ Node "Condition" [toTree cond]
+                    , Node "Body" (toForest insts)
+                    ]
+
+            caseTree :: Set -> Tree String
+            caseTree (expr, insts) = 
+                Node "Set" 
+                    [ Node "Values" (toForest expr)
+                    , Node "Body" (toForest insts)
+                    ]
+
+            forTree :: Range -> Tree String
+            forTree (lower, upper, insts) = 
+                Node "Range" 
+                    [ Node "From" [toTree lower]
+                    , Node "To"   [toTree upper]
+                    , Node "Body" (toForest insts)
+                    ]
+                
+
             whileTree :: Cond -> Tree String
             whileTree (expr, insts) =
                 Node "Branch"
