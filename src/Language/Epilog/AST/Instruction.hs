@@ -81,14 +81,7 @@ instance Treelike Instruction where
     toTree = \case
         Assign exp0 exp1 ->
             Node "Assign" [ toTree exp0, toTree exp1 ]
-        Declaration ((Array (t_pe :@ typePos) s) :@ pos) (var :@ varPos) ->
-             Node "Array" 
-                [ Node (show t_pe) []
-                , Node "Size" (toForest s)
-                , toTree var 
-                ]
-        Declaration (t_pe :@ typePos) (var :@ varPos) ->
-            Node (show t_pe) [ toTree var ]
+        Declaration (t_pe :@ typePos) var -> declTree t_pe var
         Initialization (t_pe :@ typePos) (inst :@ instPos) ->
             Node (show t_pe) [ toTree inst ]
 
@@ -114,6 +107,15 @@ instance Treelike Instruction where
             Node "Return" [toTree expr]
 
         where
+            declTree :: Type -> Exp -> Tree String 
+            declTree t var = case t of   
+                Array (t_pe :@ typePos) s  ->
+                    Node "Array" 
+                        [ Node (show t_pe) []
+                        , Node "Size" (toForest s)
+                        , toTree var 
+                        ]
+                otherwise -> Node (show t) [ toTree var ]
             ifTree :: Guard -> Tree String
             ifTree (cond, insts) = 
                 Node "Guard" 
