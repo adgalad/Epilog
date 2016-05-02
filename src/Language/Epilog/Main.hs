@@ -5,6 +5,7 @@ module Main (main) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Lexer
 import           Language.Epilog.Parser
+import           Language.Epilog.Treelike
 
 import           Control.Monad             (guard, void, when)
 import           Control.Monad.Trans       (liftIO)
@@ -103,4 +104,4 @@ doParse input file = do
     liftIO . putStrLn $ unwords ["Parsing", file]
 
     let (prog, plerrs) = parseProgram input
-    liftIO $ print prog
+    liftIO . putStrLn . drawTree $toTree prog

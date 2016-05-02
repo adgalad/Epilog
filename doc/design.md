@@ -107,11 +107,12 @@ Operators have the following precedence, from highest to lowest:
 
 |    Operator            |                    Description                  | Associativity |
 |------------------------|-------------------------------------------------|---------------|
+| `to*`                  | Type conversion operators                       | Right to left |
 | `length`               | Array length                                    |      None     |
 | `()`                   | Function/Procedure call                         | Left to right |
 | `:`                    | Array subscripting                              | Left to right |
 | `_`                    | Record entry and union member access            | Left to right |
-| `-`, `not`, `bnot`     | Unary arithmetic, logical, and bitwise negation | Left to right |
+| `-`, `not`, `bnot`     | Unary arithmetic, logical, and bitwise negation | Right to left |
 | `*`, `/`, `div`, `rem` | Multiplicative                                  | Left to right |
 | `+`, `-`               | Additive                                        | Left to right |
 | `bsl`, `bsr`           | Bitwise left shift and right shift              | Left to right |
@@ -137,6 +138,10 @@ the `andalso` operator.
 
 The operator `:` takes an array on its left and an integer on its right and
 returns the element type of the array.
+
+The family of operators `to*`, that is, `toBoolean`, `toCharacter`, `toFloat`,
+and `toInteger`, take an expression of any type and return the converted
+value in the corresponding type.
 
 The operator `length` takes an array of any type and returns its length, an
 integer.

@@ -27,13 +27,13 @@ data Token
     | TokenIntDiv | TokenRem
 
     ---- Relational
-    | TokenLT     | TokenLE | TokenGT | TokenGE
-    | TokenEQ     | TokenNE
-    | TokenFactor | TokenNotFactor
+    | TokenLT | TokenLE | TokenGT | TokenGE
+    | TokenEQ | TokenNE
+    | TokenFA | TokenNF
 
     -- Control Structures
     | TokenEnd | TokenFor | TokenFrom | TokenTo | TokenIf | TokenOtherwise
-    | TokenWhile
+    | TokenWhile | TokenCase | TokenOf
 
     -- Functions and Procedures
     | TokenFinish | TokenFunction | TokenProcedure | TokenReturn
@@ -130,8 +130,8 @@ instance Show Token where
         TokenGE       -> "TOKEN: >="
         TokenEQ        -> "TOKEN: ="
         TokenNE        -> "TOKEN: /="
-        TokenFactor    -> "TOKEN: |"
-        TokenNotFactor -> "TOKEN: !|"
+        TokenFA    -> "TOKEN: |"
+        TokenNF -> "TOKEN: !|"
 
     -- Control Structures
         TokenEnd       -> "TOKEN: end"
@@ -141,6 +141,8 @@ instance Show Token where
         TokenIf        -> "TOKEN: if"
         TokenOtherwise -> "TOKEN: otherwise"
         TokenWhile     -> "TOKEN: while"
+        TokenCase      -> "TOKEN: case"
+        TokenOf        -> "TOKEN: of"
 
     -- Functions and Procedures
         TokenFinish    -> "TOKEN: finish"

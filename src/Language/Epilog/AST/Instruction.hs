@@ -1,48 +1,117 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Language.Epilog.AST.Instruction
-    ( InstBlock
+    ( Inst
+    , Insts
+    , Guard
+    , Guards
+    , Exps
+    , Set
+    , Sets
+    , Range
+    , Ranges
+    , Cond
+    , Conds
     , Instruction(..)
     , Type(..)
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.At
+import           Language.Epilog.Treelike
 
-import           Data.Foldable              (toList)
-import           Data.List                  (intercalate)
-import           Data.Sequence              (Seq, empty, fromList, index,
-                                             singleton, (<|), (><), (|>))
+import           Data.Foldable (toList)
+import           Data.Sequence                  (Seq)
 --------------------------------------------------------------------------------
 
-type InstBlock = Seq (At Instruction)
+type Inst   = At Instruction
+type Insts  = Seq Inst
 
-showInst :: String -> Seq (At Instruction) -> String
-showInst sep list = intercalate sep (map (show.item) (toList list))
+type Guard  = (Exp, Insts)
+type Guards = Seq Guard
+
+type Exps   = Seq Exp
+type Set    = (Exps, Insts)
+type Sets   = Seq Set
+
+type Range  = (Exp, Exp, Insts)
+type Ranges = Seq Range
+
+type Cond   = (Exp, Insts)
+type Conds  = Seq Cond
 
 data Instruction
     = EmptyInst
-    | Assign (At Expression) (At Expression)
+    | Assign Exp Exp
     | Declaration (At Type) (At String)
     | Initialization (At Type) (At Instruction)
-    | If InstBlock
-    | Guard (At Expression) InstBlock
+
+    | If Guards
+    | Case (At String) Sets
+    | For (At String) Ranges
+    | While Conds
+
+    | Read Exp
+    | Write Exp
+
     | Finish
-    | Return (At Expression)
-    deriving (Eq)
+    | Return Exp
+    deriving (Eq, Show)
 
-instance Show Instruction where
-    show = \case
-        EmptyInst -> ""
-        Assign varid value -> "Assign " ++ show (item varid) ++ " " ++ show (item value)
-        Declaration t varid -> show (item t) ++ " " ++ item varid
-        Initialization t assign -> show (item t) ++ " (" ++ show (item assign) ++ ")"
-        If glist -> "If \n"++ showInst "\n" glist ++ "\nEnd"
-        Guard cond inst -> show (item cond) ++ " -> " ++ showInst "\n" inst
-        Finish -> "Finish"
-        Return value -> "Return " ++ show (item value)
-    -- Declaration type id
+-- instance Show Instruction where
+--     show = \case
+--         Assign varid value -> "Assign " ++ show (item varid) ++ " " ++ show (item value)
+--         Declaration t varid -> show (item t) ++ " " ++ item varid
+--         Initialization t assign -> show (item t) ++ " (" ++ show (item assign) ++ ")"
 
+--         If glist -> "If \n"++ show glist ++ "\nEnd"
+--         Case var sets -> "Case \n"++ show (item var) ++ show sets  ++ "\nEnd"
+--         For var ranges -> "For \n"++ show (item var) ++ show ranges ++ "\nEnd"
+--         While conds -> "While \n"++ show conds ++ "\nEnd"
+
+--         Read expr -> "Read \n" ++ show (item expr)
+--         Write expr -> "Write \n" ++ show (item expr)
+
+--         Finish -> "Finish"
+--         Return value -> "Return " ++ show (item value)
+--     -- Declaration type id
+
+instance Treelike Instruction where
+    toTree = \case
+        Assign exp0 exp1 ->
+            Node "UNDEFINED" []
+
+        Declaration (t_pe :@ typePos) (string :@ stringPos) ->
+            Node "UNDEFINED" []
+        Initialization (t_pe :@ typePos) (inst :@ instPos) ->
+            Node "UNDEFINED" []
+
+        If guards ->
+            Node "UNDEFINED" []
+        Case (string :@ stringPos) sets ->
+            Node "UNDEFINED" []
+        For (string :@ stringPos) ranges ->
+            Node "UNDEFINED" []
+        While conds ->
+            Node "While" (toList . fmap whileTree $ conds )
+
+        Read expr ->
+            Node "Read" [toTree expr]
+        Write expr ->
+            Node "Write" [toTree expr]
+
+        Finish ->
+            Node "Finish" []
+        Return expr ->
+            Node "Return" [toTree expr]
+
+        where
+            whileTree :: Cond -> Tree String
+            whileTree (expr, insts) =
+                Node "Branch"
+                    [ Node "Condition" [toTree expr]
+                    , Node "Body" (toForest insts)
+                    ]
 
 data Type
     = IntT | CharT | FloatT | BoolT | StringT deriving (Eq, Show)

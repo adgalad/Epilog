@@ -3,46 +3,59 @@
 module Language.Epilog.AST.Program
     ( Program (..)
     , Declaration (..)
-    , Declarations
+    , Dec
+    , Decs
     ) where
 --------------------------------------------------------------------------------
-import           Data.Sequence                   (Seq)
 import           Language.Epilog.AST.Instruction
 import           Language.Epilog.At
+import           Language.Epilog.Treelike
+
+import           Data.Sequence                   (Seq)
+import qualified Data.Sequence                   as Seq (empty)
 --------------------------------------------------------------------------------
 
-data Program = Program Declarations deriving (Eq, Show)
-
-type Declarations = Seq (At Declaration)
+type Dec = At Declaration
+type Decs = Seq Dec
 
 data Declaration
     = GlobalD
-        { globalType  :: At Type
-        , globalValue :: Maybe String
-        }
     | EitherD
-        { eitherName :: At String
-        }
     | RecordD
-        {
-        }
     | ProcD
         { procName  :: At String
-        , procVars  :: InstBlock
-        , procInsts :: InstBlock
+        , procVars  :: Insts
+        , procInsts :: Insts
         }
     | FunD
         { funName  :: At String
-        , funVars  :: InstBlock
+        , funVars  :: Insts
         , funType  :: At Type
-        , funInsts :: InstBlock
+        , funInsts :: Insts
         }
     deriving (Eq, Show)
 
--- data Method
---     = Proc (P String) InstBlock InstBlock
---     | Func (P String) InstBlock (P Type) InstBlock
--- instance Show Method where
---     show = \case
---         Proc name param inst -> "Proc " ++ token name ++ " ( "++ showInst ", " param ++ ")\n" ++ showInst "\n" inst
---         Func name param t inst -> "Func " ++ token name ++ " ( "++ showInst ", " param ++ ")" ++ "->" ++ show (token t) ++"\n"++ showInst "\n" inst
+instance Treelike Declaration where
+    toTree = \case
+        GlobalD -> Node undefined []
+        EitherD -> Node undefined []
+        RecordD -> Node undefined []
+        ProcD (name :@_) vars insts ->
+            Node (unwords ["Procedure", name])
+                [ varsTree vars
+                , Node "Body" (toForest insts)
+                ]
+        FunD  (name :@_) vars (t_pe:@_) insts ->
+            Node (unwords ["Function", name, "->", show t_pe])
+                [ varsTree vars
+                , Node "Body" (toForest insts)
+                ]
+        where
+            varsTree vars = if vars == Seq.empty
+                then Node "No vars" []
+                else Node "Vars" (toForest vars)
+
+data Program = Program Decs deriving (Eq, Show)
+
+instance Treelike Program where
+    toTree (Program decs) = Node "Program" (toForest decs)

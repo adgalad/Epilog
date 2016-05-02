@@ -100,14 +100,14 @@ epilog :-
     <0> "rem"                   { make TokenRem      }
 
     ---- Relational
-    <0> "<"                     { make TokenLT        }
-    <0> "=<"                    { make TokenLE       }
-    <0> ">"                     { make TokenGT        }
-    <0> ">="                    { make TokenGE       }
-    <0> "="                     { make TokenEQ        }
-    <0> "/="                    { make TokenNE        }
-    <0> "|"                     { make TokenFactor    }
-    <0> "!|"                    { make TokenNotFactor }
+    <0> "<"                     { make TokenLT }
+    <0> "=<"                    { make TokenLE }
+    <0> ">"                     { make TokenGT }
+    <0> ">="                    { make TokenGE }
+    <0> "="                     { make TokenEQ }
+    <0> "/="                    { make TokenNE }
+    <0> "|"                     { make TokenFA }
+    <0> "!|"                    { make TokenNF }
 
     -- Control Structures
     <0> "end"                   { make TokenEnd       }
@@ -117,6 +117,8 @@ epilog :-
     <0> "if"                    { make TokenIf        }
     <0> "otherwise"             { make TokenOtherwise }
     <0> "while"                 { make TokenWhile     }
+    <0> "case"                  { make TokenCase      }
+    <0> "of"                    { make TokenOf        }
 
     -- Functions and Procedures
     <0> "finish"                { make TokenFinish    }

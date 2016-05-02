@@ -1,9 +1,11 @@
-while (4 >= 5 = true) ->
-	integer X is 5,
-	X is 5 + 0x1AF,
-	float Y is 5.123e12,
-	string Z is "a",
-	character W is 'a',
-	X + toInteger(W) - toInteger(Y),
-	hola is 5
-	return 4.
+procedure main () :-
+    while (4 >= 5 = true) ->
+        integer X is 5,
+        X is 5 + 0x1AF,
+        float Y is 5.123e12,
+        string Z is "a",
+        character W is 'a',
+        X is X + toInteger W - toInteger Y,
+        Hola is 5,
+        return 4
+    end.

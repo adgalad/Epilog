@@ -8,6 +8,8 @@ module Language.Epilog.At
     , item
     ) where
 --------------------------------------------------------------------------------
+import Language.Epilog.Treelike
+--------------------------------------------------------------------------------
 
 data At a = a :@ (Int, Int) deriving (Bounded, Eq, Ord, Functor)
 
@@ -28,3 +30,9 @@ pos (_ :@ p)      = p
 
 item :: At a -> a
 item (i :@ _)     = i
+
+instance Treelike a => Treelike (At a) where
+    toTree (i :@ p) = Node root' children
+        where
+            Node root children = toTree i
+            root' = root ++ " @" ++ show p
