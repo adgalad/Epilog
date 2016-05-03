@@ -22,7 +22,7 @@ procedure main () :-
     
 
     integer:(X:5):5:5:6 Array,
-    Hola_Como is 1,
+    Hola_Me_LLamo_Pedro is Array:3:4:4:5,
 
 
     case I of 

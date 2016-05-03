@@ -200,6 +200,8 @@ Inst :: { Inst }
 ---- Declaration and Assignment ------------------------
 Assign :: { Inst }
     : VarId is Exp                  { Assign (VarId $1 <$ $1) $3 <$ $1 }
+    | RecordAccess is Exp           { Assign $1 $3 <$ $1 }
+
 
 Declaration :: { Inst }
     : Type VarId                    { Declaration $1 (VarId $2 <$ $1) <$ $1 }
@@ -216,6 +218,11 @@ Type :: { At Type }
     | float                         { FloatT <$ $1 }
     | int                           { IntT <$ $1 }
     | string                        { StringT <$ $1 }
+
+RecordAccess :: { Exp }
+    : VarId "_" RecordAccess        { Binary (Underscore <$ $2) (VarId $1 <$ $1) $3 <$ $1 }
+    | VarId                         { (VarId $1 <$ $1) }
+    
 
 ArraySize :: { Exps }
     : ":" Exp                       { Seq.singleton $2 }
