@@ -74,6 +74,9 @@ procedure main () :-
 
     person:5 MyFriends,
 
+    integer P is Array:(3 + 2),
+    integer Q is Array:3 + 2,
+
     case I of
         1,2,3     -> X is "Im 1 or 2 or 3 :)";
         4,5,6     -> X is "Im neither 1 nor 2 nor 3 :(";
