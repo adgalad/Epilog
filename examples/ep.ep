@@ -1,8 +1,52 @@
+procedure specialProcedure(integer X, float Y, integer K) :-
+    Y is toFloat X + 3.0,
+    X is K,
+
+    int W, read W,
+    if (K > W) -> finish
+    ;  (toInteger Y > W) -> K is X
+    end.
+
+procedure greetEveryone(integer X) :-
+    write "Hello everyone",
+    Aaa is Something.
+
+either hola :-
+    integer X,
+    integer Y,
+    character Z.
+
+%% Copy  %%
+%% Paste %%
+
+record person :-
+    string Name,
+    integer Age,
+    boolean IsRegistered.
+
+/%
+ %  Block Commenting
+ %  Just
+ %  Because
+ %/
+
+integer SoyGlobal.
+string  TmbSoyGlobal is "Y estoy Init".
+
+integer MyGlobalInt is 3.
+float MyPi is 3.1415. %% and some digits more
+
+character MyChar.
+
 procedure main () :-
+    read MyGlobalInt,
+
     for integer I
         from 1 to 3 -> X is 5, Y is 5;
-        from 5 to 10 -> X is Y, read(X)
+        from 5 to 10 -> X is Y, read X
     end,
+
+    bool Flag,
 
     while (4 >= 5 = true) ->
         integer X is 5,
@@ -12,43 +56,26 @@ procedure main () :-
         character W is 'a',
         X is X + toInteger W - toInteger Y,
         Hola is 5,
-        return 4
+        specialProcedure(X, Y, 5 + 3)
+
+    ;Flag ->
+        greetEveryone(),
+        %% write "Ok I'll stop",
+        Flag is false
+
     end,
 
-    if 
-        X =< 10 -> Zombie is "Dead"        , Human is "Alive";
-        X >  10 -> Zombie is "Eating Human", Human is "Eaten"
+    if X =< 10 -> Zombie is "Dead"        , Human is "Alive"
+    ;  X >  10 -> Zombie is "Eating Human", Human is "Eaten"
     end,
-    
 
-    integer:(X:5):5:5:6 Array,
-    Hola_Me_LLamo_Pedro is Array:3:4:4:5,
+    integer:5:5:5:6 Array,
+    Hola_Me_Llamo_Pedro is Array:3:4:4:5,
 
+    person:5 MyFriends,
 
-    case I of 
+    case I of
         1,2,3     -> X is "Im 1 or 2 or 3 :)";
         4,5,6     -> X is "Im neither 1 nor 2 nor 3 :(";
         otherwise -> X is "Im whatever"
     end.
-
-
-either hola :- 
-    integer X,
-    integer Y,
-    character Z.
-
-%% Copy  %%
-%% Paste %%
-record person :-
-    string Name,
-    integer Age,
-    boolean IsRegistered.
-
-integer SoyGlobal.
-string  TmbSoyGlobal is "Y estoy Init".
-
-
-
-
-
-

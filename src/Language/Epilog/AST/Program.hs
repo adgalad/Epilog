@@ -8,57 +8,54 @@ module Language.Epilog.AST.Program
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Instruction
-import           Language.Epilog.AST.Expression
 import           Language.Epilog.At
 import           Language.Epilog.Treelike
 
-import           Data.Sequence                   (Seq)
-import qualified Data.Sequence                   as Seq (empty)
+import           Data.Sequence                   (Seq, null)
+import           Prelude                         hiding (null)
 --------------------------------------------------------------------------------
-
-type Dec = At Declaration
-type Decs = Seq Dec
+-- Top Level Declarations ------------------------------------------------------
 
 data Declaration
     = GlobalD Inst
-    | EitherD (At String) Insts
-    | RecordD (At String) Insts
-    | ProcD
-        { procName  :: At String
-        , procVars  :: Insts
-        , procInsts :: Insts
+    | RecordD
+        { recordName    :: At String
+        , recordEntries :: Insts
         }
-    | FunD
-        { funName  :: At String
-        , funVars  :: Insts
-        , funType  :: At Type
-        , funInsts :: Insts
+    | EitherD
+        { eitherName    :: At String
+        , eitherMembers :: Insts
+        }
+    | ProcD
+        { procName   :: At String
+        , procParams :: Insts
+        , procInsts  :: Insts
         }
     deriving (Eq, Show)
 
 instance Treelike Declaration where
     toTree = \case
-        GlobalD var -> Node "Global" [toTree var]
-        EitherD (name :@_) insts -> 
-            Node ("Either "++name) [ Node "Body" (toForest insts) ]
-        RecordD (name :@_) insts -> 
-            Node ("Record "++name) [ Node "Body" (toForest insts) ]
-        ProcD (name :@_) param insts ->
-            Node (unwords ["Procedure", name])
-                [ paramTree param
+        GlobalD var ->
+            Node "Global" [toTree var]
+
+        RecordD (name :@ _ ) insts ->
+            Node ("Record " ++ name) [Node "Entries" (toForest insts)]
+
+        EitherD (name :@ _ ) insts ->
+            Node ("Either " ++ name) [Node "Members" (toForest insts)]
+
+        ProcD (name :@ _ ) params insts ->
+            Node ("Procedure " ++ name)
+                [ if null params
+                    then Node "No parameters" []
+                    else Node "Parameters" (toForest params)
                 , Node "Body" (toForest insts)
                 ]
-        FunD  (name :@_) param (t_pe:@_) insts ->
-            Node (unwords ["Function", name, "->", show t_pe])
-                [ paramTree param
-                , Node "Body" (toForest insts)
-                ]
-        where
 
+-- Program ---------------------------------------------------------------------
 
-            paramTree param = if param == Seq.empty
-                then Node "No parameters" []
-                else Node "Parameters" (toForest param)
+type Dec = At Declaration
+type Decs = Seq Dec
 
 data Program = Program Decs deriving (Eq, Show)
 

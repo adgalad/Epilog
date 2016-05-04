@@ -35,9 +35,8 @@ data Token
     | TokenEnd | TokenFor | TokenFrom | TokenTo | TokenIf | TokenOtherwise
     | TokenWhile | TokenCase | TokenOf
 
-    -- Functions and Procedures
-    | TokenFinish | TokenFunction | TokenProcedure | TokenReturn
-    | TokenDefine
+    -- Procedures
+    | TokenProcedure | TokenDefine | TokenFinish
 
     -- Composite Types
     | TokenEither | TokenRecord
@@ -144,12 +143,10 @@ instance Show Token where
         TokenCase      -> "TOKEN: case"
         TokenOf        -> "TOKEN: of"
 
-    -- Functions and Procedures
-        TokenFinish    -> "TOKEN: finish"
-        TokenFunction  -> "TOKEN: function"
+    -- Procedures
         TokenProcedure -> "TOKEN: procedure"
-        TokenReturn    -> "TOKEN: return"
         TokenDefine    -> "TOKEN: :-"
+        TokenFinish    -> "TOKEN: finish"
 
     -- Composite Types
         TokenEither -> "TOKEN: either"

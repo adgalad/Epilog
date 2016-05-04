@@ -4,10 +4,10 @@ courses on Programming Languages at Universidad Simón Bolívar. It is inspired,
 in part, by the syntax of programming languages Prolog[^1]
 and [Erlang](http://www.erlang.org/).
 
-Epilog is imperative and strongly typed. It supports functions, procedures,
-logical (if) and value (case) selectors, count- (for) and condition-controlled
-(while) loops, recursion, line and block comments, as well as arbitrarily
-nested structured (record) and union (either) type definition.
+Epilog is imperative and strongly typed. It supports procedures, logical (if)
+and value (case) selectors, count- (for) and condition-controlled (while) loops,
+recursion, line and block comments, as well as arbitrarily nested structured
+(record) and union (either) type definition.
 
 
 ## Lexical considerations
@@ -18,8 +18,8 @@ cannot be used as identifiers nor redefined.
 
 > `and`, `andalso`, `band`, `bnot`, `boolean`, `bor`, `bsl`, `bsr`,
 > `bxor`, `character`, `div`, `either`, `end`, `false`, `finish`,
-> `float`, `for`, `function`, `if`, `integer`, `is`, `length`, `not`,
-> `or`, `orelse`, `otherwise`, `print`, `procedure`, `read`, `record`,
+> `float`, `for`,  `if`, `integer`, `is`, `length`, `not`, `or`,
+> `orelse`, `otherwise`, `print`, `procedure`, `read`, `record`,
 > `rem`, `return`, `string`, `toBoolean`, `toCharacter`, `toFloat`,
 > `toInteger`, `true`, `void`, `while`, `xor`
 
@@ -31,8 +31,8 @@ classified into Variable Identifiers and General Identifiers.
 Variable Identifiers must begin with a capital letter (`[A-Z]`), and are used
 for naming variables.
 
-General Identifiers must begin with a lowercase letter, and are used for
-naming functions, procedures, structures and union types.
+General Identifiers must begin with a lowercase letter, and are used for naming
+procedures, structures and union types.
 
 ### Whitespace
 Whitespace (i.e. spaces, tabs, newlines) serves to separate tokens and is
@@ -109,7 +109,6 @@ Operators have the following precedence, from highest to lowest:
 |------------------------|-------------------------------------------------|---------------|
 | `to*`                  | Type conversion operators                       | Right to left |
 | `length`               | Array length                                    |      None     |
-| `()`                   | Function/Procedure call                         | Left to right |
 | `:`                    | Array subscripting                              | Left to right |
 | `_`                    | Record entry and union member access            | Left to right |
 | `-`, `not`, `bnot`     | Unary arithmetic, logical, and bitwise negation | Right to left |
@@ -194,13 +193,12 @@ Examples:
 
 ## Program Structure
 
-An Epilog program consists of zero or more `record`, `either` or `function`
-definitions, as well as one or more `procedure` definitions. One of the
-procedure definitions must be for the special procedure `main`. This
-procedure will be the first one to be executed when running the compiled
-Epilog program, and will be the place from which to call any other
-procedures or functions declared in the program, as well as make use
-of the defined `record`s and `either`s.
+An Epilog program consists of zero or more `record` or `either` definitions, as
+well as one or more `procedure` definitions. One of the procedure definitions
+must be for the special procedure `main`. This procedure will be the first one
+to be executed when running the compiled Epilog program, and will be the place
+from which to call any other procedures declared in the program, as well as make
+use of the defined `record`s and `either`s.
 
 Example:
 
@@ -217,28 +215,23 @@ Example:
         read(C),
         C is toCharacter(toInteger(C) + 42).
 
-    function myFunction(integer X) -> integer :-
-        return X+1.
-
     procedure main() :-
         print("This is the first instruction"),
-        integer Y is myFunction(3),
 
         myEither D,
         proc(D_CharacterMember),
         print(D_IntegerMember).
 ~~~
 
-
 ## Scoping
 
-Epilog uses a static scope and support nested scopes. Each `procedure` and
-`function` has its own scope for its parameters and the variables declared
-inside them. Every block inside a control structure creates a new scope too.
+Epilog uses a static scope and support nested scopes. Each `procedure` has its
+own scope for its parameters and the variables declared inside them. Every block
+inside a control structure creates a new scope too.
 
 - Any identifier declared at the highest scope is a global identifier.
 - Every identifier must be declared before it can be used.
-- Functions and procedures can only be declared at the highest scope.
+- Procedures can only be declared at the highest scope.
 - Declaring an identifier twice in the same scope is not allowed.
 - A variable identifier can be redefined in a nested scope and it hides or
     "shadows" the previous declaration until the scope is left.
@@ -299,8 +292,8 @@ following syntax:
 ~~~
 
 A programmer who uses arrays can take advantage of the predefined `length`
-unary operator when writing functions and procedures. This operator returns the
-length of the array to its right.
+unary operator when writing procedures. This operator returns the length of the
+array to its right.
 
 Attempting to access an element outside the bounds of an array produces a
 runtime error.
@@ -442,40 +435,12 @@ initialized at the site of declaration. The constraints for `string`
 constants are discussed in the section "Constants" under
 "Lexical considerations".
 
-### Void
-The `void` type is the return type of procedures. It is not necessary to
-write it on the declaration of a function, and it is not recommended to do
-so, but programmers used to other languages might find it easier to write
-the type anyway. This means that the following two examples are equivalent:
-
-~~~erlang
-    procedure aProcedure(integer X, char C) :-
-        print(X),
-        if
-            (X > 10) -> finish
-        end,
-        read(C).
-~~~
-
-~~~erlang
-    %% Not recommended but still valid.
-    procedure aProcedure(integer X, char C) -> void :-
-        print(X),
-        if
-            (X > 10) -> finish
-        end,
-        read(C).
-~~~
-
-It is not allowed to write any other type as the return value of a procedure,
-and at no point can a `void` variable be declared inside a program.
-
 
 ## Type equivalence and compatibility
 Epilog has strict types, which means that at no point are values implicitly
 converted or coerced from one type to another. In other words, a type is only
-equivalent and compatible with itself. For conversion between native types,
-the predefined functions `toBoolean`, `toCharacter`, `toInteger` and `toFloat`
+equivalent and compatible with itself. For conversion between native types, the
+predefined unary operators `toBoolean`, `toCharacter`, `toInteger` and `toFloat`
 are provided, with the following semantics:
 
 | From ↓    | `toBoolean`          | `toChar`                        | `toInteger`                    | `toFloat`                         |
@@ -652,47 +617,21 @@ Examples:
 ~~~
 
 
-## Functions
-Functions are pure, which means that evaluating a function has no side effects.
-A function looks like a procedure but unlike a procedure, it is declared using
-the keyword `function`, its arguments are read only, global variables are not
-allowed within its scope and the return type must always be declared
-explicitly. Additionally, they must always return a value. Functions can
-return a value of any type, except void.
-
-Syntax:
-~~~erlang
-    function <function_name> (<type_0> <parameter_0> [, <type_i> <parameter_i>]) -> <return_type> :-
-        <instruction_0> [, <instruction_j>].
-~~~
-
-Examples:
-~~~erlang
-    function foo(integer X) -> integer :-
-        integer Y is 4,
-        integer Z is 5,
-        return X+Y+Z.
-~~~
-
-
 ## Subroutine invocation
-Subroutine (rocedure or function) invocation involves passing the argument
-alues from the caller to the callee (the subroutine) and executing its body,
-returning a result only in the case of a function. When a subroutine is
-invoked, the actual arguments are evaluated and bound to the formal
-parameters. All Epilog parameters and return values are passed by value.
+
+Procedure invocation involves passing the argument values from the caller to the
+callee (the subroutine) and executing its body. When a subroutine is invoked,
+the actual arguments are evaluated and bound to the formal parameters. All
+Epilog parameters and return values are **passed by value**
+(***TO DO:*** change this).
 
 - The number of actual arguments in a subroutine call must match the
 number of formal parameters.
 - The type of each actual argument in a subroutine call must be compatible
 with the formal parameter.
 - The actual arguments to a subroutine call are evaluated from left to right.
-- A function call returns control to the caller on a return statement
-or when the textual end of the function is reached.
 - A procedure call returns control to the caller on a finish statement
 or when the textual end of the procedure is reached.
-- A function call evaluates to the type of the function’s declared return
-type, and must be assigned to a variable of the same type.
 - A procedure call evaluates to the `void` type and cannot be assigned to
 a variable.
 

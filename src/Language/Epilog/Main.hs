@@ -104,4 +104,4 @@ doParse input file = do
     liftIO . putStrLn $ unwords ["Parsing", file]
 
     let (prog, plerrs) = parseProgram input
-    liftIO . putStrLn . drawTree $toTree prog
+    when (P.null plerrs) $ liftIO . putStrLn . drawTree $ toTree prog

@@ -62,12 +62,12 @@ epilog :-
     <0> $white+                 ;
 
     -- Comments
-    <0> "%%".*                  ;
+    <0> \% \% .*                ;
     <0> "/%"                    { enterNewComment `andBegin` c }
     <c> "/%"                    { embedComment   }
     <c> "%/"                    { unembedComment }
     <c> .                       ;
-    <c> "\n"                    { skip }
+    <c> $white+                 ;
 
     -- Operators
     ---- Logical
@@ -120,12 +120,10 @@ epilog :-
     <0> "case"                  { make TokenCase      }
     <0> "of"                    { make TokenOf        }
 
-    -- Functions and Procedures
-    <0> "finish"                { make TokenFinish    }
-    <0> "function"              { make TokenFunction  }
+    -- Procedures
     <0> "procedure"             { make TokenProcedure }
-    <0> "return"                { make TokenReturn    }
     <0> ":-"                    { make TokenDefine    }
+    <0> "finish"                { make TokenFinish    }
 
     -- Composite Types
     <0> "either"                { make TokenEither }

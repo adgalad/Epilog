@@ -1,94 +1,58 @@
-{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Language.Epilog.AST.Expression
     ( Exp
-    , Expression(..)
-    , BinaryOp(..)
-    , UnaryOp(..)
+    , Expression (..)
+    , BinaryOp (..)
+    , UnaryOp (..)
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.At
 import           Language.Epilog.Treelike
 
-import           Data.Int               (Int32)
+import           Data.Int                 (Int32)
 --------------------------------------------------------------------------------
 
 type Exp = At Expression
 
 data Expression
-    = LitBool   (At Bool  )
-    | Otherwise (At ()    )
-    | LitChar   (At Char  )
-    | LitInt    (At Int32 )
-    | LitFloat  (At Float )
-    | LitString (At String)
+    = LitBool   Bool
+    | LitChar   Char
+    | LitInt    Int32
+    | LitFloat  Float
+    | LitString String
 
-    | VarId (At String)
-    | GenId (At String)
+    | Otherwise
 
-    | ToBoolean   Exp
-    | ToCharacter Exp
-    | ToFloat     Exp
-    | ToInteger   Exp
+    | VarId String
 
     | Binary (At BinaryOp) Exp Exp
     | Unary  (At UnaryOp)  Exp
-    deriving (Eq)
-
-instance Show Expression where
-    show = \case
-        LitBool   value    -> "LitBool "   ++ show (item value)
-        Otherwise _        -> "Otherwise"
-        LitChar   value    -> "LitChar "   ++ [item value]
-        LitInt    value    -> "LitInt "    ++ show (item value)
-        LitFloat  value    -> "LitFloat "  ++ show (item value)
-        LitString value    -> "LitString " ++ item value
-
-        ToBoolean   value  -> "ToBoolean " ++ show (item value)
-        ToCharacter value  -> "ToCharacter " ++ show (item value)
-        ToFloat     value  -> "ToFloat " ++ show (item value)
-        ToInteger   value  -> "ToInteger " ++ show (item value)
-
-        VarId     value    -> "VarId "     ++ item value
-        GenId     value    -> "GenId "     ++ item value
-
-        Binary    op e1 e2 -> "(" ++ show (item e1) ++ " " ++ show (item op) ++ " " ++ show  (item e2) ++ ")"
-        Unary     op e     -> "(" ++ show (item op) ++ " " ++ show (item e) ++ ")"
+    deriving (Eq, Show)
 
 instance Treelike Expression where
     toTree = \case
-        LitBool (val   :@ _) ->
+        LitBool val ->
             Node (if val then "true" else "false") []
-        Otherwise (()  :@ _) ->
+        LitChar val ->
+            Node (show val) []
+        LitInt val ->
+            Node (show val) []
+        LitFloat val ->
+            Node (show val) []
+        LitString val ->
+            Node (show val) []
+
+        Otherwise ->
             Node "otherwise" []
-        LitChar (val :@ _) ->
-            Node (show val) []
-        LitInt (val :@ _) ->
-            Node (show val) []
-        LitFloat (val :@ _) ->
-            Node (show val) []
-        LitString (val :@ _) ->
-            Node (show val) []
 
-        VarId (name :@ _) ->
-            Node ("Var "++name) []
-        GenId (name :@ _) ->
-            Node ("Gen "++name) []
-
-        ToBoolean   expr ->
-            Node "toBoolean" [ toTree expr]
-        ToCharacter expr ->
-            Node "toCharacter" [ toTree expr]
-        ToFloat     expr ->
-            Node "toFloat" [ toTree expr]
-        ToInteger   expr ->
-            Node "toInteger" [ toTree expr]
+        VarId name ->
+            Node ("Variable " ++ name) []
 
         Binary    (op :@ _) exp0 exp1 ->
             Node (show op) (toForest [exp0, exp1])
         Unary     (op :@ _) expr ->
             Node (show op) [toTree expr]
-
 
 data BinaryOp
     = And | Andalso | Or | Orelse | Xor
@@ -132,11 +96,19 @@ data UnaryOp
     | Bnot
     | Length
     | Uminus
+    | ToBoolean
+    | ToCharacter
+    | ToFloat
+    | ToInteger
     deriving Eq
 
 instance Show UnaryOp where
     show = \case
-        Not    -> "not"
-        Bnot   -> "bnot"
-        Length -> "length"
-        Uminus -> "(-)"
+        Not         -> "not"
+        Bnot        -> "bnot"
+        Length      -> "length"
+        Uminus      -> "(-)"
+        ToBoolean   -> "toBoolean"
+        ToCharacter -> "toCharacter"
+        ToFloat     -> "toFloat"
+        ToInteger   -> "toInteger"

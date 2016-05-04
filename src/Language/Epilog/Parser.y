@@ -6,6 +6,7 @@ module Language.Epilog.Parser
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
 import           Language.Epilog.AST.Program
+import           Language.Epilog.At
 import           Language.Epilog.Lexer
 
 import           Data.Int                        (Int32)
@@ -73,12 +74,10 @@ import qualified Data.Sequence                   as Seq (empty, singleton)
     case            { TokenCase      :@ _ }
     of              { TokenOf        :@ _ }
 
-    -- Functions and Procedures
-    finish          { TokenFinish    :@ _ }
-    func            { TokenFunction  :@ _ }
+    -- Procedures
     proc            { TokenProcedure :@ _ }
-    return          { TokenReturn    :@ _ }
     ":-"            { TokenDefine    :@ _ }
+    finish          { TokenFinish    :@ _ }
 
     -- Composite Types
     either          { TokenEither :@ _ }
@@ -123,7 +122,6 @@ import qualified Data.Sequence                   as Seq (empty, singleton)
     varId           { TokenVarId _ :@ _ }
     genId           { TokenGenId _ :@ _ }
 
-
 -- Precedence
 %right    is
 
@@ -164,20 +162,21 @@ TopDecs :: { Decs }
 TopDec :: { Dec }
     : proc GenId "(" Params ")" ":-" Insts "."
                                     { ProcD $2 $4 $7 <$ $1 }
-    | func GenId "(" Params ")" "->" Type ":-" Insts "."
-                                    { FunD $2 $4 $7 $9 <$ $1 }
-    | either GenId ":-" Insts "."   { EitherD $2 $4 <$ $1 }
-    | record GenId ":-" Insts "."   { RecordD $2 $4 <$ $1 }
+    | either GenId ":-" Decs "."    { EitherD $2 $4 <$ $1 }
+    | record GenId ":-" Decs "."    { RecordD $2 $4 <$ $1 }
     | Declaration "."               { GlobalD $1 <$ $1}
     | Initialization "."            { GlobalD $1 <$ $1}
 
+GenId :: { At String }
+    : genId                         { unTokenGenId `fmap` $1 }
+
 Params :: { Insts }
     : {- lambda -}                  { Seq.empty }
-    | Params1                       { $1 }
+    | Decs                          { $1 }
 
-Params1 :: { Insts }
-    : Declaration                   { Seq.singleton ($1) }
-    | Declaration "," Params1        { $1 <| $3 }
+Decs :: { Insts }
+    : Declaration                   { Seq.singleton $1 }
+    | Declaration "," Decs          { $1 <| $3 }
 
 -- Instructions ------------------------
 Insts :: { Insts }
@@ -185,48 +184,64 @@ Insts :: { Insts }
     | Inst "," Insts                { $1   <|   $3 }
 
 Inst :: { Inst }
-    : Assign                        { $1 }
-    | Declaration                   { $1 }
+    : Declaration                   { $1 }
     | Initialization                { $1 }
+    | Assign                        { $1 }
+    | Call                          { $1 }
     | If                            { $1 }
     | Case                          { $1 }
     | For                           { $1 }
     | While                         { $1 }
-    | read Exp                      { Read $2 <$ $1 }
+    | read Lval                     { Read $2 <$ $1 }
     | write Exp                     { Write $2 <$ $1 }
     | finish                        { Finish <$ $1 }
-    | return Exp                    { Return $2 <$ $1 }
 
----- Declaration and Assignment ------------------------
-Assign :: { Inst }
-    : VarId is Exp                  { Assign (VarId $1 <$ $1) $3 <$ $1 }
-    | RecordAccess is Exp           { Assign $1 $3 <$ $1 }
-
-
+---- Declaration and Initialization ----
 Declaration :: { Inst }
-    : Type VarId                    { Declaration $1 (VarId $2 <$ $1) <$ $1 }
-    | Type ArraySize VarId          { Declaration (Array $1 $2 <$ $1) (VarId $3 <$ $1) <$ $1 }
+    : Type VarId                    { Declaration $1 $2 Nothing <$ $1 }
 
 Initialization :: { Inst }
-    : Type Assign                   { Initialization $1 $2 <$ $1}
-
-
+    : Type VarId is Exp             { Declaration $1 $2 (Just $4) <$ $1 }
 
 Type :: { At Type }
-    : bool                          { BoolT <$ $1 }
-    | char                          { CharT <$ $1 }
-    | float                         { FloatT <$ $1 }
-    | int                           { IntT <$ $1 }
-    | string                        { StringT <$ $1 }
+    : Atom                          { Type (item $1) Seq.empty <$ $1 }
+    | Atom ":" ArraySize            { Type (item $1) $3 <$ $1 }
 
-RecordAccess :: { Exp }
-    : VarId "_" RecordAccess        { Binary (Underscore <$ $2) (VarId $1 <$ $1) $3 <$ $1 }
-    | VarId                         { (VarId $1 <$ $1) }
-    
+Atom :: { At Atom }
+    : bool                          { BoolT     <$ $1 }
+    | char                          { CharT     <$ $1 }
+    | float                         { FloatT    <$ $1 }
+    | int                           { IntT      <$ $1 }
+    | string                        { StringT   <$ $1 }
+    | GenId                         { UserT `fmap` $1 }
 
-ArraySize :: { Exps }
-    : ":" Exp                       { Seq.singleton $2 }
-    | ArraySize ":" Exp             { $1 |> $3 }
+ArraySize :: { Seq Int32 }
+    : Int                           { Seq.singleton (item $1) }
+    | Int ":" ArraySize             { (item $1) <| $3 }
+
+---- Assignment ------------------------
+Assign :: { Inst }
+    : Lval is Exp                   { Assign (item $1) $3 <$ $1 }
+
+Lval :: { At Lval }
+    : VarId                         { Variable         $1 <$ $1 }
+    | Lval "_" VarId                { Member (item $1) $3 <$ $1 }
+    | Lval ":" Exp                  { Entry  (item $1) $3 <$ $1 }
+
+VarId :: { At String }
+    : varId                         { unTokenVarId `fmap` $1 }
+
+---- Call ------------------------------
+Call :: { Inst }
+    : GenId "(" Args ")"            { Call $1 $3 <$ $1 }
+
+Args :: { Exps }
+    : {- lambda -}                  { Seq.empty }
+    | Args1                         { $1 }
+
+Args1 :: { Exps }
+    : Exp                           { Seq.singleton $1 }
+    | Exp "," Args1                 { $1 <| $3 }
 
 ---- If --------------------------------
 If :: { Inst }
@@ -241,7 +256,7 @@ Guard :: { Guard }
 
 ---- Case ------------------------------
 Case :: { Inst }
-    : case VarId of Sets end        { Case (VarId $2 <$ $1) $4 <$ $1 }
+    : case Exp of Sets end          { Case $2 $4 <$ $1 }
 
 Sets :: { Sets }
     : Set                           { Seq.singleton $1 }
@@ -256,7 +271,7 @@ Set :: { Set }
 
 ---- For loops -------------------------
 For :: { Inst }
-    : for VarId Ranges end          { For (VarId $2 <$ $1) $3 <$ $1 }
+    : for VarId       Ranges end    { For  (VarId `fmap` $2) $3 <$ $1 }
     | for Declaration Ranges end    { ForD $2 $3 <$ $1 }
 
 Ranges :: { Ranges }
@@ -277,24 +292,24 @@ Conds :: { Conds }
 Cond :: { Cond }
     : Exp "->" Insts                { ($1, $3) }
 
----- Expressions -----------------------
+-- Expressions -------------------------
 Exp :: { Exp }
-    : "(" Exp ")" { $2 }
+    : "(" Exp ")"                   { $2 }
 
-    | Bool                          { LitBool   $1 <$ $1}
-    | Otherwise                     { Otherwise $1 <$ $1}
-    | Char                          { LitChar   $1 <$ $1}
-    | Int                           { LitInt    $1 <$ $1}
-    | Float                         { LitFloat  $1 <$ $1}
-    | String                        { LitString $1 <$ $1 }
-    | VarId                         { VarId     $1 <$ $1 }
-    | GenId                         { GenId     $1 <$ $1 }
+    | Bool                          { LitBool   `fmap` $1 }
+    | Char                          { LitChar   `fmap` $1 }
+    | Int                           { LitInt    `fmap` $1 }
+    | Float                         { LitFloat  `fmap` $1 }
+    | String                        { LitString `fmap` $1 }
+    | otherwise                     { Otherwise     <$ $1 }
 
-    -- Functions
-    | toBoolean   Exp               { ToBoolean   $2 <$ $1}
-    | toCharacter Exp               { ToCharacter $2 <$ $1}
-    | toFloat     Exp               { ToFloat     $2 <$ $1}
-    | toInteger   Exp               { ToInteger   $2 <$ $1}
+    | VarId                         { VarId     `fmap` $1 }
+
+    -- Conversion Operators
+    | toBoolean   Exp               { Unary (ToBoolean   <$ $1) $2 <$ $1 }
+    | toCharacter Exp               { Unary (ToCharacter <$ $1) $2 <$ $1 }
+    | toFloat     Exp               { Unary (ToFloat     <$ $1) $2 <$ $1 }
+    | toInteger   Exp               { Unary (ToInteger   <$ $1) $2 <$ $1 }
 
     -- Operators
     ---- Logical
@@ -303,7 +318,7 @@ Exp :: { Exp }
     | Exp or      Exp               { Binary (Or      <$ $2) $1 $3 <$ $1 }
     | Exp orelse  Exp               { Binary (Orelse  <$ $2) $1 $3 <$ $1 }
     | Exp xor     Exp               { Binary (Xor     <$ $2) $1 $3 <$ $1 }
-    |         not Exp %prec NEG     { Unary  (Not     <$ $1)    $2 <$ $1 }
+    |     not     Exp %prec NEG     { Unary  (Not     <$ $1)    $2 <$ $1 }
 
     ---- Bitwise
     | Exp band Exp                  { Binary (Band <$ $2) $1 $3 <$ $1 }
@@ -316,7 +331,7 @@ Exp :: { Exp }
     ---- Array / Record / Either
     | Exp ":"  Exp                  { Binary (Colon      <$ $2) $1 $3 <$ $1 }
     | Exp "_"  Exp                  { Binary (Underscore <$ $2) $1 $3 <$ $1 }
-    |   length Exp                  { Unary  (Length     <$ $2)    $2 <$ $1 }
+    | length Exp                    { Unary  (Length     <$ $1)    $2 <$ $1 }
 
     ---- Arithmetic
     | Exp "+" Exp                   { Binary (Plus     <$ $2) $1 $3 <$ $1 }
@@ -338,28 +353,19 @@ Exp :: { Exp }
     | Exp "!|" Exp                  { Binary (NFop <$ $2) $1 $3 <$ $1 }
 
 Bool :: { At Bool }
-    : boolLit                       { unTokenBoolLit   `fmap` $1 }
-
-Otherwise :: { At () }
-    : otherwise                     { (\_ -> ())       `fmap` $1 }
+    : boolLit                       { unTokenBoolLit    `fmap` $1 }
 
 Char :: { At Char }
-    : charLit                       { unTokenCharLit   `fmap` $1 }
+    : charLit                       { unTokenCharLit    `fmap` $1 }
 
 Int :: { At Int32 }
-    : intLit                        { unTokenIntLit    `fmap` $1 }
+    : intLit                        { unTokenIntLit     `fmap` $1 }
 
 Float :: { At Float }
-    : floatLit                      { unTokenFloatLit  `fmap` $1 }
+    : floatLit                      { unTokenFloatLit   `fmap` $1 }
 
 String :: { At String }
-    : stringLit                     { unTokenStringLit `fmap` $1 }
-
-VarId :: { At String }
-    : varId                         { unTokenVarId     `fmap` $1 }
-
-GenId :: { At String }
-    : genId                         { unTokenGenId     `fmap` $1 }
+    : stringLit                     { unTokenStringLit  `fmap` $1 }
 
 { ------------------------------------------------------------------------------
 -- Parser
@@ -378,7 +384,8 @@ lexer cont = do
         _ -> cont l
 
 parseError :: At Token -> Alex a
-parseError (t :@ p) = fail $ show p ++ ": Parse error on Token: " ++ show t ++ "\n"
+parseError (t :@ p) =
+    fail $ show p ++ ": Parse error on Token: " ++ show t ++ "\n"
 
 -- parseProgram :: String -> (Exp, String)
 parseProgram input = runAlex' input parser
