@@ -59,7 +59,7 @@ $charesc     = [0nt\\\'\"]
 epilog :-
 
     -- Whitespace
-    <0> $white+                 ;
+        $white+                 ;
 
     -- Comments
     <0> \% \% .*                ;
@@ -67,7 +67,6 @@ epilog :-
     <c> "/%"                    { embedComment   }
     <c> "%/"                    { unembedComment }
     <c> .                       ;
-    <c> $white+                 ;
 
     -- Operators
     ---- Logical
