@@ -157,7 +157,7 @@ Program :: { Program }
 -- Top Level Declarations --------------
 TopDecs :: { Decs }
     : TopDec                        { Seq.singleton $1 }
-    | TopDec TopDecs                { $1 <| $2 }
+    | TopDecs TopDec                { $1 |> $2 }
 
 TopDec :: { Dec }
     : proc GenId "(" Params ")" ":-" Insts "."
@@ -176,12 +176,12 @@ Params :: { Insts }
 
 Decs :: { Insts }
     : Declaration                   { Seq.singleton $1 }
-    | Declaration "," Decs          { $1 <| $3 }
+    | Decs "," Declaration          { $1 |> $3 }
 
 -- Instructions ------------------------
 Insts :: { Insts }
     : Inst                          { Seq.singleton $1 }
-    | Inst "," Insts                { $1   <|   $3 }
+    | Insts "," Inst                { $1   |>   $3 }
 
 Inst :: { Inst }
     : Declaration                   { $1 }
@@ -217,7 +217,7 @@ Atom :: { At Atom }
 
 ArraySize :: { Seq Int32 }
     : Int                           { Seq.singleton (item $1) }
-    | Int ":" ArraySize             { (item $1) <| $3 }
+    | ArraySize ":" Int             { $1 |> (item $3) }
 
 ---- Assignment ------------------------
 Assign :: { Inst }
@@ -241,7 +241,7 @@ Args :: { Exps }
 
 Args1 :: { Exps }
     : Exp                           { Seq.singleton $1 }
-    | Exp "," Args1                 { $1 <| $3 }
+    | Args1 "," Exp                 { $1 |> $3 }
 
 ---- If --------------------------------
 If :: { Inst }
@@ -249,7 +249,7 @@ If :: { Inst }
 
 Guards :: { Guards }
     : Guard                         { Seq.singleton $1 }
-    | Guard ";" Guards              { $1 <| $3 }
+    | Guards ";" Guard              { $1 |> $3 }
 
 Guard :: { Guard }
     : Exp "->" Insts                { ($1, $3) }
@@ -260,11 +260,11 @@ Case :: { Inst }
 
 Sets :: { Sets }
     : Set                           { Seq.singleton $1 }
-    | Set ";" Sets                  { $1 <| $3 }
+    | Sets ";" Set                  { $1 |> $3 }
 
 Exps :: { Exps }
     : Exp                           { Seq.singleton $1 }
-    | Exp "," Exps                  { $1 <| $3 }
+    | Exps "," Exp                  { $1 |> $3 }
 
 Set :: { Set }
     : Exps "->" Insts               { ($1, $3) }
@@ -276,7 +276,7 @@ For :: { Inst }
 
 Ranges :: { Ranges }
     : Range                         { Seq.singleton $1 }
-    | Range ";" Ranges              { $1 <| $3 }
+    | Ranges ";" Range              { $1 |> $3 }
 
 Range :: { Range }
     : from Exp to Exp "->" Insts    { ($2, $4, $6) }
@@ -287,7 +287,7 @@ While :: { Inst }
 
 Conds :: { Conds }
     : Cond                          { Seq.singleton $1 }
-    | Cond ";" Conds                { $1 <| $3 }
+    | Conds ";" Cond                { $1 |> $3 }
 
 Cond :: { Cond }
     : Exp "->" Insts                { ($1, $3) }
@@ -301,7 +301,7 @@ Exp :: { Exp }
     | Int                           { LitInt    `fmap` $1 }
     | Float                         { LitFloat  `fmap` $1 }
     | String                        { LitString `fmap` $1 }
-    | otherwise                     { Otherwise     <$ $1 }
+    | otherwise                     { Otherwise   <$   $1 }
 
     | VarId                         { VarId     `fmap` $1 }
 
@@ -385,7 +385,7 @@ lexer cont = do
 
 parseError :: At Token -> Alex a
 parseError (t :@ p) =
-    fail $ show p ++ ": Parse error on Token: " ++ show t ++ "\n"
+    fail $ show p ++ ": Parse error on " ++ show t ++ "\n"
 
 -- parseProgram :: String -> (Exp, String)
 parseProgram input = runAlex' input parser

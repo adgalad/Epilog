@@ -1,4 +1,4 @@
-procedure specialProcedure(integer X, float Y, integer K) :-
+procedure special'procedure'(integer X, float Y, integer K) :-
     Y is toFloat X + 3.0,
     X is K,
 
@@ -71,6 +71,8 @@ procedure main () :-
 
     integer:5:5:5:6 Array,
     Hola_Me_Llamo_Pedro is Array:3:4:4:5,
+
+    Array:2:(2+3):2:2 is Hola_Me_Llamo_Luis,
 
     person:5 MyFriends,
 
