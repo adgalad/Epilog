@@ -6,7 +6,7 @@ module Main (main) where
 import           Language.Epilog.Lexer
 import           Language.Epilog.Parser
 import           Language.Epilog.Treelike
-import           Language.Epilog.SymbolTable (prueba)
+import           Language.Epilog.SymbolTable 
 
 import           Control.Monad             (guard, void, when)
 import           Control.Monad.Trans       (liftIO)
@@ -42,7 +42,7 @@ data Flag
   | Version
   | Lex
   | Parse
-  | SymTable
+  | SymbolTable
   deriving (Show, Eq)
 
 options :: [OptDescr Flag]
@@ -55,7 +55,7 @@ options =
         "Performs the lexical analysis of the file"
     , Option ['p'] ["parse"]   (NoArg Parse)
         "Performs the lexical and syntactic analysis of the file"
-    , Option ['s'] ["symTable"]   (NoArg SymTable)
+    , Option ['s'] ["symTable"]   (NoArg SymbolTable)
         "Performs the lexical and syntactic analysis of the file"
     ]
 
@@ -114,6 +114,7 @@ doParse input file = do
 
 doSymTable :: String -> String -> MaybeT IO ()
 doSymTable input file = do
-    liftIO . putStrLn $ unwords ["Showing Symbol Table", file]
-    liftIO . putStr $ prueba
-    liftIO . putStrLn $ "Solo una prueba."
+    liftIO . putStrLn $ unwords ["Symbol Table of", file]
+
+    let (symtable, plerrs) = buildSymTable input
+    when (P.null plerrs) $ liftIO . putStrLn . drawTree $ toTree symtable
