@@ -122,7 +122,7 @@ doST handle file = do
 
     unless (handle == stdin) (hClose handle)
 
-    startTester
+    tester
 
 -- Main --------------------------------
 main :: IO ()
