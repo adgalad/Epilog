@@ -37,12 +37,13 @@ tester z r c = do
     hFlush stdout
     line <- getLine
     (case reads line of
-        [(Var   , "")] -> doVarAux
-        [(Var   , ' ':name)] -> doVar name
-        [(Open  , "")] -> doOpen
-        [(Close , "")] -> doClose
-        [(Quit  , "")] -> doQuit
-        _                  -> doWhat) z r c
+        [(Var  ,       "")] -> doVarAux
+        [(Var  ,      " ")] -> doVarAux
+        [(Var  , ' ':name)] -> doVar name
+        [(Open ,       "")] -> doOpen
+        [(Close,       "")] -> doClose
+        [(Quit ,       "")] -> doQuit
+        _                    -> doWhat) z r c
 
 doVar :: String -> Zipper -> Int -> Int -> IO ()
 doVar name z r c =
@@ -58,7 +59,7 @@ doVar name z r c =
                 "Not added to scope."
             tester z r c
     where
-        entry = Entry name (Type IntT Seq.empty) Nothing (0,0)
+        entry = Entry name (Type IntT Seq.empty) Nothing (r, c)
 
 doVarAux :: Zipper -> Int -> Int -> IO ()
 doVarAux z r c = do
