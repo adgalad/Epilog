@@ -12,7 +12,7 @@ module Language.Epilog.Lexer
 --------------------------------------------------------------------------------
 import           Language.Epilog.At
 import           Language.Epilog.Token
-
+--------------------------------------------------------------------------------
 import           Numeric.Limits         (minValue, maxValue)
 import           Data.Int               (Int32)
 import           Control.Monad          (liftM, when)

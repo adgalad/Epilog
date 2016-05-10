@@ -1,136 +1,203 @@
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TupleSections  #-}
+
 module Language.Epilog.SymbolTable
-    ( SymTable(..)
-    , Zipper(..)
-    , buildSymTable
+    ( Entry (..)
+    , SymbolTable (..)
+    , Zipper
+    , focus
+    , defocus
+    , insertSymbol
+    , emptyST
+    , insertST
+    , openScope
+    , closeScope
+    , local
+    , lookup
+    , root
+    , goDownFirst
+    , goDownLast
+    , goBack
+    , goLeft
+    , goRight
     ) where
-
-
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
-import           Language.Epilog.AST.Program
 import           Language.Epilog.AST.Type
-import           Language.Epilog.Parser
 import           Language.Epilog.Treelike
-
-
-import qualified Data.Map.Strict        as DM 
-import           Data.Maybe             (fromJust)
-import           Data.Sequence          hiding (null)
-import qualified Data.Sequence          as DS (null)
-
 --------------------------------------------------------------------------------
-
-
-data SymTable a = SymTable
-        (DM.Map String a) 
-        (SymTables a) 
-        deriving (Show)
-
-data Breadcrumb a = Breadcrumb 
-        (DM.Map String a) 
-        (SymTables a) 
-        (SymTables a) 
-        deriving (Show)
-
-type SymTables  a = Seq (SymTable a)
-type Zipper     a = (SymTable a, [Breadcrumb a])
-
-instance (Show a) => Treelike (SymTable a) where
-    toTree (SymTable dm childs) = Node "Table" (dmToTree dm:(toForest childs))
-        where 
-            dmToTree :: (Show b) => DM.Map String b -> Tree String
-            dmToTree dm = case list of 
-                [] -> Node "No Symbols" []
-                _  -> Node "Symbols" $
-                        map (((flip Node) []).showtuple) list
-                where list = (DM.toList dm)
-            showtuple :: (Show b) => (String,b) -> String 
-            showtuple (a,b) = a ++ " -> " ++ show b
-
-{- Que lleva la tabla adentro (??) D: -}
-data SymInfo = SymInfo 
-    { value   :: Expression
-    , getType :: Type
+import           Data.Map.Strict                (Map)
+import qualified Data.Map.Strict                as Map hiding (Map)
+import           Data.Maybe                     (fromJust)
+import           Data.Sequence                  (Seq, ViewL ((:<)),
+                                                 ViewR ((:>)), (<|), (><), (|>))
+import qualified Data.Sequence                  as Seq
+import           Prelude                        hiding (lookup)
+--------------------------------------------------------------------------------
+-- Symbol Table Entry ------------------
+data Entry = Entry
+    { varName         :: String
+    , varType         :: Type
+    , varInitialValue :: Maybe Expression
+    , varPosition     :: (Int, Int)
     }
 
+instance Treelike Entry where
+    toTree Entry {varName, varType, varInitialValue, varPosition} =
+        Node ("Variable `" ++ varName ++ "`") $
+            Node ("Declared at " ++ show varPosition) [] :
+            Node ("Type: " ++ show varType) [] :
+            case varInitialValue of
+                Nothing -> [Node "Not initialized" []]
+                Just e -> [Node "Initialized with value" [toTree e]]
 
-{- Solo son pruebas -}
-x = SymTable (DM.fromList [ ("ID 0.1", "Info 0.1")
-                          , ("ID 0.2", "Info 0.2") 
-                          , ("ID 0.3", "Info 0.3")]) 
-                (fromList [ SymTable (DM.singleton "ID 1.1" "Info 1.1") 
-                                     (singleton $ SymTable (DM.fromList [ ("ID 2.1", "Info 2.1")
-                                                                        , ("ID 2.2", "Info 2.2") 
-                                                                        , ("ID 2.3", "Info 2.3")]) 
-                                                             (singleton $ SymTable DM.empty empty))
-                          , SymTable (DM.singleton "ID 1.2" "Info 1.2") empty]
-                )
+-- Symbol Table Scope ------------------
+data Scope = Scope
+    { sFrom    :: (Int, Int)
+    , sTo      :: (Int, Int)
+    , sEntries :: Map String Entry
+    }
 
-y = SymTable (DM.singleton "ID 0.1" "Info 0.1") 
-                (fromList [ SymTable (DM.singleton "ID 1.1" "Info 1.1") 
-                                        (singleton (SymTable (DM.singleton "ID 0.1" "Info 0.1") empty))
-                          , SymTable (DM.singleton "ID 1.1" "Info 1.1") 
-                                        (singleton (SymTable (DM.singleton "ID 0.1" "Info 0.1") empty))]
-                )
-{- Fin de las Pruebas -}
+instance Treelike Scope where
+    toTree Scope {sEntries} =
+        if Map.null sEntries
+            then Node "No symbols" []
+            else Node "Symbols" (toForest . Map.elems $ sEntries)
 
+lookup'' :: String -> Scope -> Maybe Entry
+lookup'' key Scope {sEntries} =
+    Map.lookup key sEntries
 
-goDown :: Zipper a -> Maybe (Zipper a)
-goDown (SymTable dm childs, bs) = if DS.null childs 
-    then Nothing
-    else Just (x, Breadcrumb dm empty xs :bs)
-        where x :< xs = viewl childs
+insert'' :: String -> Entry -> Scope -> Scope
+insert'' key entry s@Scope {sEntries} =
+    s {sEntries = Map.insert key entry sEntries}
 
-goRight :: Zipper a -> Maybe (Zipper a)
-goRight (st, bs) = case bs of 
-    []                   -> Nothing
-    Breadcrumb p l r:bs' -> if DS.null r
-        then Nothing
-        else Just (x, Breadcrumb p (l |> st) xs :bs')
-            where x :< xs = viewl r
+emptyScope :: (Int, Int) -> Scope
+emptyScope position = Scope
+    { sFrom = position
+    , sTo   = position
+    , sEntries = Map.empty
+    }
 
+-- Symbol Table ------------------------
+data SymbolTable = SymbolTable
+    { stScope    :: Scope
+    , stChildren :: SymbolTables
+    }
 
-goLeft :: Zipper a -> Maybe (Zipper a)
-goLeft (st, bs) = case bs of 
-    []                   -> Nothing
-    Breadcrumb p l r:bs' -> if DS.null l
-        then Nothing
-        else Just (x, Breadcrumb p xs (st <| r) :bs')
-            where xs :> x = viewr l
+type SymbolTables = Seq SymbolTable
 
-goBack :: Zipper a -> Maybe (Zipper a)
-goBack (st, bs) = case bs of 
-    []                   -> Nothing
-    Breadcrumb p l r:bs' -> 
-        Just (SymTable p ((l |> st) >< r), bs')
+instance Treelike SymbolTable where
+    toTree SymbolTable { stScope = scope @ Scope{sFrom, sTo}, stChildren } =
+        Node ("Scope " ++ show sFrom ++ " -> " ++ show sTo) $
+            toTree scope :
+            toForest stChildren
 
+lookup' :: String -> SymbolTable -> Maybe Entry
+lookup' key SymbolTable { stScope } =
+    lookup'' key stScope
 
-top :: Zipper a -> Zipper a
-top (st, []) = (st, [])
-top z = top.fromJust.goBack $ z
+insert' :: String -> Entry -> SymbolTable -> SymbolTable
+insert' key entry st @ SymbolTable { stScope } =
+    st { stScope = insert'' key entry stScope }
 
-lookupSym :: String -> Zipper a -> Maybe a
-lookupSym key (SymTable dm childs,bs) = case DM.lookup key dm of 
-    Nothing -> if null bs then Nothing
-               else lookupSym key 
-                    $fromJust $goBack (SymTable dm childs,bs)
-    symbol  -> symbol
+insertST' :: SymbolTable -> SymbolTable -> SymbolTable
+insertST' newST st @ SymbolTable { stChildren } =
+    st { stChildren = stChildren |> newST }
 
-insertSymbol ::  String -> a -> Zipper a -> Zipper a
-insertSymbol key sym (SymTable dm childs, bs) 
-    = (SymTable (DM.insert key sym dm) childs, bs)
+exit' :: (Int, Int) -> SymbolTable -> SymbolTable
+exit' position st @ SymbolTable { stScope } =
+    st { stScope = stScope { sTo = position } }
 
-insertSymTable :: SymTable a -> Zipper a -> Zipper a
-insertSymTable newSt (SymTable dm childs, bs) 
-    = (SymTable dm (childs |> newSt), bs)
+emptyST :: (Int, Int) -> SymbolTable
+emptyST position = SymbolTable
+    { stScope    = emptyScope position
+    , stChildren = Seq.empty
+    }
 
-focus :: SymTable a-> Zipper a
-focus s = (s, [])
+-- Symbol Table Zipper -----------------
+data Breadcrumb = Breadcrumb
+    { parent :: Scope
+    , left   :: SymbolTables
+    , right  :: SymbolTables
+    }
 
-defocus :: Zipper a -> SymTable a
-defocus (st,bs) = st 
+type Zipper = (SymbolTable, [Breadcrumb])
 
+---- Moving around -----------
+goDownFirst :: Zipper -> Maybe Zipper
+goDownFirst (SymbolTable {stScope, stChildren}, bs)
+    | Seq.null stChildren = Nothing
+    | otherwise = Just (x, Breadcrumb stScope Seq.empty xs : bs)
+    where
+        x :< xs = Seq.viewl stChildren
 
-buildSymTable :: String -> (SymTable String, String)
-buildSymTable input = if null input then (x,"No hay WARNING :D") else (x, [])
+goDownLast :: Zipper -> Maybe Zipper
+goDownLast (SymbolTable {stScope, stChildren}, bs)
+    | Seq.null stChildren = Nothing
+    | otherwise = Just (x, Breadcrumb stScope xs Seq.empty : bs)
+    where
+        xs :> x = Seq.viewr stChildren
 
+goRight :: Zipper -> Maybe Zipper
+goRight (_, []) =
+    Nothing
+goRight (st, Breadcrumb {parent, left, right} : bs)
+    | Seq.null right = Nothing
+    | otherwise = Just (r, Breadcrumb parent (left |> st) right' : bs)
+    where
+        r :< right' = Seq.viewl right
+
+goLeft :: Zipper -> Maybe Zipper
+goLeft (_, []) =
+    Nothing
+goLeft (st, Breadcrumb {parent, left, right} : bs)
+    | Seq.null right = Nothing
+    | otherwise = Just (l, Breadcrumb parent left' (st <| right) : bs)
+    where
+        left' :> l = Seq.viewr left
+
+goBack :: Zipper -> Maybe Zipper
+goBack (_, []) = Nothing
+goBack (st, Breadcrumb {parent, left, right} : bs) =
+    Just (SymbolTable parent ((left |> st) >< right), bs)
+
+root :: Zipper -> Zipper
+root (st, []) = (st, [])
+root z = root . fromJust . goBack $ z
+
+---- (de)focusing ------------
+focus :: SymbolTable -> Zipper
+focus = (,[])
+
+defocus :: Zipper -> SymbolTable
+defocus = fst
+
+---- Using the table ---------
+lookup :: String -> Zipper -> Maybe Entry
+lookup key (st, []) =
+    lookup' key st
+lookup key zipper@(st, _) =
+    case lookup' key st of
+        Nothing -> lookup key . fromJust . goBack $ zipper
+        justEntry -> justEntry
+
+local :: String -> Zipper -> Maybe Entry
+local key (st, _) =
+    lookup' key st
+
+insertSymbol :: String -> Entry -> Zipper -> Zipper
+insertSymbol key entry (st, bs) =
+    (insert' key entry st, bs)
+
+insertST :: SymbolTable -> Zipper -> Zipper
+insertST newST (st, bs) =
+    (insertST' newST st, bs)
+
+openScope :: (Int, Int) -> Zipper -> Zipper
+openScope pos =
+    fromJust . goDownLast . insertST (emptyST pos)
+
+closeScope :: (Int, Int) -> Zipper -> Zipper
+closeScope pos (st, bs) =
+    (exit' pos st, bs)

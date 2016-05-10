@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiWayIf     #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TupleSections  #-}
 
@@ -5,24 +6,20 @@ module Main (main) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Lexer
 import           Language.Epilog.Parser
+import           Language.Epilog.STTester
 import           Language.Epilog.Treelike
-import           Language.Epilog.SymbolTable 
-
-import           Control.Monad             (guard, void, when)
-import           Control.Monad.Trans       (liftIO)
-import           Control.Monad.Trans.Maybe (MaybeT, runMaybeT)
-
-import           Data.List                 (nub)
-
-import           Prelude                   hiding (null)
-import qualified Prelude                   as P (null)
-
-import           System.Console.GetOpt     (ArgDescr (..), ArgOrder (..),
-                                            OptDescr (..), getOpt, usageInfo)
-import           System.Environment        (getArgs)
-import           System.IO                 (hPrint, stderr)
 --------------------------------------------------------------------------------
+import           Control.Monad            (unless, when)
 
+import           System.Console.GetOpt    (ArgDescr (..), ArgOrder (..),
+                                           OptDescr (..), getOpt, usageInfo)
+import           System.Environment       (getArgs)
+import           System.Exit              (exitSuccess)
+import           System.IO                (Handle, IOMode (ReadMode), hClose,
+                                           hGetContents, hPrint, openFile,
+                                           stderr, stdin)
+--------------------------------------------------------------------------------
+-- Options -----------------------------
 version :: String
 version = "epilog 0.1.0.0"
 
@@ -35,86 +32,108 @@ message = unlines
     , "\twhen running epilog without arguments, the compiler consumes data"
     , "\tit receives from the standard input until it receives an EOF"
     , "\t('^D') character."
+    , ""
+    , "\tif more than one action is specified, only the last one is performed."
     ]
 
-data Flag
-  = Help
-  | Version
-  | Lex
-  | Parse
-  | SymbolTable
-  deriving (Show, Eq)
+data Options = Options
+    { optHelp    :: Bool
+    , optVersion :: Bool
+    , optAction  :: Handle -> String -> IO ()
+    }
 
-options :: [OptDescr Flag]
+defaultOptions  :: Options
+defaultOptions   = Options
+    { optHelp    = False
+    , optVersion = False
+    , optAction  = doST
+    }
+
+options :: [OptDescr (Options -> Options)]
 options =
-    [ Option ['h'] ["help"]    (NoArg Help)
+    [ Option ['h'] ["help"]
+        (NoArg (\o -> o { optHelp = True }))
         "shows this help message"
-    , Option ['v'] ["version"] (NoArg Version)
+    , Option ['v'] ["version"]
+        (NoArg (\o -> o { optVersion = True }))
         "shows version number"
-    , Option ['l'] ["lex"]     (NoArg Lex)
+    , Option ['l'] ["lex"]
+        (NoArg (\o -> o { optAction = doLex }))
         "Performs the lexical analysis of the file"
-    , Option ['p'] ["parse"]   (NoArg Parse)
+    , Option ['p'] ["parse"]
+        (NoArg (\o -> o { optAction = doParse }))
         "Performs the lexical and syntactic analysis of the file"
-    , Option ['s'] ["symTable"]   (NoArg SymbolTable)
-        "Performs the lexical and syntactic analysis of the file"
+    , Option ['s'] ["symTable"]
+        (NoArg (\o -> o { optAction = doST }))
+        "Builds and shows the symbol table tree of the file"
     ]
 
-opts :: IO ([Flag], [String])
-opts = do
+getOpts :: IO (Options, [String])
+getOpts = do
     args <- getArgs
     case getOpt Permute options args of
-        (flags, rest, []  ) -> return (nub flags, rest)
-        (_    , _   , errs) -> ioError (userError (concat errs ++ help))
+        (flags, rest, []  ) ->
+            return (foldl (flip id) defaultOptions flags, rest)
+        (_, _, errs) ->
+            ioError $ userError (concat errs ++ help)
 
-main :: IO ()
-main = void $ runMaybeT $ do
-    (flags, args) <- liftIO opts
+-- Actions -----------------------------
+doVersion :: IO ()
+doVersion = do
+    putStrLn version
+    exitSuccess
 
-    when (Version `elem` flags) doVersion
-    when (Help    `elem` flags) doHelp
+doHelp :: IO ()
+doHelp = do
+    putStr help
+    exitSuccess
 
-    guard $ not $ (Help `elem` flags) || (Version `elem` flags)
+doLex :: Handle -> String -> IO ()
+doLex handle file = do
+    input <- hGetContents handle
 
-    (input, file) <- if P.null args
-    then (, "<stdin>") <$> liftIO getContents
-    else (, head args) <$> liftIO (readFile $ head args)
-
-    (if Lex `elem` flags
-        then doLex
-     else if Parse `elem` flags
-        then doParse
-     else doSymTable) input file
-
-
-doVersion :: MaybeT IO ()
-doVersion = liftIO $ putStrLn version
-
-doHelp :: MaybeT IO ()
-doHelp = liftIO $ putStr message
-
-doLex :: String -> String -> MaybeT IO ()
-doLex input file = do
-    liftIO . putStrLn $ unwords ["Lexing", file]
-
+    putStrLn $ unwords ["Lexing", file]
     case scanner input of
-        Left msg -> liftIO (error msg)
-        Right tokens -> liftIO $ mapM_ split tokens
-            where
-                split l@(t :@ _) =
-                    (if isError t
-                        then hPrint stderr
-                        else print) l
+        Left msg -> error msg
+        Right tokens -> mapM_ split tokens
 
-doParse :: String -> String -> MaybeT IO ()
-doParse input file = do
-    liftIO . putStrLn $ unwords ["Parsing", file]
+    where
+        split l@(t :@ _) =
+            (if isError t
+                then hPrint stderr
+                else print) l
+
+doParse :: Handle -> String -> IO ()
+doParse handle file = do
+    input <- hGetContents handle
+
+    putStrLn $ unwords ["Parsing", file]
 
     let (prog, plerrs) = parseProgram input
-    when (P.null plerrs) $ liftIO . putStrLn . drawTree $ toTree prog
+    when (null plerrs) $ putStrLn . drawTree $ toTree prog
 
-doSymTable :: String -> String -> MaybeT IO ()
-doSymTable input file = do
-    liftIO . putStrLn $ unwords ["Symbol Table of", file]
+doST :: Handle -> String -> IO ()
+doST handle file = do
+    putStrLn $ unwords
+        [ "I will proceed to ignore", file
+        , "and show you an interactive prompt."
+        , "I hope you're okay with this."
+        ]
 
-    let (symtable, plerrs) = buildSymTable input
-    when (P.null plerrs) $ liftIO . putStrLn . drawTree $ toTree symtable
+    unless (handle == stdin) (hClose handle)
+
+    startTester
+
+-- Main --------------------------------
+main :: IO ()
+main = do
+    (opts, args) <- getOpts
+
+    when (optVersion opts) doVersion
+    when (optHelp    opts) doHelp
+
+    (handle, file) <- if null args
+        then (, "<stdin>") <$> return stdin
+        else (, head args) <$> openFile (head args) ReadMode
+
+    optAction opts handle file

@@ -10,7 +10,7 @@ module Language.Epilog.AST.Program
 import           Language.Epilog.AST.Instruction
 import           Language.Epilog.At
 import           Language.Epilog.Treelike
-
+--------------------------------------------------------------------------------
 import           Data.Sequence                   (Seq, null)
 import           Prelude                         hiding (null)
 --------------------------------------------------------------------------------

@@ -8,7 +8,7 @@ import           Language.Epilog.AST.Instruction
 import           Language.Epilog.AST.Program
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
-
+--------------------------------------------------------------------------------
 import           Data.Int                        (Int32)
 import           Data.Sequence                   (Seq, (<|), (><), (|>))
 import qualified Data.Sequence                   as Seq (empty, singleton)
