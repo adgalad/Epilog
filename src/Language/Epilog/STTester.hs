@@ -37,22 +37,20 @@ tester z r c = do
     hFlush stdout
     line <- getLine
     (case reads line of
-        [(Var   , "")] -> doVar
+        [(Var   , "")] -> doVarAux
+        [(Var   , ' ':name)] -> doVar name
         [(Open  , "")] -> doOpen
         [(Close , "")] -> doClose
         [(Quit  , "")] -> doQuit
         _                  -> doWhat) z r c
 
-doVar :: Zipper -> Int -> Int -> IO ()
-doVar z r c = do
-    putStr "Name? > "
-    hFlush stdout
-    name <- getLine
+doVar :: String -> Zipper -> Int -> Int -> IO ()
+doVar name z r c =
     case local name z of
         Nothing -> do
             putStrLn "OK."
             tester
-                (insertSymbol name (makeEntry name (r,c)) z)
+                (insertSymbol name entry z)
                 (r+1) (c+2 `mod` 80)
         Just _ -> do
             putStrLn $
@@ -60,7 +58,14 @@ doVar z r c = do
                 "Not added to scope."
             tester z r c
     where
-        makeEntry name = Entry name (Type IntT Seq.empty) Nothing
+        entry = Entry name (Type IntT Seq.empty) Nothing (0,0)
+
+doVarAux :: Zipper -> Int -> Int -> IO ()
+doVarAux z r c = do
+    putStr "Name? > "
+    hFlush stdout
+    name <- getLine
+    doVar name z r c
 
 doOpen :: Zipper -> Int -> Int -> IO ()
 doOpen z r c = do
@@ -74,15 +79,24 @@ doClose z r c = do
     case goBack z' of
         Nothing -> do
             putStrLn "OK. Closed root scope."
-            doQuit z' r c
+            doPrint z'
         Just z'' -> do
             putStrLn "OK."
             tester z'' (r+1) (c+2 `mod` 80)
 
 doQuit :: Zipper -> Int -> Int -> IO ()
-doQuit z _ _ = do
-    putStrLn "Quitting"
-    putStrLn . drawTree . toTree . defocus . root $ z
+doQuit z r c = do
+    let z' = closeScope (r, c) z
+    case goBack z' of
+        Nothing -> do
+            putStrLn "Ok. Quitting..."
+            doPrint z'
+        Just z'' ->
+            doQuit z'' (r+1) (c+2 `mod` 80)
+
+
+doPrint :: Zipper -> IO ()
+doPrint = putStrLn . drawTree . toTree . defocus
 
 doWhat :: Zipper -> Int -> Int -> IO ()
 doWhat z r c = do
