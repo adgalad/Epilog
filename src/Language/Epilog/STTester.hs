@@ -7,8 +7,9 @@ import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
 import           Control.Monad               (void)
-import           Control.Monad.IO.Class
-import           Control.Monad.Trans.State
+import           Control.Monad.IO.Class      (liftIO, MonadIO)
+import           Control.Monad.Trans.State   (StateT, execStateT, get, gets,
+                                              modify, put, runStateT)
 import           Prelude                     hiding (lookup)
 import           System.IO                   (hFlush, stdout)
 --------------------------------------------------------------------------------
@@ -16,62 +17,58 @@ import           System.IO                   (hFlush, stdout)
 -------------- It would probably be pretty cool with more monads ---------------
 
 -- Utility Computations ----------------
-prompt :: String -> StateT a IO ()
+say :: MonadIO m => String -> m ()
+say = liftIO . putStrLn
+
+prompt :: MonadIO m => String -> m ()
 prompt s = do
     liftIO . putStr $ s ++ " > "
     liftIO . hFlush $ stdout
 
-ok :: StateT a IO ()
-ok =
-    liftIO . putStrLn $ "Ok."
-
-doAux :: (String -> StateT a IO ()) -> StateT a IO ()
-doAux c = do
+doAux :: MonadIO m => m String
+doAux = do
     prompt "Name?"
-    name <- liftIO getLine
-    c name
+    line <- liftIO getLine
+    case words line of
+        [name] -> return name
+        _      -> do
+            say "Invalid name."
+            doAux
 
-doWhat :: StateT a IO () -> StateT a IO ()
-doWhat c = do
-    liftIO . putStrLn $ "I don't know how to do that :("
-    c
+doWhat :: MonadIO m => m ()
+doWhat = say "I don't know how to do that :("
 
 -- Tester ------------------------------
 tester :: IO ()
 tester = do
     putStrLn $ unlines
         [ "\nAvailable actions:"
-        , "\tVar    - to declare a Variable"
-        , "\tOpen   - to Open a new scope"
-        , "\tClose  - to Close the current scope"
-        , "\tFinish - to Finish the build process, printing the resulting Symbol Table"
-        , "The caps are important!"
+        , "\tvar    - to declare a Variable"
+        , "\topen   - to Open a new scope"
+        , "\tclose  - to Close the current scope"
+        , "\tfinish - to Finish the build process and print the Symbol Table"
         ]
+
     BuildState z _ <- execStateT builder initialBuildState
-    liftIO . putStrLn $ "The tree has been built."
-    putStrLn . drawTree . toTree . defocus $ z
+    putStrLn "The tree has been built."
+
+    _ <- getChar -- wait for an enter keypress
+    putStr . drawTree . toTree . defocus $ z
+
+    _ <- getChar -- wait for an enter keypress
     putStrLn $ unlines
         [ "Available actions:"
-        , "\tUp       - to go Up a scope"
-        , "\tDown     - to go Down into the first child scope"
-        , "\tNext     - to go to the Next sibling scope"
-        , "\tPrevious - to go to the Previous sibling scope"
-        , "\tLookup   - to find the closest definition of a variable if it exists"
-        , "\tLocal    - to find the local definition of a variable if it exists"
-        , "\tQuit     - to Quit the tester"
-        , "The caps are important!"
+        , "\tup       - to go Up a scope"
+        , "\tdown     - to go Down into the first child scope"
+        , "\tnext     - to go to the Next sibling scope"
+        , "\tprevious - to go to the Previous sibling scope"
+        , "\tlookup   - to Lookup the closest definition of a variable"
+        , "\tlocal    - to find the Local definition of a variable"
+        , "\tquit     - to Quit the tester"
         ]
     void $ runStateT explorer z
 
 -- Builder -----------------------------
--- Actions -------------------
-data BuilderAction
-    = Var
-    | Open
-    | Close
-    | Finish
-    deriving (Eq, Show, Read)
-
 -- State ---------------------
 data BuildState = BuildState
     { zipper :: Zipper
@@ -80,39 +77,42 @@ data BuildState = BuildState
 
 initialBuildState :: BuildState
 initialBuildState = BuildState
-    { zipper = focus $ emptyST (0,0)
+    { zipper = empty
     , pos    = (0,0)
     }
+
+nextPos :: (Int, Int) -> (Int, Int)
+nextPos (r, c) = (r+1, (c+2) `mod` 80)
 
 -- Computations --------------
 builder :: StateT BuildState IO ()
 builder = do
     prompt "What to do?"
     line <- liftIO getLine
-    case reads line of
-        [(Var   ,       "")] -> doAux doVar
-        [(Var   ,      " ")] -> doAux doVar
-        [(Var   , ' ':name)] -> doVar name
-        [(Open  ,       "")] -> doOpen
-        [(Close ,       "")] -> doClose
-        [(Finish,       "")] -> doFinish
-        _                    -> doWhat builder
+    case words line of
+        ["var"      ] -> doAux >>= doVar
+        ["var", name] -> doVar name
+        ["open"     ] -> doOpen
+        ["close"    ] -> doClose
+        ["finish"   ] -> doFinish
+        _             -> doWhat >> builder
 
 doVar :: String -> StateT BuildState IO ()
 doVar name = do
     z <- gets zipper
     case local name z of
-        Nothing -> do
-            ok
+        Left _ -> do
+            p <- gets pos
 
-            p@(r, c) <- gets pos
+            say $ "OK. integer `" ++ name ++ "` declared at " ++ show p ++ "."
+
             let entry = Entry name intT Nothing p
 
             put BuildState
                 { zipper = insertSymbol name entry z
-                , pos    = (r+1, (c+2) `mod` 80)
+                , pos    = nextPos p
                 }
-        Just _ ->
+        Right _ ->
             liftIO . putStrLn $
                 "Variable `" ++ name ++ "` already declared in this scope." ++
                 "Not added to scope."
@@ -120,131 +120,78 @@ doVar name = do
 
 doOpen :: StateT BuildState IO ()
 doOpen = do
-    ok
+    BuildState z p <- get
 
-    BuildState z (r,c) <- get
+    say $ "OK. Scope opened at " ++ show p ++ "."
 
     put BuildState
-        { zipper = openScope (r, c) z
-        , pos = (r+1, (c+2) `mod` 80)
+        { zipper = openScope p z
+        , pos = nextPos p
         }
     builder
 
-doClose :: StateT BuildState IO ()
-doClose = do
-    BuildState z (r,c) <- get
+doClose' :: StateT BuildState IO () -> StateT BuildState IO ()
+doClose' c = do
+    BuildState z p <- get
+    let z' = closeScope p z
 
-    let z' = closeScope (r, c) z
+    say $ "OK. Scope closed at " ++ show p ++ "."
 
-    ok
-    case goBack z' of
-        Nothing ->
-            modify (\s -> s {zipper = z'})
-        Just z'' -> do
+    case goUp z' of
+        Left _ ->
+            modify (\s -> s { zipper = z' })
+        Right z'' -> do
             put BuildState
                 { zipper = z''
-                , pos = (r+1, (c+2) `mod` 80)
+                , pos = nextPos p
                 }
-            builder
+            c
+
+doClose :: StateT BuildState IO ()
+doClose = doClose' builder -- first close the current scope, then keep building
 
 doFinish :: StateT BuildState IO ()
-doFinish = do
-    BuildState z (r, c) <- get
-    let z' = closeScope (r, c) z
-    case goBack z' of
-        Nothing -> do
-            ok
-            modify (\s -> s {zipper = z'})
-        Just _ ->
-            doFinish
+doFinish = doClose' doFinish -- first close the current scope, then recurse
 
 -- Explorer ----------------------------
--- Actions -------------------
-data ExplorerAction
-    = Up
-    | Down
-    | Next
-    | Previous
-    | Lookup
-    | Local
-    | Quit
-    deriving (Eq, Show, Read)
-
 -- Computations --------------
 explorer :: StateT Zipper IO ()
 explorer = do
     prompt "What to do?"
     line <- liftIO getLine
-    case reads line of
-        [(Up      ,       "")] -> doUp
-        [(Down    ,       "")] -> doDown
-        [(Next    ,       "")] -> doNext
-        [(Previous,       "")] -> doPrevious
-        [(Lookup  ,       "")] -> doAux doLookup
-        [(Lookup  ,      " ")] -> doAux doLookup
-        [(Lookup  , ' ':name)] -> doLookup name
-        [(Local   ,       "")] -> doAux doLocal
-        [(Local   ,      " ")] -> doAux doLocal
-        [(Local   , ' ':name)] -> doLocal name
-        [(Quit    ,       "")] -> doQuit
-        _                      -> doWhat explorer
+    case words line of
+        ["up"          ] -> doMove goUp
+        ["down"        ] -> doMove goDownFirst
+        ["next"        ] -> doMove goNext
+        ["previous"    ] -> doMove goPrevious
 
-doUp :: StateT Zipper IO ()
-doUp = do
+        ["lookup"      ] -> doAux >>= doFind lookup
+        ["local"       ] -> doAux >>= doFind local
+
+        ["lookup", name] -> doFind lookup name
+        ["local" , name] -> doFind local name
+
+        ["quit"        ] -> doQuit
+        _                -> doWhat >> explorer
+
+doMove :: (Zipper -> Either String Zipper) -> StateT Zipper IO ()
+doMove f = do
     z <- get
-    case goBack z of
-        Nothing -> liftIO . putStrLn $ "Already at root scope"
-        Just z' -> do
-            ok
+    case f z of
+        Left e   -> liftIO . putStrLn $ e
+        Right z' -> do
+            say "OK."
             put z'
     explorer
 
-doDown :: StateT Zipper IO ()
-doDown = do
+doFind :: (String -> Zipper -> Either String Entry) -> String
+       -> StateT Zipper IO ()
+doFind f name = do
     z <- get
-    case goDownFirst z of
-        Nothing -> liftIO . putStrLn $ "No embedded scopes"
-        Just z' -> do
-            ok
-            put z'
-    explorer
-
-doNext :: StateT Zipper IO ()
-doNext = do
-    z <- get
-    case goRight z of
-        Nothing -> liftIO . putStrLn $ "Already at last scope"
-        Just z' -> do
-            ok
-            put z'
-    explorer
-
-doPrevious :: StateT Zipper IO ()
-doPrevious = do
-    z <- get
-    case goLeft z of
-        Nothing -> liftIO . putStrLn $ "Already at first scope"
-        Just z' -> do
-            ok
-            put z'
-    explorer
-
-doLookup :: String -> StateT Zipper IO ()
-doLookup name = do
-    z <- get
-    case lookup name z of
-        Nothing -> liftIO . putStrLn $ "Not found"
-        Just entry -> liftIO . putStrLn . drawTree . toTree $ entry
-    explorer
-
-doLocal :: String -> StateT Zipper IO ()
-doLocal name = do
-    z <- get
-    case local name z of
-        Nothing -> liftIO . putStrLn $ "Not found"
-        Just entry -> liftIO . putStrLn . drawTree . toTree $ entry
+    case f name z of
+        Left e  -> say e
+        Right r -> say . drawTree . toTree $ r
     explorer
 
 doQuit :: StateT Zipper IO ()
-doQuit =
-    liftIO . putStrLn $ "Bye."
+doQuit = say "Bye."
