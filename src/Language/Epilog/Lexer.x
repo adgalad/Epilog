@@ -137,14 +137,6 @@ epilog :-
     <0> "toInteger"             { make TokenToInt   }
     <0> "toFloat"               { make TokenToFloat }
 
-    -- Types
-    <0> "void"                  { make TokenVoidType   }
-    <0> "boolean"               { make TokenBoolType   }
-    <0> "character"             { make TokenCharType   }
-    <0> "integer"               { make TokenIntType    }
-    <0> "float"                 { make TokenFloatType  }
-    <0> "string"                { make TokenStringType }
-
     -- Punctuation
     <0> ","                     { make TokenComma     }
     <0> "."                     { make TokenPeriod    }

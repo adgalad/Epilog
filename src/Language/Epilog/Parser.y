@@ -89,13 +89,6 @@ import qualified Data.Sequence                   as Seq (empty, singleton)
     toFloat         { TokenToFloat :@ _ }
     toInteger       { TokenToInt   :@ _ }
 
-    -- Types
-    bool            { TokenBoolType   :@ _ }
-    char            { TokenCharType   :@ _ }
-    int             { TokenIntType    :@ _ }
-    float           { TokenFloatType  :@ _ }
-    string          { TokenStringType :@ _ }
-
     -- Punctuation
     ","             { TokenComma     :@ _ }
     "."             { TokenPeriod    :@ _ }
@@ -204,16 +197,10 @@ Initialization :: { Inst }
     : Type VarId is Exp             { Declaration $1 $2 (Just $4) <$ $1 }
 
 Type :: { At Type }
-    : Atom                          { Type (item $1) Seq.empty <$ $1 }
-    | Atom ":" ArraySize            { Type (item $1) $3 <$ $1 }
+    : GenId                          { Type (item $1) Seq.empty <$ $1 }
+    | GenId ":" ArraySize            { Type (item $1) $3 <$ $1 }
 
-Atom :: { At Atom }
-    : bool                          { BoolT     <$ $1 }
-    | char                          { CharT     <$ $1 }
-    | float                         { FloatT    <$ $1 }
-    | int                           { IntT      <$ $1 }
-    | string                        { StringT   <$ $1 }
-    | GenId                         { UserT `fmap` $1 }
+
 
 ArraySize :: { Seq Int32 }
     : Int                           { Seq.singleton (item $1) }

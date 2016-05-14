@@ -47,9 +47,7 @@ data Token
     -- Conversion
     | TokenToBool | TokenToChar | TokenToInt | TokenToFloat
 
-    -- Types
-    | TokenVoidType | TokenBoolType  | TokenCharType
-    | TokenIntType  | TokenFloatType | TokenStringType
+
 
     -- Punctuation
     | TokenComma | TokenPeriod  | TokenSemicolon
@@ -160,14 +158,6 @@ instance Show Token where
         TokenToChar  -> "TOKEN: toCharacter"
         TokenToFloat -> "TOKEN: toFloat"
         TokenToInt   -> "TOKEN: toInteger"
-
-    -- Types
-        TokenVoidType   -> "TOKEN: void"
-        TokenBoolType   -> "TOKEN: boolean"
-        TokenCharType   -> "TOKEN: character"
-        TokenIntType    -> "TOKEN: integer"
-        TokenFloatType  -> "TOKEN: float"
-        TokenStringType -> "TOKEN: string"
 
     -- Punctuation
         TokenComma      -> "TOKEN: ,"

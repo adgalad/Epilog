@@ -1,8 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Language.Epilog.AST.Instruction
-    ( Atom (..)
-    , Instruction (..)
+    ( Instruction (..)
     , Lval (..)
     , Type (..)
     , Cond
