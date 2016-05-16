@@ -137,7 +137,7 @@ doContext handle filename = do
     let (prog, plerrs) = parseProgram input
     when (null plerrs) $ do
         errors <- context prog
-        mapM_ print errors
+        mapM_ putStrLn errors
 
 -- Main --------------------------------
 main :: IO ()

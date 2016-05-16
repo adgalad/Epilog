@@ -155,7 +155,9 @@ TopDefs :: { Defs }
 
 TopDef :: { Definition }
     : proc GenId "(" Params0 ")" ":-" Insts "."
-                                    { ProcD   (pos $1) (item $2) $4 $7 }
+                                    { ProcD   (pos $1) (item $2) $4 (item (Type "void" Seq.empty <$ $1)) $7 }
+    | proc GenId "(" Params0 ")" "->" Type ":-" Insts "."
+                                    { ProcD   (pos $1) (item $2) $4 (item $7) $9 }
     | either GenId ":-" Conts "."   { StructD (pos $1) (item $2) Either $4 }
     | record GenId ":-" Conts "."   { StructD (pos $1) (item $2) Record $4 }
     | Declaration "."               { GlobalD (pos $1) $1 }

@@ -17,7 +17,9 @@ import           Data.Int                 (Int32)
 import           Data.Sequence            (Seq)
 import qualified Data.Sequence            as Seq (empty, null)
 --------------------------------------------------------------------------------
-data Type = Type String (Seq Int32) deriving (Eq)
+data Type = Type { typeName  :: String
+                 , dimension ::(Seq Int32)
+                 } deriving (Eq)
 
 instance Show Type where
     show (Type t dimensions) = "Type " ++ t ++ if Seq.null dimensions

@@ -16,6 +16,8 @@ module Language.Epilog.SymbolTable
     , goUp
     , insertST
     , insertSymbol
+    , isLocal
+    , isSymbol
     , local
     , lookup
     , openScope
@@ -35,21 +37,31 @@ import qualified Data.Sequence                  as Seq
 import           Prelude                        hiding (lookup)
 --------------------------------------------------------------------------------
 -- Symbol Table Entry ------------------
-data Entry = Entry
+data Entry = EntryVar
     { varName         :: String
     , varType         :: Type
     , varInitialValue :: Maybe Expression
     , varPosition     :: Position
     }
+    | EntryProc
+    { procName         :: String
+    , procType         :: Type
+    , procPosition     :: Position
+    }
 
 instance Treelike Entry where
-    toTree Entry { varName, varType, varInitialValue, varPosition } =
+    toTree EntryVar { varName, varType, varInitialValue, varPosition } =
         Node ("Variable `" ++ varName ++ "`") $
             Node ("Declared at " ++ show varPosition) [] :
             Node ("Type: " ++ show varType) [] :
             case varInitialValue of
                 Nothing -> [Node "Not initialized" []]
                 Just e  -> [Node "Initialized with value" [toTree e]]
+    toTree EntryProc { procName, procType, procPosition } =
+        Node ("Procedure `" ++ procName ++ "`") $
+            Node ("Declared at " ++ show procPosition) [] :
+            [Node ("Type: " ++ show procType) []]
+
 
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry
@@ -165,6 +177,16 @@ defocus :: SymbolTable -> Scope
 defocus = fst
 
 ---- Using the table ---------
+
+isSymbol :: String -> SymbolTable -> Bool
+isSymbol key st = case (lookup key st) of 
+    Left _ -> False
+    Right _ -> True
+
+isLocal ::  String -> SymbolTable -> Bool
+isLocal key st = case (local key st) of 
+    Left _ -> False
+    Right _ -> True
 lookup :: String -> SymbolTable -> Either String Entry
 lookup key (s, []) =
     lookup' key s

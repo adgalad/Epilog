@@ -109,7 +109,7 @@ doVar name = do
 
             say $ "OK. integer `" ++ name ++ "` declared at " ++ show p ++ "."
 
-            let entry = Entry name (Type "integer" S.empty) Nothing p
+            let entry = EntryVar name (Type "integer" S.empty) Nothing p
 
             put BuildState
                 { symbols  = insertSymbol name entry st

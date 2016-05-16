@@ -66,6 +66,7 @@ data Definition
         { pPosition :: Position
         , pName     :: Name
         , pParams   :: Params
+        , pType     :: Type
         , pInsts    :: Insts
         }
     deriving (Eq, Show)
@@ -74,7 +75,7 @@ instance P Definition where
     pos = \case
         GlobalD p _     -> p
         StructD p _ _ _ -> p
-        ProcD   p _ _ _ -> p
+        ProcD   p _ _ _ _-> p
 
 instance Treelike Definition where
     toTree = \case
@@ -91,8 +92,8 @@ instance Treelike Definition where
                 (unwords ["Either", name, showP p])
                 [Node "Members" (toForest insts)]
 
-        ProcD p name params insts ->
-            Node (unwords ["Procedure", name, showP p])
+        ProcD p name params t insts ->
+            Node (unwords ["Procedure", name, showP p, show t])
                 [ if null params
                     then Node "No parameters" []
                     else Node "Parameters" (toForest params)
