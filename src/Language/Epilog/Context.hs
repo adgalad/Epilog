@@ -1,24 +1,29 @@
+{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Epilog.Context
-    ( context
+    ( ContextError (..)
+    , Errors
+    , Strings
+    , Types
+    , context
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction hiding (Set)
 import qualified Language.Epilog.AST.Instruction as Inst (Set)
-import           Language.Epilog.AST.Type
 import           Language.Epilog.AST.Program
+import           Language.Epilog.AST.Type
 import           Language.Epilog.Position
 import           Language.Epilog.SymbolTable     hiding (empty)
 import qualified Language.Epilog.SymbolTable     as ST (empty)
-import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
-import           Control.Monad.Trans.RWS.Strict  (RWS, evalRWS, execRWS, get,
-                                                  gets, modify, tell)
+import           Control.Monad.Trans.RWS.Strict  (RWS, execRWS, get, gets,
+                                                  modify, tell)
+import           Data.Function                   (on)
 import           Data.Map.Strict                 (Map)
 import qualified Data.Map.Strict                 as Map
-import           Data.Sequence                   (Seq)
+import           Data.Sequence                   (Seq, (><))
 import qualified Data.Sequence                   as Seq
 import           Data.Set                        (Set)
 import qualified Data.Set                        as Set
@@ -27,7 +32,7 @@ import qualified Data.Set                        as Set
 type Name    = String
 type Strings = Set String
 type Types   = Map String (Type, Position)
-type Pending = Map String Entry
+type Pending = Map String (Seq Entry)
 type Errors  = Seq ContextError
 
 data ContextError
@@ -51,6 +56,27 @@ data ContextError
 
 err :: a -> RWS r (Seq a) s ()
 err = tell . Seq.singleton
+
+instance P ContextError where
+    pos = \case
+        DuplicateDefinition      _ _ p -> p
+        OutOfScope                 _ p -> p
+        DuplicateDeclaration _ _ _ _ p -> p
+
+instance Ord ContextError where
+    compare = compare `on` pos
+
+instance Show ContextError where
+    show = \case
+        (DuplicateDefinition name fstP sndP) ->
+            "Duplicate definition at " ++ showP sndP ++ ", `" ++ name ++
+            "` already defined at " ++ showP fstP
+        (OutOfScope name p) ->
+            "Variable `" ++ name ++ "` out of scope at " ++ showP p
+        (DuplicateDeclaration name fstT fstP sndT sndP) ->
+            "Duplicate declaration at " ++ showP sndP ++ ", variable `" ++
+            name ++ "` already defined as `" ++ show fstT ++ "` at " ++
+            showP fstP ++ " cannot be redeclared as `" ++ show sndT
 
 data ContextState = ContextState
     { symbols :: SymbolTable
@@ -89,16 +115,15 @@ initialState  = ContextState
 
 type Context = RWS () Errors ContextState
 
-context :: Program -> IO Errors
-context (Program decs) = do
-    let e = snd $ evalRWS (mapM_ def decs) () initialState
+context :: Program -> (SymbolTable, Strings, Types, Errors)
+context (Program decs) = (symbols, strings, types, errors)
+    where
+        (ContextState {symbols, strings, pending, types}, e) =
+            execRWS (mapM_ def decs) () initialState
+        errors = Map.foldr toErrorSeq Seq.empty pending >< e
+        toErrorSeq pend s = s >< toError pend
+        toError _ = Seq.singleton $ OutOfScope "pepe" Epilog
 
-    --Printing Symbol Table and Types
-    let t = fst $ execRWS (mapM_ def decs) () initialState
-    print $ types t
-    putStr . drawTree . toTree . defocus $ symbols t
-
-    return e
 
 -- Definitions --------------------------------------------------------
 def :: Definition -> Context ()
@@ -110,7 +135,7 @@ def StructD { sPos, sName {-, sClass, sConts -} } = do
     case sName `Map.lookup` t of
         Just (_, p) -> err $ DuplicateDefinition sName p sPos
         Nothing     -> modify (\s -> s
-            { types = Map.insert sName (userT sName, sPos) (types s)
+            { types   = Map.insert sName (userT sName, sPos) (types s)
             , pending = Map.delete sName (pending s)
             })
 
@@ -227,7 +252,8 @@ verifyDeclaration entry@(EntryVar name t _ p) = do
                 { symbols = insertSymbol name entry symbols })
             Nothing -> modify (\s-> s
                 { symbols = insertSymbol name entry symbols
-                , pending = Map.insert name entry pending
+                , pending =
+                    Map.insertWith (><) name (Seq.singleton entry) pending
                 })
 
 

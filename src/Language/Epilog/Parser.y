@@ -160,8 +160,8 @@ TopDef :: { Definition }
                                     { ProcD   (pos $1) (item $2) $4 (item $7) $9 }
     | either GenId ":-" Conts "."   { StructD (pos $1) (item $2) Either $4 }
     | record GenId ":-" Conts "."   { StructD (pos $1) (item $2) Record $4 }
-    | Declaration "."               { GlobalD (pos $1) $1 }
-    | Initialization "."            { GlobalD (pos $1) $1 }
+    | Type VarId "."                { GlobalD (pos $1) (item $1) (item $2) Nothing }
+    | Type VarId is Exp "."         { GlobalD (pos $1) (item $1) (item $2) (Just $4) }
 
 GenId :: { At String }
     : genId                         { unTokenGenId `fmap` $1}
@@ -210,8 +210,8 @@ Initialization :: { Instruction }
     : Type VarId is Exp             { Declaration (pos $1) (item $1) (item $2) (Just $4) }
 
 Type :: { At Type }
-    : GenId                          { Type (item $1) Seq.empty <$ $1 }
-    | GenId ":" ArraySize            { Type (item $1) $3 <$ $1 }
+    : GenId                         { Type (item $1) Seq.empty <$ $1 }
+    | GenId ":" ArraySize           { Type (item $1) $3 <$ $1 }
 
 ArraySize :: { Seq Int32 }
     : Int                           { Seq.singleton (item $1) }
@@ -281,7 +281,7 @@ Range :: { Range }
 
 ---- While loops -----------------------
 While :: { Instruction }
-    : while Guards end               { While (pos $1) $2 }
+    : while Guards end              { While (pos $1) $2 }
 
 -- Expressions -------------------------
 Exp :: { Expression }
