@@ -6,6 +6,7 @@ module Language.Epilog.Context
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction hiding (Set)
+import qualified Language.Epilog.AST.Instruction as Inst (Set)
 import           Language.Epilog.AST.Type
 import           Language.Epilog.AST.Program
 import           Language.Epilog.Position
@@ -31,12 +32,24 @@ type Errors  = Seq ContextError
 
 data ContextError
     = DuplicateDefinition
-        { ddName    :: Name
-        , ddFirstP  :: Position
-        , ddSecondP :: Position
+        { dDefName :: Name
+        , dDefFstP :: Position
+        , dDefSndP :: Position
+        }
+    | OutOfScope
+        { oosName :: Name
+        , oosP    :: Position
+        }
+    | DuplicateDeclaration
+        { dDecName :: Name
+        , dDecFstT :: Type
+        , dDecFstP :: Position
+        , dDecSndT :: Type
+        , dDecSndP :: Position
         }
     deriving (Eq)
 
+err :: a -> RWS r (Seq a) s ()
 err = tell . Seq.singleton
 
 data ContextState = ContextState
@@ -89,30 +102,31 @@ context (Program decs) = do
 
 -- Definitions --------------------------------------------------------
 def :: Definition -> Context ()
-def (GlobalD p (Declaration _ t name val)) =
-    verifyDeclaration (EntryVar name t val p)
+def GlobalD { gPos, gType, gName, gVal} =
+    verifyDeclaration (EntryVar gName gType gVal gPos)
 
-def StructD {sPosition, sName, sClass, sContents} = do
+def StructD { sPos, sName {-, sClass, sConts -} } = do
     t <- gets types
     case sName `Map.lookup` t of
-        Just (_, p) -> err $ DuplicateDefinition sName p sPosition
-        Nothing     -> modify (\s -> s { types = Map.insert sName (userT sName, sPosition) (types s)
-                                       , pending = Map.delete sName (pending s)
-                                       })
+        Just (_, p) -> err $ DuplicateDefinition sName p sPos
+        Nothing     -> modify (\s -> s
+            { types = Map.insert sName (userT sName, sPos) (types s)
+            , pending = Map.delete sName (pending s)
+            })
 
-def (ProcD p name parameters t insts) = do
-    modify (\s -> s {symbols = insertSymbol name entry (symbols s)})
-    openScope' p
-    sequence_ $ fmap param parameters
-    openScope' p
-    sequence_ $ fmap inst insts
+def ProcD { pPos, pName, pParams, pType, pInsts } = do
+    let entry = EntryProc pName pType pPos
+    modify (\s -> s {symbols = insertSymbol pName entry (symbols s)})
 
-    -- How to know when a scope ends (?)
+    openScope' pPos
+    sequence_ $ fmap param pParams
+
+    openScope' pPos
+    sequence_ $ fmap inst pInsts
+
     closeScope'
     closeScope'
 
-    where
-        entry = EntryProc name t  p
 
 -- Parameters --------------------------------------------------------
 param :: Parameter -> Context ()
@@ -121,53 +135,105 @@ param (Parameter p t name) =
 
 
 -- Instructions --------------------------------------------------------
-inst ::Instruction -> Context ()
-inst x = case x of
+inst :: Instruction -> Context ()
+inst (Declaration p t name val) =
+    verifyDeclaration (EntryVar name t val p)
 
-    Declaration p t name val ->
-        verifyDeclaration entry
-        where
-            entry = EntryVar name t val p
+inst (Assign p (Variable name) rval) = do
+    verifySymbol name p
+    verifyExpr rval
 
-    Assign p (Variable name) rval -> do
-        s <- gets symbols
-        if isSymbol name s
-            then modify (\s -> s)
-            else tell $ Seq.singleton $ show p ++": Not in scope `"++name++"`"
+inst (Call  p name exprs) = do
+    verifySymbol name p
+    sequence_ $ fmap verifyExpr exprs
 
-{-}
-| Call        Position Name        Exps
+inst (If _ guards) =
+    sequence_ $ fmap guard guards
 
-| If          Position Guards
-| Case        Position Expression  Sets
-| For         Position Name        Ranges
-| ForD        Position Instruction Ranges
-| While       Position Conds
+inst (Case _ expr sets) = do
+    verifyExpr expr
+    sequence_ $ fmap set sets
 
-| Read        Position Lval
-| Write       Position Expression
+inst (For p var ranges) = do
+    verifySymbol var p
+    sequence_ $ fmap range ranges
 
-| Finish      Position
--}
+inst (ForD p (Declaration _ t name _) ranges) = do
+    openScope' p
+    verifyDeclaration (EntryVar name t Nothing p)
+    sequence_ $ fmap range ranges
+    closeScope'
+
+inst (While _ guards) =
+    sequence_ $ fmap guard guards
+
+inst (Read  p (Variable name)) =
+    verifySymbol name p
+
+inst (Write _ expr) =
+    verifyExpr expr
+
+inst (Finish _) = modify id
+
+guard :: (Position, Expression, Insts) -> Context ()
+guard (p, expr, insts) = do
+    verifyExpr expr
+    openScope' p
+    sequence_ $ fmap inst insts
+    closeScope'
+
+set :: Inst.Set -> Context ()
+set (p, exprs, insts) = do
+    sequence_ $ fmap verifyExpr exprs
+    openScope' p
+    sequence_ $ fmap inst insts
+    closeScope'
+
+range :: Range -> Context ()
+range (p, from, to, insts) = do
+    verifyExpr from
+    verifyExpr to
+    openScope' p
+    sequence_ $ fmap inst insts
+    closeScope'
 
 -- Expression --------------------------------------------------------
 
-expr :: Expression -> Context ()
-expr e = undefined
+verifyExpr :: Expression -> Context ()
+verifyExpr (VarId        p name) = verifySymbol name p
+verifyExpr (Binary    _ _ e0 e1) = verifyExpr e0 >> verifyExpr e1
+verifyExpr (Unary     _ _ e0   ) = verifyExpr e0
+verifyExpr (LitString  _ string) = modify (\s -> s
+    { strings = Set.insert string (strings s)})
+verifyExpr                     _ = modify id
+
+
+verifySymbol :: String -> Position -> Context ()
+verifySymbol name p = do
+    s <- gets symbols
+    if isSymbol name s
+        then modify id
+        else err $ OutOfScope name p
+
 
 verifyDeclaration :: Entry -> Context ()
 verifyDeclaration entry@(EntryVar name t _ p) = do
-    s <- get
-    if isLocal name (symbols s)
-        then tell $ Seq.singleton $ show p ++": Duplicate Definition of `"++name++"`"
-    else if Set.member (typeName t) (types s)
-        then modify (\s -> s { symbols = insertSymbol name entry (symbols s) })
-    else modify (\s-> s { symbols = insertSymbol name entry (symbols s)
-                        , pending = Map.insert name entry (pending s)
-                        })
+    ContextState { symbols, pending, types } <- get
+    case local name symbols of
+        Right EntryVar {varType, varPosition} ->
+            err $ DuplicateDeclaration name varType varPosition t p
+        Left _ -> case typeName t `Map.lookup` types of
+            Just _  -> modify (\s -> s
+                { symbols = insertSymbol name entry symbols })
+            Nothing -> modify (\s-> s
+                { symbols = insertSymbol name entry symbols
+                , pending = Map.insert name entry pending
+                })
+
 
 openScope' :: Position -> Context ()
 openScope' p = modify (\s -> s {symbols = openScope p (symbols s) })
+
 
 closeScope' :: Context ()
 closeScope' = modify (\s -> s { symbols = case goUp (symbols s) of

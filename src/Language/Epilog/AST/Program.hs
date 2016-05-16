@@ -13,6 +13,7 @@ module Language.Epilog.AST.Program
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Instruction
+import           Language.Epilog.AST.Expression
 import           Language.Epilog.Position
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
@@ -53,34 +54,41 @@ instance Treelike Content where
 -- Top Level Definitions -------------------------------------------------------
 data Definition
     = GlobalD
-        { gPosition :: Position
-        , gVar      :: Instruction
+        { gPos  :: Position
+        , gType :: Type
+        , gName :: Name
+        , gVal  :: Maybe Expression
         }
     | StructD
-        { sPosition :: Position
-        , sName     :: Name
-        , sClass    :: StructClass
-        , sContents :: Conts
+        { sPos   :: Position
+        , sName  :: Name
+        , sClass :: StructClass
+        , sConts :: Conts
         }
     | ProcD
-        { pPosition :: Position
-        , pName     :: Name
-        , pParams   :: Params
-        , pType     :: Type
-        , pInsts    :: Insts
+        { pPos    :: Position
+        , pName   :: Name
+        , pParams :: Params
+        , pType   :: Type
+        , pInsts  :: Insts
         }
     deriving (Eq, Show)
 
 instance P Definition where
     pos = \case
-        GlobalD p _     -> p
-        StructD p _ _ _ -> p
-        ProcD   p _ _ _ _-> p
+        GlobalD p _ _ _   -> p
+        StructD p _ _ _   -> p
+        ProcD   p _ _ _ _ -> p
 
 instance Treelike Definition where
     toTree = \case
-        GlobalD _ var ->
-            toTree var
+        GlobalD p t name val ->
+            Node (unwords ["Global Declaration", showP p]) $
+                Node (unwords ["Variable", name]) [] :
+                toTree t :
+                (case val of
+                    Nothing -> []
+                    Just x  -> [Node "Initial value" [toTree x]])
 
         StructD p name Record insts ->
             Node

@@ -8,8 +8,32 @@ either hola :-
 	character C.
 
 procedure main(integer T, character T) :-
+	Kilo is 5,
+	integer Kilo,
 	integer X,
 	integer Z is  5,
 	character Z,
 	string H,
-	Kilo is 4.
+
+	%% No funciona
+	for Xilo from 1 to 5 -> Z is 7 end,
+	%% Funciona
+	for integer Xilo 
+		from 1 to 5 
+			-> for integer I
+					from 5 to 6 -> integer Z is 5
+				end
+	end,
+	for X from 1 to 5 -> character Z is 'a' end,
+
+	if 
+		B = X   -> integer X;
+		B = X-1 -> integer X, Kilo is 4
+	end,
+
+	case X of 
+		1,2,3 -> integer Hola;
+		4,5   -> integer Chao;
+		10    -> integer Adios
+	end.
+

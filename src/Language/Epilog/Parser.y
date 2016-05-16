@@ -281,14 +281,7 @@ Range :: { Range }
 
 ---- While loops -----------------------
 While :: { Instruction }
-    : while Conds end               { While (pos $1) $2 }
-
-Conds :: { Conds }
-    : Cond                          { Seq.singleton $1 }
-    | Conds ";" Cond                { $1 |> $3 }
-
-Cond :: { Cond }
-    : Exp "->" Insts                { (pos $1, $1, $3) }
+    : while Guards end               { While (pos $1) $2 }
 
 -- Expressions -------------------------
 Exp :: { Expression }

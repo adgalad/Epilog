@@ -4,8 +4,6 @@ module Language.Epilog.AST.Instruction
     ( Instruction (..)
     , Lval (..)
     , Type (..)
-    , Cond
-    , Conds
     , Exps
     , Guard
     , Guards
@@ -39,9 +37,6 @@ type Sets   = Seq Set
 type Range  = (Position, Expression, Expression, Insts)
 type Ranges = Seq Range
 
-type Cond   = (Position, Expression, Insts)
-type Conds  = Seq Cond
-
 -- Other synonyms --------------------------------------------------------------
 type Name = String
 
@@ -55,7 +50,7 @@ data Instruction
     | Case        Position Expression  Sets
     | For         Position Name        Ranges
     | ForD        Position Instruction Ranges
-    | While       Position Conds
+    | While       Position Guards
 
     | Read        Position Lval
     | Write       Position Expression
@@ -81,13 +76,11 @@ instance Treelike Instruction where
     toTree = \case
         Declaration p t var val ->
             Node (unwords ["Declaration", showP p]) $
-                Node ("Variable " ++ var) [] :
+                Node (unwords ["Variable", var]) [] :
                 toTree t :
                 (case val of
-                    Nothing ->
-                        []
-                    Just x ->
-                        [Node "Initial value" [toTree x]])
+                    Nothing -> []
+                    Just x  -> [Node "Initial value" [toTree x]])
 
         Assign p lval expr ->
             Node (unwords ["Assign", showP p])
@@ -99,26 +92,26 @@ instance Treelike Instruction where
 
         If p guards ->
             Node (unwords ["If", showP p])
-                (toList . fmap ifTree $ guards)
+                (toList . fmap guardTree $ guards)
 
         Case p var sets ->
             Node (unwords ["Case", showP p]) $
                 toTree var :
-                (toList . fmap caseTree $ sets)
+                (toList . fmap setTree $ sets)
 
         For p var ranges ->
             Node (unwords ["For", showP p]) $
                 Node ("Variable " ++ var) [] :
-                (toList . fmap forTree $ ranges)
+                (toList . fmap rangeTree $ ranges)
 
         ForD p decl ranges ->
             Node (unwords ["For", showP p]) $
                 toTree decl :
-                (toList . fmap forTree $ ranges)
+                (toList . fmap rangeTree $ ranges)
 
-        While p conds ->
+        While p guards ->
             Node (unwords ["While", showP p])
-                (toList . fmap whileTree $ conds )
+                (toList . fmap guardTree $ guards )
 
         Read p lval ->
             Node (unwords ["Read", showP p])
@@ -132,32 +125,25 @@ instance Treelike Instruction where
             Node (unwords ["Finish", showP p]) []
 
         where
-            ifTree :: Guard -> Tree String
-            ifTree (p, cond, insts) =
+            guardTree :: Guard -> Tree String
+            guardTree (p, cond, insts) =
                 Node (unwords ["Guard", showP p])
                     [ Node "Condition" [toTree cond]
                     , Node "Body" (toForest insts)
                     ]
 
-            caseTree :: Set -> Tree String
-            caseTree (p, exprs, insts) =
+            setTree :: Set -> Tree String
+            setTree (p, exprs, insts) =
                 Node (unwords ["Set", showP p])
                     [ Node "Values" (toForest exprs)
                     , Node "Body" (toForest insts)
                     ]
 
-            forTree :: Range -> Tree String
-            forTree (p, lower, upper, insts) =
+            rangeTree :: Range -> Tree String
+            rangeTree (p, lower, upper, insts) =
                 Node (unwords ["Range", showP p])
                     [ Node "From" [toTree lower]
                     , Node "To"   [toTree upper]
-                    , Node "Body" (toForest insts)
-                    ]
-
-            whileTree :: Cond -> Tree String
-            whileTree (p, expr, insts) =
-                Node (unwords ["Branch", showP p])
-                    [ Node "Condition" [toTree expr]
                     , Node "Body" (toForest insts)
                     ]
 
