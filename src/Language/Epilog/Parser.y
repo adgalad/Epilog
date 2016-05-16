@@ -208,8 +208,8 @@ Initialization :: { Instruction }
     : Type VarId is Exp             { Declaration (pos $1) (item $1) (item $2) (Just $4) }
 
 Type :: { At Type }
-    : GenId                         { Type (item $1) Seq.empty :@ pos $1 }
-    | GenId ":" ArraySize           { Type (item $1) $3 :@ pos $1 }
+    : GenId                          { Type (item $1) Seq.empty <$ $1 }
+    | GenId ":" ArraySize            { Type (item $1) $3 <$ $1 }
 
 ArraySize :: { Seq Int32 }
     : Int                           { Seq.singleton (item $1) }

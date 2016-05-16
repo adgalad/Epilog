@@ -11,6 +11,8 @@ import           Control.Monad               (void)
 import           Control.Monad.IO.Class      (liftIO, MonadIO)
 import           Control.Monad.Trans.State   (StateT, execStateT, get, gets,
                                               modify, put, runStateT)
+
+import qualified Data.Sequence               as S
 import           Prelude                     hiding (lookup)
 import           System.IO                   (hFlush, stdout)
 --------------------------------------------------------------------------------
@@ -107,7 +109,7 @@ doVar name = do
 
             say $ "OK. integer `" ++ name ++ "` declared at " ++ show p ++ "."
 
-            let entry = Entry name intT Nothing p
+            let entry = Entry name (Type "integer" S.empty) Nothing p
 
             put BuildState
                 { symbols  = insertSymbol name entry st
