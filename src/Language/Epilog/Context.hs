@@ -78,14 +78,12 @@ context (Program decs) = do
 -- Definitions --------------------------------------------------------
 def :: Definition -> Context ()
 def (GlobalD p (Declaration _ t name val)) =
-    verifyDeclaration entry 
-  where
-    entry = EntryVar name t val p
+    verifyDeclaration (EntryVar name t val p) 
 
 def (StructD p name _ insts) = do
     t <- gets types
     if Set.member name t 
-        then tell $ Seq.singleton $ show p ++": Duplicate Definition of `"++name++"`"
+        then tell $ Seq.singleton $ show p ++": Duplicate definition of `"++name++"`"
         else modify (\s -> s { types = Set.insert name (types s)
                              , pending = Map.delete name (pending s) 
                              })
@@ -100,16 +98,13 @@ def (ProcD p name parameters t insts) = do
     -- How to know when a scope ends (?)
     closeScope'
     closeScope'
-
     where
         entry = EntryProc name t  p
 
 -- Parameters --------------------------------------------------------
 param :: Parameter -> Context ()
 param (Parameter p t name) = 
-    verifyDeclaration entry 
-    where 
-        entry = EntryVar name t Nothing p 
+    verifyDeclaration (EntryVar name t Nothing p) 
 
 
 -- Instructions --------------------------------------------------------
@@ -122,36 +117,86 @@ inst x = case x of
             entry = EntryVar name t val p
 
     Assign p (Variable name) rval -> do
-        s <- gets symbols
-        if isSymbol name s
-            then modify (\s -> s)
-            else tell $ Seq.singleton $ show p ++": Not in scope `"++name++"`"
+        verifySymbol name p
+    
+    Case p expr sets -> do
+        verifyExpr expr
+        sequence_ $ fmap set sets 
 
-{-}
-| Call        Position Name        Exps
+    If _ guards -> do
+        sequence_ $ fmap guard guards
 
-| If          Position Guards
-| Case        Position Expression  Sets
-| For         Position Name        Ranges
-| ForD        Position Instruction Ranges
-| While       Position Conds
+    For p var ranges -> do
+        verifySymbol var p
+        sequence_ $ fmap range ranges
 
-| Read        Position Lval
-| Write       Position Expression
+    ForD p (Declaration _ t name val) ranges -> do 
+        openScope' p
+        verifyDeclaration (EntryVar name t Nothing p)
+        sequence_ $ fmap range ranges
+        closeScope'
 
-| Finish      Position
--}
+    While _ conds -> do
+        sequence_ $ fmap guard conds
+
+    Call  p name exprs -> do 
+        verifySymbol name p
+        sequence_ $ fmap verifyExpr exprs
+
+
+    Read  p (Variable name) -> verifySymbol name p
+    Write p expr -> verifyExpr expr
+    _ -> modify (\s -> s)
+
+    where 
+
+        set :: Set -> Context ()
+        set (p, exprs, insts) = do
+            sequence_ $ fmap verifyExpr exprs
+            openScope' p 
+            sequence_ $ fmap inst insts
+
+            closeScope'
+
+        {- works for both, guards and conds -}
+        guard :: (Position, Expression, Insts) -> Context ()
+        guard (p, expr, insts) = do
+                verifyExpr expr
+                openScope' p 
+                sequence_ $ fmap inst insts
+                closeScope'
+
+        range :: Range -> Context ()
+        range (p, from, to, insts) = do
+            verifyExpr from
+            verifyExpr to
+            openScope' p
+            sequence_ $ fmap inst insts
+            closeScope'
 
 -- Expression --------------------------------------------------------
 
-expr :: Expression -> Context ()
-expr e = undefined
+verifyExpr :: Expression -> Context ()
+verifyExpr e = case e of
+    LitString p str  -> modify (\s -> s { strings = Set.insert str (strings s)})
+    VarId     p name -> verifySymbol name p
+    Binary _ _ e1 e2 -> verifyExpr e1 >> verifyExpr e2
+    Unary  _ _ expr  -> verifyExpr expr
+    _                -> modify (\s -> s)
+
+verifySymbol :: String -> Position -> Context ()
+verifySymbol name p = do 
+    s <- gets symbols
+    if isSymbol name s
+      then modify (\s -> s)
+      else tell $ Seq.singleton $ show p ++": Not in scope `"++name++"`"
+
 
 verifyDeclaration :: Entry -> Context ()
 verifyDeclaration entry@(EntryVar name t _ p) = do 
     s <- get
     if isLocal name (symbols s)
-        then tell $ Seq.singleton $ show p ++": Duplicate Definition of `"++name++"`"
+        then tell $ Seq.singleton $ show p ++": Duplicate definition of `"++name++"`"
     else if Set.member (typeName t) (types s) 
         then modify (\s -> s { symbols = insertSymbol name entry (symbols s) })
     else modify (\s-> s { symbols = insertSymbol name entry (symbols s)
