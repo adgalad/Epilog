@@ -37,17 +37,18 @@ import qualified Data.Sequence                  as Seq
 import           Prelude                        hiding (lookup)
 --------------------------------------------------------------------------------
 -- Symbol Table Entry ------------------
-data Entry = EntryVar
-    { varName         :: String
-    , varType         :: Type
-    , varInitialValue :: Maybe Expression
-    , varPosition     :: Position
-    }
+data Entry
+    = EntryVar
+        { varName         :: String
+        , varType         :: Type
+        , varInitialValue :: Maybe Expression
+        , varPosition     :: Position
+        }
     | EntryProc
-    { procName         :: String
-    , procType         :: Type
-    , procPosition     :: Position
-    }
+        { procName         :: String
+        , procType         :: Type
+        , procPosition     :: Position
+        }
 
 instance Treelike Entry where
     toTree EntryVar { varName, varType, varInitialValue, varPosition } =
@@ -165,8 +166,8 @@ goUp (_, []) =
 goUp (s, Breadcrumb { bScope = (sFrom, sTo, sEntries), bLeft, bRight } : bs) =
     Right (Scope sFrom sTo sEntries ((bLeft |> s) >< bRight), bs)
 
-root :: SymbolTable -> SymbolTable
-root (s, []) = (s, [])
+root :: SymbolTable -> Either a SymbolTable -- we want to stay in the monad
+root (s, []) = Right (s, [])
 root st      = root . (\(Right x) -> x) . goUp $ st
 
 ---- (de)focusing ------------
@@ -177,22 +178,22 @@ defocus :: SymbolTable -> Scope
 defocus = fst
 
 ---- Using the table ---------
-
 isSymbol :: String -> SymbolTable -> Bool
-isSymbol key st = case (lookup key st) of 
+isSymbol key st = case lookup key st of
     Left _ -> False
     Right _ -> True
 
 isLocal ::  String -> SymbolTable -> Bool
-isLocal key st = case (local key st) of 
+isLocal key st = case local key st of
     Left _ -> False
     Right _ -> True
+
 lookup :: String -> SymbolTable -> Either String Entry
 lookup key (s, []) =
     lookup' key s
 lookup key st@(s, _) =
     case lookup' key s of
-        Left     _ -> goUp st >>= lookup key
+        Left      _ -> goUp st >>= lookup key
         bRightEntry -> bRightEntry
 
 local :: String -> SymbolTable -> Either String Entry

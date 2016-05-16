@@ -13,7 +13,7 @@ import           Language.Epilog.Position hiding (col, row)
 import qualified Language.Epilog.Position as P (col, row)
 --------------------------------------------------------------------------------
 
-data At a = a :@ Position deriving (Bounded, Eq, Ord, Functor)
+data At a = a :@ Position deriving (Eq, Ord, Functor)
 
 instance Show a => Show (At a) where
     show (i :@ Position (r, c)) = unlines
