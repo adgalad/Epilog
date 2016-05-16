@@ -4,6 +4,8 @@
 
 module Main (main) where
 --------------------------------------------------------------------------------
+import           Language.Epilog.At
+import           Language.Epilog.Context
 import           Language.Epilog.Lexer
 import           Language.Epilog.Parser
 import           Language.Epilog.STTester
@@ -62,10 +64,13 @@ options =
         "Performs the lexical analysis of the file"
     , Option ['p'] ["parse"]
         (NoArg (\o -> o { optAction = doParse }))
-        "Performs the lexical and syntactic analysis of the file"
+        "Performs `lex` and syntactic analysis of the file"
     , Option ['s'] ["symTable"]
         (NoArg (\o -> o { optAction = doST }))
         "Builds and shows the symbol table tree of the file"
+    , Option ['c'] ["context"]
+        (NoArg (\o -> o { optAction = doContext }))
+        "Performs `parse` and checks the usage of variables in the file"
     ]
 
 getOpts :: IO (Options, [String])
@@ -89,10 +94,10 @@ doHelp = do
     exitSuccess
 
 doLex :: Handle -> String -> IO ()
-doLex handle file = do
+doLex handle filename = do
     input <- hGetContents handle
 
-    putStrLn $ unwords ["Lexing", file]
+    putStrLn $ unwords ["Lexing", filename]
     case scanner input of
         Left msg -> error msg
         Right tokens -> mapM_ split tokens
@@ -104,18 +109,18 @@ doLex handle file = do
                 else print) l
 
 doParse :: Handle -> String -> IO ()
-doParse handle file = do
+doParse handle filename = do
     input <- hGetContents handle
 
-    putStrLn $ unwords ["Parsing", file]
+    putStrLn $ unwords ["Parsing", filename]
 
     let (prog, plerrs) = parseProgram input
     when (null plerrs) $ putStrLn . drawTree $ toTree prog
 
 doST :: Handle -> String -> IO ()
-doST handle file = do
+doST handle filename = do
     putStrLn $ unwords
-        [ "I will proceed to ignore", file
+        [ "I will proceed to ignore", filename
         , "and show you an interactive prompt."
         , "I hope you're okay with this."
         ]
@@ -123,6 +128,16 @@ doST handle file = do
     unless (handle == stdin) (hClose handle)
 
     tester
+
+doContext :: Handle -> String -> IO ()
+doContext handle filename = do
+    input <- hGetContents handle
+    putStrLn $ unwords ["Checking the contexts of", filename]
+
+    let (prog, plerrs) = parseProgram input
+    when (null plerrs) $ do
+        errors <- context prog
+        mapM_ print errors
 
 -- Main --------------------------------
 main :: IO ()
@@ -132,8 +147,8 @@ main = do
     when (optVersion opts) doVersion
     when (optHelp    opts) doHelp
 
-    (handle, file) <- if null args
+    (handle, filename) <- if null args
         then (, "<stdin>") <$> return stdin
         else (, head args) <$> openFile (head args) ReadMode
 
-    optAction opts handle file
+    optAction opts handle filename

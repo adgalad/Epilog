@@ -5,6 +5,7 @@ module Language.Epilog.STTester
 import           Language.Epilog.AST.Type
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
+import           Language.Epilog.Position
 --------------------------------------------------------------------------------
 import           Control.Monad               (void)
 import           Control.Monad.IO.Class      (liftIO, MonadIO)
@@ -49,11 +50,11 @@ tester = do
         , "\tfinish - to Finish the build process and print the Symbol Table"
         ]
 
-    BuildState z _ <- execStateT builder initialBuildState
+    BuildState st _ <- execStateT builder initialBuildState
     putStrLn "The tree has been built."
 
     _ <- getChar -- wait for an enter keypress
-    putStr . drawTree . toTree . defocus $ z
+    putStr . drawTree . toTree . defocus $ st
 
     _ <- getChar -- wait for an enter keypress
     putStrLn $ unlines
@@ -66,23 +67,23 @@ tester = do
         , "\tlocal    - to find the Local definition of a variable"
         , "\tquit     - to Quit the tester"
         ]
-    void $ runStateT explorer z
+    void $ runStateT explorer st
 
 -- Builder -----------------------------
 -- State ---------------------
 data BuildState = BuildState
-    { zipper :: Zipper
-    , pos    :: (Int, Int)
+    { symbols  :: SymbolTable
+    , position :: Position
     }
 
 initialBuildState :: BuildState
 initialBuildState = BuildState
-    { zipper = empty
-    , pos    = (0,0)
+    { symbols  = empty
+    , position = Position (0,0)
     }
 
-nextPos :: (Int, Int) -> (Int, Int)
-nextPos (r, c) = (r+1, (c+2) `mod` 80)
+nextPos :: Position -> Position
+nextPos (Position (r, c)) = Position (r+1, (c+2) `mod` 80)
 
 -- Computations --------------
 builder :: StateT BuildState IO ()
@@ -99,51 +100,51 @@ builder = do
 
 doVar :: String -> StateT BuildState IO ()
 doVar name = do
-    z <- gets zipper
-    case local name z of
+    st <- gets symbols
+    case local name st of
         Left _ -> do
-            p <- gets pos
+            p <- gets position
 
             say $ "OK. integer `" ++ name ++ "` declared at " ++ show p ++ "."
 
             let entry = Entry name intT Nothing p
 
             put BuildState
-                { zipper = insertSymbol name entry z
-                , pos    = nextPos p
+                { symbols  = insertSymbol name entry st
+                , position = nextPos p
                 }
         Right _ ->
-            liftIO . putStrLn $
-                "Variable `" ++ name ++ "` already declared in this scope." ++
+            say $ "Variable `" ++ name ++
+                "` already declared in this scope." ++
                 "Not added to scope."
     builder
 
 doOpen :: StateT BuildState IO ()
 doOpen = do
-    BuildState z p <- get
+    BuildState st p <- get
 
     say $ "OK. Scope opened at " ++ show p ++ "."
 
     put BuildState
-        { zipper = openScope p z
-        , pos = nextPos p
+        { symbols  = openScope p st
+        , position = nextPos p
         }
     builder
 
 doClose' :: StateT BuildState IO () -> StateT BuildState IO ()
 doClose' c = do
-    BuildState z p <- get
-    let z' = closeScope p z
+    BuildState st p <- get
+    let st' = closeScope p st
 
     say $ "OK. Scope closed at " ++ show p ++ "."
 
-    case goUp z' of
+    case goUp st' of
         Left _ ->
-            modify (\s -> s { zipper = z' })
-        Right z'' -> do
+            modify (\s -> s { symbols= st' })
+        Right st'' -> do
             put BuildState
-                { zipper = z''
-                , pos = nextPos p
+                { symbols  = st''
+                , position = nextPos p
                 }
             c
 
@@ -155,7 +156,7 @@ doFinish = doClose' doFinish -- first close the current scope, then recurse
 
 -- Explorer ----------------------------
 -- Computations --------------
-explorer :: StateT Zipper IO ()
+explorer :: StateT SymbolTable IO ()
 explorer = do
     prompt "What to do?"
     line <- liftIO getLine
@@ -174,24 +175,24 @@ explorer = do
         ["quit"        ] -> doQuit
         _                -> doWhat >> explorer
 
-doMove :: (Zipper -> Either String Zipper) -> StateT Zipper IO ()
+doMove :: (SymbolTable -> Either String SymbolTable) -> StateT SymbolTable IO ()
 doMove f = do
-    z <- get
-    case f z of
-        Left e   -> liftIO . putStrLn $ e
-        Right z' -> do
+    st <- get
+    case f st of
+        Left e   -> say e
+        Right st' -> do
             say "OK."
-            put z'
+            put st'
     explorer
 
-doFind :: (String -> Zipper -> Either String Entry) -> String
-       -> StateT Zipper IO ()
+doFind :: (String -> SymbolTable -> Either String Entry) -> String
+       -> StateT SymbolTable IO ()
 doFind f name = do
-    z <- get
-    case f name z of
+    st <- get
+    case f name st of
         Left e  -> say e
         Right r -> say . drawTree . toTree $ r
     explorer
 
-doQuit :: StateT Zipper IO ()
+doQuit :: StateT SymbolTable IO ()
 doQuit = say "Bye."

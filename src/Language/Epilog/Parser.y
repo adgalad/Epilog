@@ -12,6 +12,7 @@ import           Language.Epilog.Lexer
 import           Data.Int                        (Int32)
 import           Data.Sequence                   (Seq, (<|), (><), (|>))
 import qualified Data.Sequence                   as Seq (empty, singleton)
+import           Prelude                         hiding (Either)
 --------------------------------------------------------------------------------
 }
 
@@ -89,13 +90,6 @@ import qualified Data.Sequence                   as Seq (empty, singleton)
     toFloat         { TokenToFloat :@ _ }
     toInteger       { TokenToInt   :@ _ }
 
-    -- Types
-    bool            { TokenBoolType   :@ _ }
-    char            { TokenCharType   :@ _ }
-    int             { TokenIntType    :@ _ }
-    float           { TokenFloatType  :@ _ }
-    string          { TokenStringType :@ _ }
-
     -- Punctuation
     ","             { TokenComma     :@ _ }
     "."             { TokenPeriod    :@ _ }
@@ -152,38 +146,48 @@ import qualified Data.Sequence                   as Seq (empty, singleton)
 %% -----------------------------------------------------------------------------
 -- Program -----------------------------
 Program :: { Program }
-    : TopDecs                       { Program $1 }
+    : TopDefs                       { Program $1 }
 
--- Top Level Declarations --------------
-TopDecs :: { Decs }
-    : TopDec                        { Seq.singleton $1 }
-    | TopDecs TopDec                { $1 |> $2 }
+-- Top Level Definitions --------------
+TopDefs :: { Defs }
+    : TopDef                        { Seq.singleton $1 }
+    | TopDefs TopDef                { $1 |> $2 }
 
-TopDec :: { Dec }
-    : proc GenId "(" Params ")" ":-" Insts "."
-                                    { ProcD $2 $4 $7 <$ $1 }
-    | either GenId ":-" Decs "."    { EitherD $2 $4 <$ $1 }
-    | record GenId ":-" Decs "."    { RecordD $2 $4 <$ $1 }
-    | Declaration "."               { GlobalD $1 <$ $1}
-    | Initialization "."            { GlobalD $1 <$ $1}
+TopDef :: { Definition }
+    : proc GenId "(" Params0 ")" ":-" Insts "."
+                                    { ProcD   (pos $1) (item $2) $4 $7 }
+    | either GenId ":-" Conts "."   { StructD (pos $1) (item $2) Either $4 }
+    | record GenId ":-" Conts "."   { StructD (pos $1) (item $2) Record $4 }
+    | Declaration "."               { GlobalD (pos $1) $1 }
+    | Initialization "."            { GlobalD (pos $1) $1 }
 
 GenId :: { At String }
-    : genId                         { unTokenGenId `fmap` $1 }
+    : genId                         { unTokenGenId `fmap` $1}
 
-Params :: { Insts }
+Params0 :: { Params }
     : {- lambda -}                  { Seq.empty }
-    | Decs                          { $1 }
+    | Params                        { $1 }
 
-Decs :: { Insts }
-    : Declaration                   { Seq.singleton $1 }
-    | Decs "," Declaration          { $1 |> $3 }
+Params :: { Params }
+    : Param                         { Seq.singleton $1 }
+    | Params "," Param              { $1 |> $3 }
+
+Param :: { Parameter }
+    : Type VarId                    { Parameter (pos $1) (item $1) (item $2) }
+
+Conts :: { Conts }
+    : Cont                          { Seq.singleton $1 }
+    | Conts "," Cont                { $1 |> $3 }
+
+Cont :: { Content }
+    : Type VarId                    { Content (pos $1) (item $1) (item $2) }
 
 -- Instructions ------------------------
 Insts :: { Insts }
     : Inst                          { Seq.singleton $1 }
     | Insts "," Inst                { $1   |>   $3 }
 
-Inst :: { Inst }
+Inst :: { Instruction }
     : Declaration                   { $1 }
     | Initialization                { $1 }
     | Assign                        { $1 }
@@ -192,48 +196,40 @@ Inst :: { Inst }
     | Case                          { $1 }
     | For                           { $1 }
     | While                         { $1 }
-    | read Lval                     { Read $2 <$ $1 }
-    | write Exp                     { Write $2 <$ $1 }
-    | finish                        { Finish <$ $1 }
+    | read Lval                     { Read   (pos $1) (item $2) }
+    | write Exp                     { Write  (pos $1) $2 }
+    | finish                        { Finish (pos $1) }
 
 ---- Declaration and Initialization ----
-Declaration :: { Inst }
-    : Type VarId                    { Declaration $1 $2 Nothing <$ $1 }
+Declaration :: { Instruction }
+    : Type VarId                    { Declaration (pos $1) (item $1) (item $2) Nothing }
 
-Initialization :: { Inst }
-    : Type VarId is Exp             { Declaration $1 $2 (Just $4) <$ $1 }
+Initialization :: { Instruction }
+    : Type VarId is Exp             { Declaration (pos $1) (item $1) (item $2) (Just $4) }
 
 Type :: { At Type }
-    : Atom                          { Type (item $1) Seq.empty <$ $1 }
-    | Atom ":" ArraySize            { Type (item $1) $3 <$ $1 }
-
-Atom :: { At Atom }
-    : bool                          { BoolT     <$ $1 }
-    | char                          { CharT     <$ $1 }
-    | float                         { FloatT    <$ $1 }
-    | int                           { IntT      <$ $1 }
-    | string                        { StringT   <$ $1 }
-    | GenId                         { UserT `fmap` $1 }
+    : GenId                         { Type (item $1) Seq.empty :@ pos $1 }
+    | GenId ":" ArraySize           { Type (item $1) $3 :@ pos $1 }
 
 ArraySize :: { Seq Int32 }
     : Int                           { Seq.singleton (item $1) }
     | ArraySize ":" Int             { $1 |> (item $3) }
 
 ---- Assignment ------------------------
-Assign :: { Inst }
-    : Lval is Exp                   { Assign (item $1) $3 <$ $1 }
+Assign :: { Instruction }
+    : Lval is Exp                   { Assign (pos $1) (item $1) $3 }
 
 Lval :: { At Lval }
-    : VarId                         { Variable         $1 <$ $1 }
-    | Lval "_" VarId                { Member (item $1) $3 <$ $1 }
-    | Lval ":" Exp                  { Entry  (item $1) $3 <$ $1 }
+    : VarId                         { Variable (item $1)           <$ $1 }
+    | Lval "_" VarId                { Member   (item $1) (item $3) <$ $1 }
+    | Lval ":" Exp                  { Index    (item $1)       $3  <$ $1 }
 
 VarId :: { At String }
     : varId                         { unTokenVarId `fmap` $1 }
 
 ---- Call ------------------------------
-Call :: { Inst }
-    : GenId "(" Args ")"            { Call $1 $3 <$ $1 }
+Call :: { Instruction }
+    : GenId "(" Args ")"            { Call (pos $1) (item $1) $3 }
 
 Args :: { Exps }
     : {- lambda -}                  { Seq.empty }
@@ -244,128 +240,128 @@ Args1 :: { Exps }
     | Args1 "," Exp                 { $1 |> $3 }
 
 ---- If --------------------------------
-If :: { Inst }
-    : if Guards end                 { If $2 <$ $1}
+If :: { Instruction }
+    : if Guards end                 { If (pos $1) $2}
 
 Guards :: { Guards }
     : Guard                         { Seq.singleton $1 }
     | Guards ";" Guard              { $1 |> $3 }
 
 Guard :: { Guard }
-    : Exp "->" Insts                { ($1, $3) }
+    : Exp "->" Insts                { (pos $1, $1, $3) }
 
 ---- Case ------------------------------
-Case :: { Inst }
-    : case Exp of Sets end          { Case $2 $4 <$ $1 }
+Case :: { Instruction }
+    : case Exp of Sets end          { Case (pos $1) $2 $4 }
 
 Sets :: { Sets }
     : Set                           { Seq.singleton $1 }
     | Sets ";" Set                  { $1 |> $3 }
 
-Exps :: { Exps }
-    : Exp                           { Seq.singleton $1 }
-    | Exps "," Exp                  { $1 |> $3 }
+Elems :: { At Exps }
+    : Exp                           { (Seq.singleton $1) :@ (pos $1) }
+    | Elems "," Exp                 { ((item $1) |> $3) :@ (pos $1) }
 
 Set :: { Set }
-    : Exps "->" Insts               { ($1, $3) }
+    : Elems "->" Insts              { (pos $1, item $1, $3) }
 
 ---- For loops -------------------------
-For :: { Inst }
-    : for VarId       Ranges end    { For  (VarId `fmap` $2) $3 <$ $1 }
-    | for Declaration Ranges end    { ForD $2 $3 <$ $1 }
+For :: { Instruction }
+    : for VarId       Ranges end    { For  (pos $1) (item $2) $3 }
+    | for Declaration Ranges end    { ForD (pos $1)       $2  $3 }
 
 Ranges :: { Ranges }
     : Range                         { Seq.singleton $1 }
     | Ranges ";" Range              { $1 |> $3 }
 
 Range :: { Range }
-    : from Exp to Exp "->" Insts    { ($2, $4, $6) }
+    : from Exp to Exp "->" Insts    { (pos $1, $2, $4, $6) }
 
 ---- While loops -----------------------
-While :: { Inst }
-    : while Conds end               { While $2 <$ $1 }
+While :: { Instruction }
+    : while Conds end               { While (pos $1) $2 }
 
 Conds :: { Conds }
     : Cond                          { Seq.singleton $1 }
     | Conds ";" Cond                { $1 |> $3 }
 
 Cond :: { Cond }
-    : Exp "->" Insts                { ($1, $3) }
+    : Exp "->" Insts                { (pos $1, $1, $3) }
 
 -- Expressions -------------------------
-Exp :: { Exp }
+Exp :: { Expression }
     : "(" Exp ")"                   { $2 }
 
-    | Bool                          { LitBool   `fmap` $1 }
-    | Char                          { LitChar   `fmap` $1 }
-    | Int                           { LitInt    `fmap` $1 }
-    | Float                         { LitFloat  `fmap` $1 }
-    | String                        { LitString `fmap` $1 }
-    | otherwise                     { Otherwise   <$   $1 }
+    | Bool                          { LitBool   (pos $1) (item $1) }
+    | Char                          { LitChar   (pos $1) (item $1) }
+    | Int                           { LitInt    (pos $1) (item $1) }
+    | Float                         { LitFloat  (pos $1) (item $1) }
+    | String                        { LitString (pos $1) (item $1) }
+    | otherwise                     { Otherwise (pos $1) }
 
-    | VarId                         { VarId     `fmap` $1 }
+    | VarId                         { VarId     (pos $1) (item $1) }
 
     -- Conversion Operators
-    | toBoolean   Exp               { Unary (ToBoolean   <$ $1) $2 <$ $1 }
-    | toCharacter Exp               { Unary (ToCharacter <$ $1) $2 <$ $1 }
-    | toFloat     Exp               { Unary (ToFloat     <$ $1) $2 <$ $1 }
-    | toInteger   Exp               { Unary (ToInteger   <$ $1) $2 <$ $1 }
+    | toBoolean   Exp               { Unary (pos $1) ToBoolean   $2 }
+    | toCharacter Exp               { Unary (pos $1) ToCharacter $2 }
+    | toFloat     Exp               { Unary (pos $1) ToFloat     $2 }
+    | toInteger   Exp               { Unary (pos $1) ToInteger   $2 }
 
     -- Operators
     ---- Logical
-    | Exp and     Exp               { Binary (And     <$ $2) $1 $3 <$ $1 }
-    | Exp andalso Exp               { Binary (Andalso <$ $2) $1 $3 <$ $1 }
-    | Exp or      Exp               { Binary (Or      <$ $2) $1 $3 <$ $1 }
-    | Exp orelse  Exp               { Binary (Orelse  <$ $2) $1 $3 <$ $1 }
-    | Exp xor     Exp               { Binary (Xor     <$ $2) $1 $3 <$ $1 }
-    |     not     Exp %prec NEG     { Unary  (Not     <$ $1)    $2 <$ $1 }
+    | Exp and     Exp               { Binary (pos $1) And     $1 $3 }
+    | Exp andalso Exp               { Binary (pos $1) Andalso $1 $3 }
+    | Exp or      Exp               { Binary (pos $1) Or      $1 $3 }
+    | Exp orelse  Exp               { Binary (pos $1) Orelse  $1 $3 }
+    | Exp xor     Exp               { Binary (pos $1) Xor     $1 $3 }
+    |     not     Exp %prec NEG     { Unary  (pos $1) Not     $2 }
 
     ---- Bitwise
-    | Exp band Exp                  { Binary (Band <$ $2) $1 $3 <$ $1 }
-    | Exp bor  Exp                  { Binary (Bor  <$ $2) $1 $3 <$ $1 }
-    | Exp bsl  Exp                  { Binary (Bsl  <$ $2) $1 $3 <$ $1 }
-    | Exp bsr  Exp                  { Binary (Bsr  <$ $2) $1 $3 <$ $1 }
-    | Exp bxor Exp                  { Binary (Bxor <$ $2) $1 $3 <$ $1 }
-    |     bnot Exp %prec NEG        { Unary  (Bnot <$ $1)    $2 <$ $1 }
+    | Exp band Exp                  { Binary (pos $1) Band $1 $3 }
+    | Exp bor  Exp                  { Binary (pos $1) Bor  $1 $3 }
+    | Exp bsl  Exp                  { Binary (pos $1) Bsl  $1 $3 }
+    | Exp bsr  Exp                  { Binary (pos $1) Bsr  $1 $3 }
+    | Exp bxor Exp                  { Binary (pos $1) Bxor $1 $3 }
+    |     bnot Exp %prec NEG        { Unary  (pos $1) Bnot $2 }
 
     ---- Array / Record / Either
-    | Exp ":"  Exp                  { Binary (Colon      <$ $2) $1 $3 <$ $1 }
-    | Exp "_"  Exp                  { Binary (Underscore <$ $2) $1 $3 <$ $1 }
-    | length Exp                    { Unary  (Length     <$ $1)    $2 <$ $1 }
+    | Exp ":"  Exp                  { Binary (pos $1) Colon      $1 $3 }
+    | Exp "_"  Exp                  { Binary (pos $1) Underscore $1 $3 }
+    | length Exp                    { Unary  (pos $1) Length $2 }
 
     ---- Arithmetic
-    | Exp "+" Exp                   { Binary (Plus     <$ $2) $1 $3 <$ $1 }
-    | Exp "-" Exp                   { Binary (Minus    <$ $2) $1 $3 <$ $1 }
-    | Exp "*" Exp                   { Binary (Times    <$ $2) $1 $3 <$ $1 }
-    | Exp "/" Exp                   { Binary (FloatDiv <$ $2) $1 $3 <$ $1 }
-    | Exp div Exp                   { Binary (IntDiv   <$ $2) $1 $3 <$ $1 }
-    | Exp rem Exp                   { Binary (Rem      <$ $2) $1 $3 <$ $1 }
-    |     "-" Exp %prec NEG         { Unary  (Uminus   <$ $2)    $2 <$ $1 }
+    | Exp "+" Exp                   { Binary (pos $1) Plus     $1 $3 }
+    | Exp "-" Exp                   { Binary (pos $1) Minus    $1 $3 }
+    | Exp "*" Exp                   { Binary (pos $1) Times    $1 $3 }
+    | Exp "/" Exp                   { Binary (pos $1) FloatDiv $1 $3 }
+    | Exp div Exp                   { Binary (pos $1) IntDiv   $1 $3 }
+    | Exp rem Exp                   { Binary (pos $1) Rem      $1 $3 }
+    |     "-" Exp %prec NEG         { Unary  (pos $1) Uminus $2 }
 
     ---- Relational
-    | Exp "<"  Exp                  { Binary (LTop <$ $2) $1 $3 <$ $1 }
-    | Exp "=<" Exp                  { Binary (LEop <$ $2) $1 $3 <$ $1 }
-    | Exp ">"  Exp                  { Binary (GTop <$ $2) $1 $3 <$ $1 }
-    | Exp ">=" Exp                  { Binary (GEop <$ $2) $1 $3 <$ $1 }
-    | Exp "="  Exp                  { Binary (EQop <$ $2) $1 $3 <$ $1 }
-    | Exp "/=" Exp                  { Binary (NEop <$ $2) $1 $3 <$ $1 }
-    | Exp "|"  Exp                  { Binary (FAop <$ $2) $1 $3 <$ $1 }
-    | Exp "!|" Exp                  { Binary (NFop <$ $2) $1 $3 <$ $1 }
+    | Exp "<"  Exp                  { Binary (pos $1) LTop $1 $3 }
+    | Exp "=<" Exp                  { Binary (pos $1) LEop $1 $3 }
+    | Exp ">"  Exp                  { Binary (pos $1) GTop $1 $3 }
+    | Exp ">=" Exp                  { Binary (pos $1) GEop $1 $3 }
+    | Exp "="  Exp                  { Binary (pos $1) EQop $1 $3 }
+    | Exp "/=" Exp                  { Binary (pos $1) NEop $1 $3 }
+    | Exp "|"  Exp                  { Binary (pos $1) FAop $1 $3 }
+    | Exp "!|" Exp                  { Binary (pos $1) NFop $1 $3 }
 
 Bool :: { At Bool }
-    : boolLit                       { unTokenBoolLit    `fmap` $1 }
+    : boolLit                       { unTokenBoolLit   `fmap` $1 }
 
 Char :: { At Char }
-    : charLit                       { unTokenCharLit    `fmap` $1 }
+    : charLit                       { unTokenCharLit   `fmap` $1 }
 
 Int :: { At Int32 }
-    : intLit                        { unTokenIntLit     `fmap` $1 }
+    : intLit                        { unTokenIntLit    `fmap` $1 }
 
 Float :: { At Float }
-    : floatLit                      { unTokenFloatLit   `fmap` $1 }
+    : floatLit                      { unTokenFloatLit  `fmap` $1 }
 
 String :: { At String }
-    : stringLit                     { unTokenStringLit  `fmap` $1 }
+    : stringLit                     { unTokenStringLit `fmap` $1 }
 
 { ------------------------------------------------------------------------------
 -- Parser
@@ -383,7 +379,7 @@ lexer cont = do
             lexer cont
         _ -> cont l
 
-parseError :: At Token -> Alex a
+parseError :: (At Token) -> Alex a
 parseError (t :@ p) =
     fail $ show p ++ ": Parse error on " ++ show t ++ "\n"
 

@@ -1,58 +1,67 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Language.Epilog.AST.Expression
-    ( Exp
-    , Expression (..)
+    ( Expression (..)
     , BinaryOp (..)
     , UnaryOp (..)
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.At
 import           Language.Epilog.Treelike
+import           Language.Epilog.Position
 --------------------------------------------------------------------------------
 import           Data.Int                 (Int32)
 --------------------------------------------------------------------------------
 
-type Exp = At Expression
-
 data Expression
-    = LitBool   Bool
-    | LitChar   Char
-    | LitInt    Int32
-    | LitFloat  Float
-    | LitString String
+    = LitBool   Position Bool
+    | LitChar   Position Char
+    | LitInt    Position Int32
+    | LitFloat  Position Float
+    | LitString Position String
 
-    | Otherwise
+    | Otherwise Position
 
-    | VarId String
+    | VarId     Position String
 
-    | Binary (At BinaryOp) Exp Exp
-    | Unary  (At UnaryOp)  Exp
+    | Binary    Position BinaryOp Expression Expression
+    | Unary     Position UnaryOp  Expression
     deriving (Eq, Show)
+
+instance P Expression where
+    pos = \case
+        LitBool   p _     -> p
+        LitChar   p _     -> p
+        LitInt    p _     -> p
+        LitFloat  p _     -> p
+        LitString p _     -> p
+        Otherwise p       -> p
+        VarId     p _     -> p
+        Binary    p _ _ _ -> p
+        Unary     p _ _   -> p
 
 instance Treelike Expression where
     toTree = \case
-        LitBool val ->
-            Node (if val then "true" else "false") []
-        LitChar val ->
-            Node (show val) []
-        LitInt val ->
-            Node (show val) []
-        LitFloat val ->
-            Node (show val) []
-        LitString val ->
-            Node (show val) []
+        LitBool p val ->
+            Node (unwords [(if val then "true" else "false"), showP p]) []
+        LitChar p val ->
+            Node (unwords [show val, showP p]) []
+        LitInt p val ->
+            Node (unwords [show val, showP p]) []
+        LitFloat p val ->
+            Node (unwords [show val, showP p]) []
+        LitString p val ->
+            Node (unwords [show val, showP p]) []
 
-        Otherwise ->
-            Node "otherwise" []
+        Otherwise p ->
+            Node (unwords ["otherwise", showP p]) []
 
-        VarId name ->
-            Node ("Variable " ++ name) []
+        VarId p name ->
+            Node (unwords ["Variable", name, showP p]) []
 
-        Binary    (op :@ _) exp0 exp1 ->
-            Node (show op) (toForest [exp0, exp1])
-        Unary     (op :@ _) expr ->
-            Node (show op) [toTree expr]
+        Binary p op exp0 exp1 ->
+            Node (unwords [show op, showP p]) (toForest [exp0, exp1])
+        Unary p op expr ->
+            Node (unwords [show op, showP p]) [toTree expr]
 
 data BinaryOp
     = And | Andalso | Or | Orelse | Xor

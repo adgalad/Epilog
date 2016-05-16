@@ -1,8 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Language.Epilog.AST.Instruction
-    ( Atom (..)
-    , Instruction (..)
+    ( Instruction (..)
     , Lval (..)
     , Type (..)
     , Cond
@@ -10,7 +9,6 @@ module Language.Epilog.AST.Instruction
     , Exps
     , Guard
     , Guards
-    , Inst
     , Insts
     , Range
     , Ranges
@@ -20,7 +18,7 @@ module Language.Epilog.AST.Instruction
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Type
-import           Language.Epilog.At
+import           Language.Epilog.Position
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
 import           Data.Foldable                  (toList)
@@ -29,111 +27,136 @@ import           Data.Tree                      (flatten)
 --------------------------------------------------------------------------------
 -- Sequence synonyms -----------------------------------------------------------
 
-type Inst   = At Instruction
-type Insts  = Seq Inst
+type Insts  = Seq Instruction
 
-type Guard  = (Exp, Insts)
+type Guard  = (Position, Expression, Insts)
 type Guards = Seq Guard
 
-type Exps   = Seq Exp
-type Set    = (Exps, Insts)
+type Exps   = Seq Expression
+type Set    = (Position, Exps, Insts)
 type Sets   = Seq Set
 
-type Range  = (Exp, Exp, Insts)
+type Range  = (Position, Expression, Expression, Insts)
 type Ranges = Seq Range
 
-type Cond   = (Exp, Insts)
+type Cond   = (Position, Expression, Insts)
 type Conds  = Seq Cond
 
+-- Other synonyms --------------------------------------------------------------
+type Name = String
+
 -- Instructions ----------------------------------------------------------------
-
 data Instruction
-    = Declaration (At Type) (At String) (Maybe Exp)
-    | Assign Lval Exp
-    | Call (At String) Exps
+    = Declaration Position Type        Name       (Maybe Expression)
+    | Assign      Position Lval        Expression
+    | Call        Position Name        Exps
 
-    | If Guards
-    | Case Exp Sets
-    | For  Exp Ranges
-    | ForD Inst Ranges
-    | While Conds
+    | If          Position Guards
+    | Case        Position Expression  Sets
+    | For         Position Name        Ranges
+    | ForD        Position Instruction Ranges
+    | While       Position Conds
 
-    | Read (At Lval)
-    | Write Exp
+    | Read        Position Lval
+    | Write       Position Expression
 
-    | Finish
+    | Finish      Position
     deriving (Eq, Show)
+
+instance P Instruction where
+    pos = \case
+        Declaration p _ _ _ -> p
+        Assign      p _ _   -> p
+        Call        p _ _   -> p
+        If          p _     -> p
+        Case        p _ _   -> p
+        For         p _ _   -> p
+        ForD        p _ _   -> p
+        While       p _     -> p
+        Read        p _     -> p
+        Write       p _     -> p
+        Finish      p       -> p
 
 instance Treelike Instruction where
     toTree = \case
-        Declaration (t_pe :@ _ ) (var :@ _ ) val ->
-            Node "Declaration" $
+        Declaration p t var val ->
+            Node (unwords ["Declaration", showP p]) $
                 Node ("Variable " ++ var) [] :
-                toTree t_pe :
+                toTree t :
                 (case val of
                     Nothing ->
                         []
                     Just x ->
                         [Node "Initial value" [toTree x]])
 
-        Assign lval expr ->
-            Node "Assign" [toTree lval, toTree expr]
+        Assign p lval expr ->
+            Node (unwords ["Assign", showP p])
+                [toTree lval, toTree expr]
 
-        Call (proc :@ _) args ->
-            Node
-                ("Call " ++ proc)
+        Call p proc args ->
+            Node (unwords ["Call", proc, showP p])
                 [Node "Arguments" (toList . fmap toTree $ args)]
 
-        If guards ->
-            Node "If" (toList . fmap ifTree $ guards)
+        If p guards ->
+            Node (unwords ["If", showP p])
+                (toList . fmap ifTree $ guards)
 
-        Case (var :@ _) sets ->
-            Node "Case" $ toTree var:(toList . fmap caseTree $ sets)
+        Case p var sets ->
+            Node (unwords ["Case", showP p]) $
+                toTree var :
+                (toList . fmap caseTree $ sets)
 
-        For (var :@ _) ranges ->
-            Node "For" $ toTree var:(toList . fmap forTree $ ranges)
+        For p var ranges ->
+            Node (unwords ["For", showP p]) $
+                Node ("Variable " ++ var) [] :
+                (toList . fmap forTree $ ranges)
 
-        ForD decl ranges ->
-            Node "For" $ toTree decl:(toList . fmap forTree $ ranges)
+        ForD p decl ranges ->
+            Node (unwords ["For", showP p]) $
+                toTree decl :
+                (toList . fmap forTree $ ranges)
 
-        While conds ->
-            Node "While" (toList . fmap whileTree $ conds )
+        While p conds ->
+            Node (unwords ["While", showP p])
+                (toList . fmap whileTree $ conds )
 
-        Read lval ->
-            Node "Read" [toTree lval]
+        Read p lval ->
+            Node (unwords ["Read", showP p])
+                [toTree lval]
 
-        Write expr ->
-            Node "Write" [toTree expr]
+        Write p expr ->
+            Node (unwords ["Write", showP p])
+                [toTree expr]
 
-        Finish ->
-            Node "Finish" []
+        Finish p ->
+            Node (unwords ["Finish", showP p]) []
 
         where
             ifTree :: Guard -> Tree String
-            ifTree (cond, insts) =
-                Node "Guard"
+            ifTree (p, cond, insts) =
+                Node (unwords ["Guard", showP p])
                     [ Node "Condition" [toTree cond]
                     , Node "Body" (toForest insts)
                     ]
 
             caseTree :: Set -> Tree String
-            caseTree (expr, insts) =
-                Node "Set"
-                    [ Node "Values" (toForest expr)
+            caseTree (p, exprs, insts) =
+                Node (unwords ["Set", showP p])
+                    [ Node "Values" (toForest exprs)
                     , Node "Body" (toForest insts)
                     ]
 
             forTree :: Range -> Tree String
-            forTree (lower, upper, insts) =
-                Node "Range"
+            forTree (p, lower, upper, insts) =
+                Node (unwords ["Range", showP p])
                     [ Node "From" [toTree lower]
                     , Node "To"   [toTree upper]
                     , Node "Body" (toForest insts)
                     ]
 
             whileTree :: Cond -> Tree String
-            whileTree (expr, insts) =
-                Node "Branch"
+            whileTree (p, expr, insts) =
+                Node (unwords ["Branch", showP p])
                     [ Node "Condition" [toTree expr]
                     , Node "Body" (toForest insts)
                     ]
@@ -141,21 +164,21 @@ instance Treelike Instruction where
 -- Lval ------------------------------------------------------------------------
 
 data Lval
-    = Variable (At String)
-    | Member Lval (At String)
-    | Entry Lval Exp
+    = Variable String
+    | Member Lval String
+    | Index Lval Expression
     deriving (Eq, Show)
 
 instance Treelike Lval where
     toTree = aux1 . reverse . aux0
         where
             aux0 = \case
-                Variable (name :@ _)  ->
+                Variable name ->
                     [name]
-                Member lval (member :@ _) ->
+                Member lval member ->
                     ('_': member) : aux0 lval
-                Entry lval  (entry :@ _)  ->
-                    (':': (show . flatten . toTree $ entry)) : aux0 lval
+                Index lval index ->
+                    (':': (show . flatten . toTree $ index)) : aux0 lval
 
             aux1 (x:y:xs) =
                 Node x [aux1 (y:xs)]

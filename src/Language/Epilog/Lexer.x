@@ -2,7 +2,6 @@
   {-# LANGUAGE MultiWayIf #-}
 module Language.Epilog.Lexer
     ( Alex (..)
-    , At (..)
     , Token (..)
     , alexMonadScan
     , isError
@@ -137,14 +136,6 @@ epilog :-
     <0> "toInteger"             { make TokenToInt   }
     <0> "toFloat"               { make TokenToFloat }
 
-    -- Types
-    <0> "void"                  { make TokenVoidType   }
-    <0> "boolean"               { make TokenBoolType   }
-    <0> "character"             { make TokenCharType   }
-    <0> "integer"               { make TokenIntType    }
-    <0> "float"                 { make TokenFloatType  }
-    <0> "string"                { make TokenStringType }
-
     -- Punctuation
     <0> ","                     { make TokenComma     }
     <0> "."                     { make TokenPeriod    }
@@ -192,8 +183,8 @@ epilog :-
 
 type Action = AlexInput -> Int -> Alex (At Token)
 
-toPair :: AlexPosn -> (Int, Int)
-toPair (AlexPn _ r c) = (r, c)
+toPair :: AlexPosn -> Position
+toPair (AlexPn _ r c) = Position (r, c)
 
 make' :: (String -> Token) -> Action
 make' t (p, _, _, str) size =
@@ -264,7 +255,7 @@ scanner :: String -> Either String [At Token]
 scanner str =
     let loop = do
             t <- alexMonadScan
-            let tok@(i :@ (r, c)) = t
+            let tok@(i :@ _) = t
             if (i == EOF)
                 then return []
                 else do
