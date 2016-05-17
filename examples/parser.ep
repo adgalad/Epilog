@@ -1,5 +1,6 @@
 integer X.
-character X.
+jut Y.
+
 
 record hola :-
 	integer R.
@@ -14,6 +15,10 @@ procedure main(integer T, character T) :-
 	integer Z is  5,
 	character Z,
 	string H,
+
+	float2 Filo1,
+	float2 Filo2,
+	float2 Filo3,
 
 	%% No funciona
 	for Xilo from 1 to 5 -> Z is 7 end,

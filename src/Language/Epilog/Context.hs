@@ -23,7 +23,7 @@ import           Control.Monad.Trans.RWS.Strict  (RWS, execRWS, get, gets,
 import           Data.Function                   (on)
 import           Data.Map.Strict                 (Map)
 import qualified Data.Map.Strict                 as Map
-import           Data.Sequence                   (Seq, (><))
+import           Data.Sequence                   (Seq, (><), (<|))
 import qualified Data.Sequence                   as Seq
 import           Data.Set                        (Set)
 import qualified Data.Set                        as Set
@@ -52,6 +52,10 @@ data ContextError
         , dDecSndT :: Type
         , dDecSndP :: Position
         }
+    | UndeclaredType
+        { uType    :: String
+        , uEntries :: Entry
+        }
     deriving (Eq)
 
 err :: a -> RWS r (Seq a) s ()
@@ -77,6 +81,9 @@ instance Show ContextError where
             "Duplicate declaration at " ++ showP sndP ++ ", variable `" ++
             name ++ "` already defined as `" ++ show fstT ++ "` at " ++
             showP fstP ++ " cannot be redeclared as `" ++ show sndT
+        (UndeclaredType t (EntryVar name _ _ p)) -> 
+            "Variable `" ++ name ++ "` at " ++ showP p ++ 
+            " declared with an unknow type `" ++ t ++"`"
 
 data ContextState = ContextState
     { symbols :: SymbolTable
@@ -120,9 +127,10 @@ context (Program decs) = (symbols, strings, types, errors)
     where
         (ContextState {symbols, strings, pending, types}, e) =
             execRWS (mapM_ def decs) () initialState
-        errors = Map.foldr toErrorSeq Seq.empty pending >< e
-        toErrorSeq pend s = s >< toError pend
-        toError _ = Seq.singleton $ OutOfScope "pepe" Epilog
+        errors = foldr (flip (><).pendToError) 
+                       Seq.empty (Map.toAscList pending) >< e
+        pendToError (t,entries) 
+            = foldr ((<|).UndeclaredType t) Seq.empty entries
 
 
 -- Definitions --------------------------------------------------------
@@ -253,7 +261,7 @@ verifyDeclaration entry@(EntryVar name t _ p) = do
             Nothing -> modify (\s-> s
                 { symbols = insertSymbol name entry symbols
                 , pending =
-                    Map.insertWith (><) name (Seq.singleton entry) pending
+                    Map.insertWith (flip (><)) (typeName t) (Seq.singleton entry) pending
                 })
 
 

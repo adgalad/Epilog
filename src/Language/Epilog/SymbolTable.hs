@@ -49,6 +49,7 @@ data Entry
         , procType         :: Type
         , procPosition     :: Position
         }
+    deriving (Eq)
 
 instance Treelike Entry where
     toTree EntryVar { varName, varType, varInitialValue, varPosition } =

@@ -9,6 +9,7 @@ import           Language.Epilog.Context
 import           Language.Epilog.Lexer
 import           Language.Epilog.Parser
 import           Language.Epilog.STTester
+import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
 import           Control.Monad            (unless, when)
@@ -137,6 +138,7 @@ doContext handle filename = do
     let (prog, plerrs) = parseProgram input
     when (null plerrs) $ do
         let (symbols, strings, types, errors) = context prog
+        --putStr .drawTree. toTree $ defocus symbols
         mapM_ print errors
 
 -- Main --------------------------------
