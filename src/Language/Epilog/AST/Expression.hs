@@ -2,6 +2,7 @@
 
 module Language.Epilog.AST.Expression
     ( Expression (..)
+    , Lval (..)
     , BinaryOp (..)
     , UnaryOp (..)
     ) where
@@ -10,6 +11,7 @@ import           Language.Epilog.Treelike
 import           Language.Epilog.Position
 --------------------------------------------------------------------------------
 import           Data.Int                 (Int32)
+import           Data.Tree                (flatten)
 --------------------------------------------------------------------------------
 
 data Expression
@@ -21,7 +23,7 @@ data Expression
 
     | Otherwise Position
 
-    | VarId     Position String
+    | Lval      Position Lval
 
     | Binary    Position BinaryOp Expression Expression
     | Unary     Position UnaryOp  Expression
@@ -35,7 +37,7 @@ instance P Expression where
         LitFloat  p _     -> p
         LitString p _     -> p
         Otherwise p       -> p
-        VarId     p _     -> p
+        Lval      p _     -> p
         Binary    p _ _ _ -> p
         Unary     p _ _   -> p
 
@@ -55,8 +57,8 @@ instance Treelike Expression where
         Otherwise p ->
             Node (unwords ["otherwise", showP p]) []
 
-        VarId p name ->
-            Node (unwords ["Variable", name, showP p]) []
+        Lval p lval ->
+            Node (unwords ["Lval", showP p]) [toTree lval]
 
         Binary p op exp0 exp1 ->
             Node (unwords [show op, showP p]) (toForest [exp0, exp1])
@@ -121,3 +123,29 @@ instance Show UnaryOp where
         ToCharacter -> "toCharacter"
         ToFloat     -> "toFloat"
         ToInteger   -> "toInteger"
+
+-- Lval ------------------------------------------------------------------------
+
+data Lval
+    = Variable String
+    | Member Lval String
+    | Index Lval Expression
+    deriving (Eq, Show)
+
+instance Treelike Lval where
+    toTree = aux1 . reverse . aux0
+        where
+            aux0 = \case
+                Variable name ->
+                    [name]
+                Member lval member ->
+                    ('_': member) : aux0 lval
+                Index lval index ->
+                    (':': (show . flatten . toTree $ index)) : aux0 lval
+
+            aux1 (x:y:xs) =
+                Node x [aux1 (y:xs)]
+            aux1 [x] =
+                Node x []
+            aux1 [] =
+                Node "" []

@@ -2,7 +2,6 @@
 
 module Language.Epilog.AST.Instruction
     ( Instruction (..)
-    , Lval (..)
     , Type (..)
     , Exps
     , Guard
@@ -21,7 +20,6 @@ import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
 import           Data.Foldable                  (toList)
 import           Data.Sequence                  (Seq)
-import           Data.Tree                      (flatten)
 --------------------------------------------------------------------------------
 -- Sequence synonyms -----------------------------------------------------------
 
@@ -146,29 +144,3 @@ instance Treelike Instruction where
                     , Node "To"   [toTree upper]
                     , Node "Body" (toForest insts)
                     ]
-
--- Lval ------------------------------------------------------------------------
-
-data Lval
-    = Variable String
-    | Member Lval String
-    | Index Lval Expression
-    deriving (Eq, Show)
-
-instance Treelike Lval where
-    toTree = aux1 . reverse . aux0
-        where
-            aux0 = \case
-                Variable name ->
-                    [name]
-                Member lval member ->
-                    ('_': member) : aux0 lval
-                Index lval index ->
-                    (':': (show . flatten . toTree $ index)) : aux0 lval
-
-            aux1 (x:y:xs) =
-                Node x [aux1 (y:xs)]
-            aux1 [x] =
-                Node x []
-            aux1 [] =
-                Node "" []

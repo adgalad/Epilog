@@ -81,8 +81,8 @@ instance Show ContextError where
             "Duplicate declaration at " ++ showP sndP ++ ", variable `" ++
             name ++ "` already defined as `" ++ show fstT ++ "` at " ++
             showP fstP ++ " cannot be redeclared as `" ++ show sndT
-        (UndeclaredType t (EntryVar name _ _ p)) -> 
-            "Variable `" ++ name ++ "` at " ++ showP p ++ 
+        (UndeclaredType t (EntryVar name _ _ p)) ->
+            "Variable `" ++ name ++ "` at " ++ showP p ++
             " declared with an unknown type `" ++ t ++"`"
 
 data ContextState = ContextState
@@ -127,9 +127,9 @@ context (Program decs) = (symbols, strings, types, errors)
     where
         (ContextState {symbols, strings, pending, types}, e) =
             execRWS (mapM_ def decs) () initialState
-        errors = foldr (flip (><).pendToError) 
+        errors = foldr (flip (><).pendToError)
                        Seq.empty (Map.toAscList pending) >< e
-        pendToError (t,entries) 
+        pendToError (t,entries)
             = foldr ((<|).UndeclaredType t) Seq.empty entries
 
 
@@ -233,12 +233,16 @@ range (p, from, to, insts) = do
 -- Expression --------------------------------------------------------
 
 verifyExpr :: Expression -> Context ()
-verifyExpr (VarId        p name) = verifySymbol name p
+verifyExpr (Lval         p lval) = verifyLval lval p
 verifyExpr (Binary    _ _ e0 e1) = verifyExpr e0 >> verifyExpr e1
 verifyExpr (Unary     _ _ e0   ) = verifyExpr e0
 verifyExpr (LitString  _ string) = modify (\s -> s
     { strings = Set.insert string (strings s)})
 verifyExpr                     _ = modify id
+
+
+verifyLval :: Lval -> Position -> Context ()
+verifyLval = undefined
 
 
 verifySymbol :: String -> Position -> Context ()

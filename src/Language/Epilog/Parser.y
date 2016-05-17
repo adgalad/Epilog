@@ -42,9 +42,12 @@ import           Prelude                         hiding (Either)
     bxor            { TokenBxor :@ _ }
 
     ---- Array / Record / Either
-    length          { TokenLength     :@ _ }
-    ":"             { TokenColon      :@ _ }
-    "_"             { TokenUnderscore :@ _ }
+    length          { TokenLength       :@ _ }
+    "["             { TokenLeftBracket  :@ _ }
+    "]"             { TokenRightBracket :@ _ }
+    "{"             { TokenLeftBrace    :@ _ }
+    "}"             { TokenRightBrace   :@ _ }
+    "_"             { TokenUnderscore   :@ _ }
 
     ---- Arithmetic
     "+"             { TokenPlus     :@ _ }
@@ -140,7 +143,7 @@ import           Prelude                         hiding (Either)
 %right    toBoolean toCharacter toFloat toInteger
 
 %left     "_"
-%left     ":"
+-- %right     ":"
 %nonassoc length
 
 %% -----------------------------------------------------------------------------
@@ -211,11 +214,13 @@ Initialization :: { Instruction }
 
 Type :: { At Type }
     : GenId                         { Type (item $1) Seq.empty <$ $1 }
-    | GenId ":" ArraySize           { Type (item $1) $3 <$ $1 }
+    | GenId ArraySize               { Type (item $1) $2 <$ $1 }
 
 ArraySize :: { Seq Int32 }
-    : Int                           { Seq.singleton (item $1) }
-    | ArraySize ":" Int             { $1 |> (item $3) }
+    : "{" Int "]"                   { Seq.singleton (item $2) }
+    | "[" Int "}"                   { Seq.singleton (item $2) }
+    | ArraySize "{" Int "]"         { $1 |> (item $3) }
+    | ArraySize "[" Int "}"         { $1 |> (item $3) }
 
 ---- Assignment ------------------------
 Assign :: { Instruction }
@@ -224,7 +229,8 @@ Assign :: { Instruction }
 Lval :: { At Lval }
     : VarId                         { Variable (item $1)           <$ $1 }
     | Lval "_" VarId                { Member   (item $1) (item $3) <$ $1 }
-    | Lval ":" Exp                  { Index    (item $1)       $3  <$ $1 }
+    | Lval "{" Exp "]"              { Index    (item $1)       $3  <$ $1 }
+    | Lval "[" Exp "}"              { Index    (item $1)       $3  <$ $1 }
 
 VarId :: { At String }
     : varId                         { unTokenVarId `fmap` $1 }
@@ -294,7 +300,7 @@ Exp :: { Expression }
     | String                        { LitString (pos $1) (item $1) }
     | otherwise                     { Otherwise (pos $1) }
 
-    | VarId                         { VarId     (pos $1) (item $1) }
+    | Lval                          { Lval      (pos $1) (item $1) }
 
     -- Conversion Operators
     | toBoolean   Exp               { Unary (pos $1) ToBoolean   $2 }
@@ -320,8 +326,6 @@ Exp :: { Expression }
     |     bnot Exp %prec NEG        { Unary  (pos $1) Bnot $2 }
 
     ---- Array / Record / Either
-    | Exp ":"  Exp                  { Binary (pos $1) Colon      $1 $3 }
-    | Exp "_"  Exp                  { Binary (pos $1) Underscore $1 $3 }
     | length Exp                    { Unary  (pos $1) Length $2 }
 
     ---- Arithmetic

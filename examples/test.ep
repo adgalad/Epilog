@@ -24,36 +24,36 @@ procedure main() :-
 
 %% complex Numbers
 
-record complex:
+record complex:-
 	float Real,
 	float Imaginary.
 
-function C(float x, float y) -> complex:
+function C(float x, float y) -> complex:-
 	complex c,
 	c_real is x,
 	c_imaginary is y,
 	return c.
 
-function sum(complex a, complex b) -> complex:
+function sum(complex a, complex b) -> complex:-
 	complex c,
 	c_real      is a_real      + b_real,
 	c_imaginary is a_imaginary + b_imaginary,
 	return c.
 
-function negative(complex a) -> complex:
+function negative(complex a) -> complex:-
 	complex c,
 	c_real 		is -a_real,
 	c_imaginary is -a_imaginary,
 	return c.
 
-function prod(complex a, complex b) -> complex:
+function prod(complex a, complex b) -> complex:-
 	complex c,
 	c_real 		is (a_real * b_real) 	 + (a_imaginary * b_imaginary),
 	c_imaginary is (a_real * b_imaginary) + (a_imaginary * b_real),
 	return c.
 
 %% Funciones
-function f(integer X) -> integer:
+function f(integer X) -> integer:-
 	%% stuffs
 	boolean B is X < 10 and ((((true)))) and (true or (false) or (false and true)),
 	if B ->
@@ -80,13 +80,13 @@ function f(integer X) -> integer:
 	return X.
 
 %% Procedimientos
-procedure q(integer X, integer Y, integer Z):
+procedure q(integer X, integer Y, integer Z):-
 	if Z > 0 ->
 		X is X+10,
 		Y is Z+Y,
 		Z is Z-1,
 		W is "a
-		
+
 		q(Y, X, Z)
 	end.
 

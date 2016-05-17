@@ -99,9 +99,9 @@ Examples:
 ### Operators
 The operators and punctuation characters used in Epilog include
 
-> `(`, `)`, `*`, `+`, `,`, `-`, `.`, `/=`, `/`, `:`, `<`, `=<`, `=`, `>=`,
-> `>`, `_`, `|`, `and`, `andalso`, `band`, `bnot`, `bor`, `bsl`, `bsr`,
-> `bxor`, `div`, `is`, `length`, `not`, `or`, `orelse`, `rem`, `xor`
+> `(`, `)`, `*`, `+`, `,`, `-`, `.`, `/=`, `/`, `[`, `]`, `{`, `}`, `<`, `=<`,
+> `=`, `>=`, `>`, `_`, `|`, `!|`, `and`, `andalso`, `band`, `bnot`, `bor`,
+> `bsl`, `bsr`, `bxor`, `div`, `is`, `length`, `not`, `or`, `orelse`, `rem`, `xor`
 
 Operators have the following precedence, from highest to lowest:
 
@@ -109,14 +109,14 @@ Operators have the following precedence, from highest to lowest:
 |------------------------|-------------------------------------------------|---------------|
 | `to*`                  | Type conversion operators                       | Right to left |
 | `length`               | Array length                                    |      None     |
-| `:`                    | Array subscripting                              | Left to right |
+| `[ x }` `{ x ]`        | Array subscripting                              | Left to right |
 | `_`                    | Record entry and union member access            | Left to right |
 | `-`, `not`, `bnot`     | Unary arithmetic, logical, and bitwise negation | Right to left |
 | `*`, `/`, `div`, `rem` | Multiplicative                                  | Left to right |
 | `+`, `-`               | Additive                                        | Left to right |
 | `bsl`, `bsr`           | Bitwise left shift and right shift              | Left to right |
 | `<`,`=<`,`>`,`>=`      | Relational                                      |      None     |
-| `|`                    | "divisor of" operator                           |      None     |
+| `|` `!|`               | "divisor of" operator and its negation          |      None     |
 | `=`, `/=`              | Equality                                        | Left to right |
 | `band`                 | Bitwise AND                                     | Left to right |
 | `bxor`                 | Bitwise XOR                                     | Left to right |
@@ -135,8 +135,9 @@ evaluated if `<exp_1>` evaluates to false, since otherwise the value of the
 expression would just be true. The same logic applies, *mutatis mutandis*, to
 the `andalso` operator.
 
-The operator `:` takes an array on its left and an integer on its right and
-returns the element type of the array.
+The operators `[ x }` and `{ x ]` take an array on their lefts and an integer
+expression on between in the place of the `x` and return the element type of
+the array. They work identically.
 
 The family of operators `to*`, that is, `toBoolean`, `toCharacter`, `toFloat`,
 and `toInteger`, take an expression of any type and return the converted
@@ -188,7 +189,7 @@ Examples:
 
 
 ## Reference Grammar
-***TO DO: The grammar***
+[Click here](grammar.md)
 
 
 ## Program Structure
@@ -281,15 +282,26 @@ Arrays are homogeneous, linearly indexed collections of a given type and size.
 The size of an array must always be an integer known at compilation time.
 Epilog arrays are zero-indexed, that is, the first element of an array is
 element 0. The declaration of an array obeys the following syntax:
+
 ~~~erlang
-    <base_type>:<size> theArray.
+    <base_type0>[<size>} TheArray.
+    <base_type1>{<size>] TheOtherArray.
 ~~~
 
-The elements of an array are accessed using the `:` operator, according to the
-following syntax:
+Keep in mind that the `<base_type>` may be any native epilog type, any type
+defined in the source file, or an array of any of these.
+
+The elements of an array are accessed using the `[ x }` and `{ x ]` operators,
+according to the following syntax:
+
 ~~~erlang
-    <base_type> theValue is theArray:42.
+    TheValue is TheArray[42}.
+    TheOtherValue is TheOtherArray{69].
 ~~~
+
+Both operators have exactly the same meaning, but their simultaneous presence
+serves two purposes: it forces Epilog programmers to always check their indices
+twice, preventing bugs, and it brings some `sabor latino` into Epilog.
 
 A programmer who uses arrays can take advantage of the predefined `length`
 unary operator when writing procedures. This operator returns the length of the
@@ -300,21 +312,21 @@ runtime error.
 
 Examples:
 ~~~erlang
-    integer:100 myNums,
+    integer[100} myNums,
     for I from 0 to length myNums - 1 ->
-        read(myNums:I)
+        read(myNums{I])
     end,
 
     <...>,
 
     integer Z,
     for I from 0 to length myNums - 1 ->
-        Z is Z + myNums:I
+        Z is Z + myNums{I]
     end,
 
     print(Z),
 
-    myNums:100 is 42. %% this produces a runtime error.
+    myNums[100} is 42. %% this produces a runtime error.
 ~~~
 
 ### Records

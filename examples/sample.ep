@@ -136,9 +136,9 @@ procedure main() :-
     write(Z)
   end,
 
-  integer:5 Warr,
+  integer[5} Warr,
   for I from 0 to 4 ->
-    Warr:I is 0
+    Warr{I] is 0
   end,
 
   intchar K,
