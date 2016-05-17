@@ -138,7 +138,7 @@ def :: Definition -> Context ()
 def GlobalD { gPos, gType, gName, gVal} =
     verifyDeclaration (EntryVar gName gType gVal gPos)
 
-def StructD { sPos, sName {-, sClass, sConts -} } = do
+def StructD { sPos, sName , sClass, sConts } = do
     t <- gets types
     case sName `Map.lookup` t of
         Just (_, p) -> err $ DuplicateDefinition sName p sPos
@@ -146,6 +146,7 @@ def StructD { sPos, sName {-, sClass, sConts -} } = do
             { types   = Map.insert sName (userT sName, sPos) (types s)
             , pending = Map.delete sName (pending s)
             })
+    sequence_ $ fmap content sConts
 
 def ProcD { pPos, pName, pParams, pType, pInsts } = do
     let entry = EntryProc pName pType pPos
@@ -161,13 +162,17 @@ def ProcD { pPos, pName, pParams, pType, pInsts } = do
     closeScope'
 
 
--- Parameters --------------------------------------------------------
+-- Parameters and Content -----------------------------------------------------
 param :: Parameter -> Context ()
 param (Parameter p t name) =
     verifyDeclaration (EntryVar name t Nothing p)
 
+content :: Content -> Context ()
+content (Content p t name) =
+    verifyDeclaration (EntryVar name t Nothing p)
 
--- Instructions --------------------------------------------------------
+
+-- Instructions ---------------------------------------------------------------
 inst :: Instruction -> Context ()
 inst (Declaration p t name val) =
     verifyDeclaration (EntryVar name t val p)
@@ -230,7 +235,7 @@ range (p, from, to, insts) = do
     sequence_ $ fmap inst insts
     closeScope'
 
--- Expression --------------------------------------------------------
+-- Expression -----------------------------------------------------------------
 
 verifyExpr :: Expression -> Context ()
 verifyExpr (Lval         p lval) = verifyLval lval p
