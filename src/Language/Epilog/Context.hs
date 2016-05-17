@@ -83,7 +83,7 @@ instance Show ContextError where
             showP fstP ++ " cannot be redeclared as `" ++ show sndT
         (UndeclaredType t (EntryVar name _ _ p)) -> 
             "Variable `" ++ name ++ "` at " ++ showP p ++ 
-            " declared with an unknow type `" ++ t ++"`"
+            " declared with an unknown type `" ++ t ++"`"
 
 data ContextState = ContextState
     { symbols :: SymbolTable
