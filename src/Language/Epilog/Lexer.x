@@ -133,12 +133,6 @@ epilog :-
     -- Global Declaration
     <0> "global"                { make TokenGlobal }
 
-    -- Conversion
-    <0> "toBoolean"             { make TokenToBool  }
-    <0> "toCharacter"           { make TokenToChar  }
-    <0> "toInteger"             { make TokenToInt   }
-    <0> "toFloat"               { make TokenToFloat }
-
     -- Punctuation
     <0> ","                     { make TokenComma     }
     <0> "."                     { make TokenPeriod    }

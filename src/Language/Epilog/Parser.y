@@ -6,6 +6,7 @@ module Language.Epilog.Parser
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
 import           Language.Epilog.AST.Program
+import           Language.Epilog.AST.Type
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
 --------------------------------------------------------------------------------
@@ -87,12 +88,6 @@ import           Prelude                         hiding (Either)
     either          { TokenEither :@ _ }
     record          { TokenRecord :@ _ }
 
-    -- Conversion
-    toBoolean       { TokenToBool  :@ _ }
-    toCharacter     { TokenToChar  :@ _ }
-    toFloat         { TokenToFloat :@ _ }
-    toInteger       { TokenToInt   :@ _ }
-
     -- Punctuation
     ","             { TokenComma     :@ _ }
     "."             { TokenPeriod    :@ _ }
@@ -140,10 +135,7 @@ import           Prelude                         hiding (Either)
 %left     "*" "/" div rem
 
 %right    NEG
-%right    toBoolean toCharacter toFloat toInteger
 
-%left     "_"
--- %right     ":"
 %nonassoc length
 
 %% -----------------------------------------------------------------------------
@@ -158,7 +150,7 @@ TopDefs :: { Defs }
 
 TopDef :: { Definition }
     : proc GenId "(" Params0 ")" ":-" Insts "."
-                                    { ProcD   (pos $1) (item $2) $4 (item (Type "void" Seq.empty <$ $1)) $7 }
+                                    { ProcD   (pos $1) (item $2) $4 voidT $7 }
     | proc GenId "(" Params0 ")" "->" Type ":-" Insts "."
                                     { ProcD   (pos $1) (item $2) $4 (item $7) $9 }
     | either GenId ":-" Conts "."   { StructD (pos $1) (item $2) Either $4 }
@@ -237,7 +229,7 @@ VarId :: { At String }
 
 ---- Call ------------------------------
 Call :: { Instruction }
-    : GenId "(" Args ")"            { Call (pos $1) (item $1) $3 }
+    : GenId "(" Args ")"            { ICall (pos $1) (item $1) $3 }
 
 Args :: { Exps }
     : {- lambda -}                  { Seq.empty }
@@ -275,8 +267,8 @@ Set :: { Set }
 
 ---- For loops -------------------------
 For :: { Instruction }
-    : for VarId       Ranges end    { For  (pos $1) (item $2) $3 }
-    | for Declaration Ranges end    { ForD (pos $1)       $2  $3 }
+    : for      VarId Ranges end     { For (pos $1)  Nothing         (item $2) $3 }
+    | for Type VarId Ranges end     { For (pos $1) (Just (item $2)) (item $3) $4 }
 
 Ranges :: { Ranges }
     : Range                         { Seq.singleton $1 }
@@ -302,11 +294,7 @@ Exp :: { Expression }
 
     | Lval                          { Lval      (pos $1) (item $1) }
 
-    -- Conversion Operators
-    | toBoolean   Exp               { Unary (pos $1) ToBoolean   $2 }
-    | toCharacter Exp               { Unary (pos $1) ToCharacter $2 }
-    | toFloat     Exp               { Unary (pos $1) ToFloat     $2 }
-    | toInteger   Exp               { Unary (pos $1) ToInteger   $2 }
+    | GenId "(" Args ")"            { ECall (pos $1) (item $1) $3 }
 
     -- Operators
     ---- Logical

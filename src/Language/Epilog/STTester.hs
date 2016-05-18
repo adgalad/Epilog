@@ -3,16 +3,14 @@ module Language.Epilog.STTester
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Type
+import           Language.Epilog.Position
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
-import           Language.Epilog.Position
 --------------------------------------------------------------------------------
 import           Control.Monad               (void)
-import           Control.Monad.IO.Class      (liftIO, MonadIO)
+import           Control.Monad.IO.Class      (MonadIO, liftIO)
 import           Control.Monad.Trans.State   (StateT, execStateT, get, gets,
                                               modify, put, runStateT)
-
-import qualified Data.Sequence               as S
 import           Prelude                     hiding (lookup)
 import           System.IO                   (hFlush, stdout)
 --------------------------------------------------------------------------------
@@ -109,7 +107,7 @@ doVar name = do
 
             say $ "OK. integer `" ++ name ++ "` declared at " ++ show p ++ "."
 
-            let entry = EntryVar name (Type "integer" S.empty) Nothing p
+            let entry = Entry name intT Nothing p
 
             put BuildState
                 { symbols  = insertSymbol name entry st

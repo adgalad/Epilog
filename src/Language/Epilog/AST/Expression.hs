@@ -5,15 +5,22 @@ module Language.Epilog.AST.Expression
     , Lval (..)
     , BinaryOp (..)
     , UnaryOp (..)
+    , Exps
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.Treelike
 import           Language.Epilog.Position
+import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
+import           Data.Foldable            (toList)
 import           Data.Int                 (Int32)
+import           Data.Sequence            (Seq)
 import           Data.Tree                (flatten)
 --------------------------------------------------------------------------------
+-- Useful synonyms ---------------------
+type Exps   = Seq Expression
+type Name = String
 
+-- Expressions -------------------------
 data Expression
     = LitBool   Position Bool
     | LitChar   Position Char
@@ -24,6 +31,8 @@ data Expression
     | Otherwise Position
 
     | Lval      Position Lval
+
+    | ECall     Position Name     Exps
 
     | Binary    Position BinaryOp Expression Expression
     | Unary     Position UnaryOp  Expression
@@ -38,6 +47,7 @@ instance P Expression where
         LitString p _     -> p
         Otherwise p       -> p
         Lval      p _     -> p
+        ECall     p _ _   -> p
         Binary    p _ _ _ -> p
         Unary     p _ _   -> p
 
@@ -45,12 +55,16 @@ instance Treelike Expression where
     toTree = \case
         LitBool p val ->
             Node (unwords [(if val then "true" else "false"), showP p]) []
+
         LitChar p val ->
             Node (unwords [show val, showP p]) []
+
         LitInt p val ->
             Node (unwords [show val, showP p]) []
+
         LitFloat p val ->
             Node (unwords [show val, showP p]) []
+
         LitString p val ->
             Node (unwords [show val, showP p]) []
 
@@ -60,8 +74,13 @@ instance Treelike Expression where
         Lval p lval ->
             Node (unwords ["Lval", showP p]) [toTree lval]
 
+        ECall p proc args ->
+            Node (unwords ["Expression Call", proc, showP p])
+                [Node "Arguments" (toList . fmap toTree $ args)]
+
         Binary p op exp0 exp1 ->
             Node (unwords [show op, showP p]) (toForest [exp0, exp1])
+
         Unary p op expr ->
             Node (unwords [show op, showP p]) [toTree expr]
 
@@ -127,9 +146,9 @@ instance Show UnaryOp where
 -- Lval ------------------------------------------------------------------------
 
 data Lval
-    = Variable String
-    | Member Lval String
-    | Index Lval Expression
+    = Variable Name
+    | Member   Lval Name
+    | Index    Lval Expression
     deriving (Eq, Show)
 
 instance Treelike Lval where

@@ -28,7 +28,6 @@ type Insts  = Seq Instruction
 type Guard  = (Position, Expression, Insts)
 type Guards = Seq Guard
 
-type Exps   = Seq Expression
 type Set    = (Position, Exps, Insts)
 type Sets   = Seq Set
 
@@ -40,14 +39,13 @@ type Name = String
 
 -- Instructions ----------------------------------------------------------------
 data Instruction
-    = Declaration Position Type        Name       (Maybe Expression)
-    | Assign      Position Lval        Expression
-    | Call        Position Name        Exps
+    = Declaration Position Type         Name       (Maybe Expression)
+    | Assign      Position Lval         Expression
+    | ICall       Position Name         Exps
 
     | If          Position Guards
-    | Case        Position Expression  Sets
-    | For         Position Name        Ranges
-    | ForD        Position Instruction Ranges
+    | Case        Position Expression   Sets
+    | For         Position (Maybe Type) Name       Ranges
     | While       Position Guards
 
     | Read        Position Lval
@@ -60,11 +58,10 @@ instance P Instruction where
     pos = \case
         Declaration p _ _ _ -> p
         Assign      p _ _   -> p
-        Call        p _ _   -> p
+        ICall       p _ _   -> p
         If          p _     -> p
         Case        p _ _   -> p
-        For         p _ _   -> p
-        ForD        p _ _   -> p
+        For         p _ _ _ -> p
         While       p _     -> p
         Read        p _     -> p
         Write       p _     -> p
@@ -84,8 +81,8 @@ instance Treelike Instruction where
             Node (unwords ["Assign", showP p])
                 [toTree lval, toTree expr]
 
-        Call p proc args ->
-            Node (unwords ["Call", proc, showP p])
+        ICall p proc args ->
+            Node (unwords ["Instruction Call", proc, showP p])
                 [Node "Arguments" (toList . fmap toTree $ args)]
 
         If p guards ->
@@ -97,14 +94,17 @@ instance Treelike Instruction where
                 toTree var :
                 (toList . fmap setTree $ sets)
 
-        For p var ranges ->
+        For p Nothing var ranges ->
             Node (unwords ["For", showP p]) $
                 Node ("Variable " ++ var) [] :
                 (toList . fmap rangeTree $ ranges)
 
-        ForD p decl ranges ->
+        For p (Just t) var ranges ->
             Node (unwords ["For", showP p]) $
-                toTree decl :
+                (Node "Declaration"
+                    [ Node (unwords ["Variable", var]) []
+                    , toTree t
+                    ]) :
                 (toList . fmap rangeTree $ ranges)
 
         While p guards ->

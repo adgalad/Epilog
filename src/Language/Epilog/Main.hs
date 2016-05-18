@@ -12,15 +12,16 @@ import           Language.Epilog.STTester
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
-import           Control.Monad            (unless, when)
-
-import           System.Console.GetOpt    (ArgDescr (..), ArgOrder (..),
-                                           OptDescr (..), getOpt, usageInfo)
-import           System.Environment       (getArgs)
-import           System.Exit              (exitSuccess)
-import           System.IO                (Handle, IOMode (ReadMode), hClose,
-                                           hGetContents, hPrint, openFile,
-                                           stderr, stdin)
+import           Control.Monad               (unless, when)
+import qualified Data.Sequence               as Seq (null)
+import qualified Data.Set                    as Set (null)
+import           System.Console.GetOpt       (ArgDescr (..), ArgOrder (..),
+                                              OptDescr (..), getOpt, usageInfo)
+import           System.Environment          (getArgs)
+import           System.Exit                 (exitSuccess)
+import           System.IO                   (Handle, IOMode (ReadMode), hClose,
+                                              hGetContents, hPrint, hPutStrLn,
+                                              openFile, stderr, stdin)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
 version :: String
@@ -49,7 +50,7 @@ defaultOptions  :: Options
 defaultOptions   = Options
     { optHelp    = False
     , optVersion = False
-    , optAction  = doST
+    , optAction  = doContext
     }
 
 options :: [OptDescr (Options -> Options)]
@@ -137,9 +138,17 @@ doContext handle filename = do
 
     let (prog, plerrs) = parseProgram input
     when (null plerrs) $ do
-        let (symbols, strings, types, errors) = context prog
-        --putStr .drawTree. toTree $ defocus symbols
-        mapM_ print errors
+        let (symbols, strings, _, _, errors) = context prog
+        putStrLn "Symbols:"
+        putStr . drawTree . toTree $ defocus symbols
+
+        unless (Set.null strings) $ do
+            putStrLn "Strings:"
+            mapM_ print strings
+
+        unless (Seq.null errors) $ do
+            hPutStrLn stderr "Errors:"
+            mapM_ (hPrint stderr) errors
 
 -- Main --------------------------------
 main :: IO ()

@@ -44,9 +44,6 @@ data Token
     -- Global Declaration
     | TokenGlobal
 
-    -- Conversion
-    | TokenToBool | TokenToChar | TokenToInt | TokenToFloat
-
     -- Punctuation
     | TokenComma | TokenPeriod  | TokenSemicolon
     | TokenArrow | TokenLeftPar | TokenRightPar
@@ -154,19 +151,13 @@ instance Show Token where
     -- Global Declaration
         TokenGlobal -> "global"
 
-    -- Conversion
-        TokenToBool  -> "toBoolean"
-        TokenToChar  -> "toCharacter"
-        TokenToFloat -> "toFloat"
-        TokenToInt   -> "toInteger"
-
     -- Punctuation
-        TokenComma      -> ","
-        TokenPeriod     -> "."
-        TokenSemicolon  -> ";"
-        TokenArrow      -> "->"
-        TokenLeftPar    -> "("
-        TokenRightPar   -> ")"
+        TokenComma     -> ","
+        TokenPeriod    -> "."
+        TokenSemicolon -> ";"
+        TokenArrow     -> "->"
+        TokenLeftPar   -> "("
+        TokenRightPar  -> ")"
 
     -- Assign
         TokenIs -> "is"

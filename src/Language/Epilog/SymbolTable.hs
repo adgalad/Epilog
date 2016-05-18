@@ -8,6 +8,7 @@ module Language.Epilog.SymbolTable
     , closeScope
     , defocus
     , empty
+    , emptyP
     , focus
     , goDownFirst
     , goDownLast
@@ -37,32 +38,25 @@ import qualified Data.Sequence                  as Seq
 import           Prelude                        hiding (lookup)
 --------------------------------------------------------------------------------
 -- Symbol Table Entry ------------------
-data Entry
-    = EntryVar
-        { varName         :: String
-        , varType         :: Type
-        , varInitialValue :: Maybe Expression
-        , varPosition     :: Position
-        }
-    | EntryProc
-        { procName         :: String
-        , procType         :: Type
-        , procPosition     :: Position
-        }
-    deriving (Eq)
+data Entry = Entry
+    { varName         :: String
+    , varType         :: Type
+    , varInitialValue :: Maybe Expression
+    , varPosition     :: Position
+    } deriving (Eq)
 
 instance Treelike Entry where
-    toTree EntryVar { varName, varType, varInitialValue, varPosition } =
+    toTree Entry { varName, varType, varInitialValue, varPosition } =
         Node ("Variable `" ++ varName ++ "`") $
             Node ("Declared at " ++ show varPosition) [] :
             Node ("Type: " ++ show varType) [] :
             case varInitialValue of
                 Nothing -> [Node "Not initialized" []]
                 Just e  -> [Node "Initialized with value" [toTree e]]
-    toTree EntryProc { procName, procType, procPosition } =
-        Node ("Procedure `" ++ procName ++ "`") $
-            Node ("Declared at " ++ show procPosition) [] :
-            [Node ("Type: " ++ show procType) []]
+    -- toTree EntryProc { procName, procType, procPosition } =
+    --     Node ("Procedure `" ++ procName ++ "`") $
+    --         Node ("Declared at " ++ show procPosition) [] :
+    --         [Node ("Type: " ++ show procType) []]
 
 
 -- Symbol Table Scope ------------------
@@ -79,7 +73,7 @@ type Scopes = Seq Scope
 
 instance Treelike Scope where
     toTree Scope { sFrom, sTo, sEntries, sChildren } =
-        Node ("Scope " ++ show sFrom ++ " -> " ++ show sTo) $
+        Node ("Scope " ++ showP sFrom ++ " -> " ++ showP sTo) $
             (if Map.null sEntries
                 then Node "No symbols" []
                 else Node "Symbols" (toForest . Map.elems $ sEntries)) :
@@ -123,6 +117,9 @@ type SymbolTable = (Scope, [Breadcrumb])
 ---- Starter Symbo lTable ----
 empty :: SymbolTable
 empty = focus $ empty' (Position (0, 0))
+
+emptyP :: Position -> SymbolTable
+emptyP = focus . empty'
 
 ---- Moving around -----------
 goDownFirst :: SymbolTable -> Either String SymbolTable
