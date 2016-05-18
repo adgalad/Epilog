@@ -287,7 +287,6 @@ range (p, from, to, insts) = do
     closeScope'
 
 -- Expression --------------------------
-
 verifyExpr :: Expression -> Context ()
 verifyExpr (Lval      p lval   ) = void $ verifyLval lval p
 verifyExpr (Binary    _ _ e0 e1) = verifyExpr e0 >> verifyExpr e1

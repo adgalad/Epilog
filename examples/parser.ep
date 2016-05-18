@@ -3,10 +3,12 @@ jut Y.
 
 
 record hola :-
-	integer R.
+	jamon R.
 
 either hola :-
 	character C.
+
+	
 
 procedure main(integer T, character T) :-
 	Kilo is 5,
