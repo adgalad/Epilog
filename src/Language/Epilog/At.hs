@@ -3,6 +3,7 @@
 module Language.Epilog.At
     ( At (..)
     , Position (..)
+    , showP
     , row
     , col
     , pos
@@ -21,6 +22,10 @@ instance Show a => Show (At a) where
         , case c of
             0 -> "POSITION: row " ++ show r
             _ -> "POSITION: row " ++ show r ++ ", col " ++ show c
+        ]
+    show (i :@ p) = unlines
+        [ show i
+        , show p
         ]
 
 instance P (At a) where

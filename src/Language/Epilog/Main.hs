@@ -11,10 +11,11 @@ import           Language.Epilog.Parser
 import           Language.Epilog.STTester
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
+import           Language.Epilog.AST.Type
 --------------------------------------------------------------------------------
 import           Control.Monad               (unless, when)
+import qualified Data.Map                    as Map (null, toList)
 import qualified Data.Sequence               as Seq (null)
-import qualified Data.Set                    as Set (null)
 import           System.Console.GetOpt       (ArgDescr (..), ArgOrder (..),
                                               OptDescr (..), getOpt, usageInfo)
 import           System.Environment          (getArgs)
@@ -138,13 +139,29 @@ doContext handle filename = do
 
     let (prog, plerrs) = parseProgram input
     when (null plerrs) $ do
-        let (symbols, strings, _, _, errors) = context prog
+        let (symbols, strings, types, procs, errors) = context prog
         putStrLn "Symbols:"
         putStr . drawTree . toTree $ defocus symbols
 
-        unless (Set.null strings) $ do
+        unless (Map.null strings) $ do
             putStrLn "Strings:"
-            mapM_ print strings
+            mapM_ (\(s, ps) -> do
+                print s
+                mapM_ (\p -> putStrLn $ "\t" ++ show p) ps
+                ) (Map.toList strings)
+
+        unless (Map.null types) $ do
+            putStrLn "Types:"
+            mapM_ (\(name, (_, _, p)) ->
+                putStrLn $ "\t" ++ name ++ " at " ++ showP p
+                ) (Map.toList types)
+
+        unless (Map.null procs) $ do
+            putStrLn "Procs:"
+            mapM_ (\(name, ProcSignature _ t p) ->
+                putStrLn $
+                    "\t" ++ name ++ "->" ++ typeName t ++ " at " ++ showP p
+                ) (Map.toList procs)
 
         unless (Seq.null errors) $ do
             hPutStrLn stderr "Errors:"

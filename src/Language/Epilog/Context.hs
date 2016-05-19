@@ -25,14 +25,12 @@ import           Control.Monad                   (foldM, void, unless)
 import           Data.Function                   (on)
 import           Data.Map.Strict                 (Map)
 import qualified Data.Map.Strict                 as Map
-import           Data.Sequence                   (Seq, (><), (|>))
+import           Data.Sequence                   (Seq, (><), (|>), (<|))
 import qualified Data.Sequence                   as Seq
-import           Data.Set                        (Set)
-import qualified Data.Set                        as Set
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
 type Name         = String
-type Strings      = Set String
+type Strings      = Map String (Seq Position)
 type Types        = Map Name (Type, SymbolTable, Position)
 type Procs        = Map Name ProcSignature
 type Pending      = Map Name (Seq Position)
@@ -64,11 +62,11 @@ data ContextError
         , dDecSndP :: Position
         }
     | UndefinedType
-        { utName :: Name
-        , utVar  :: Name
-        , utP    :: Position
+        { utTName :: Name
+        , utVar   :: Name
+        , utP     :: Position
         }
-    | UndeclaredProcedure
+    | UndefinedProcedure
         { upName    :: Name
         , upP       :: Position
         }
@@ -76,6 +74,14 @@ data ContextError
         { imName :: Name
         , imP    :: Position
         }
+    | MemberOfArray
+        { moaName :: Name
+        , moaP    :: Position
+        }
+    | InvalidIndex
+        { iiP :: Position }
+    | NoMain
+        { nmP :: Position }
     deriving (Eq)
 
 err :: a -> RWS r (Seq a) s ()
@@ -87,8 +93,11 @@ instance P ContextError where
         OutOfScope                 _ p -> p
         DuplicateDeclaration _ _ _ _ p -> p
         UndefinedType            _ _ p -> p
-        UndeclaredProcedure        _ p -> p
+        UndefinedProcedure         _ p -> p
         InvalidMember              _ p -> p
+        MemberOfArray              _ p -> p
+        InvalidIndex                 p -> p
+        NoMain                       p -> p
 
 instance Ord ContextError where
     compare = compare `on` pos
@@ -96,28 +105,39 @@ instance Ord ContextError where
 instance Show ContextError where
     show = \case
         DuplicateDefinition name fstP sndP ->
-            "Duplicate definition at " ++ showP sndP ++ ", `" ++ name ++
+            "Duplicate definition at " ++ showP sndP ++ ": `" ++ name ++
             "` already defined at " ++ showP fstP
 
         OutOfScope name p ->
-            "Variable `" ++ name ++ "` out of scope at " ++ showP p
+            "Out of scope variable at " ++ showP p ++ ": `" ++ name ++
+            "` not available in this scope."
 
         DuplicateDeclaration name fstT fstP sndT sndP ->
             "Duplicate declaration at " ++ showP sndP ++ ", variable `" ++
             name ++ "` already defined as `" ++ show fstT ++ "` at " ++
-            showP fstP ++ " cannot be redeclared as `" ++ show sndT
+            showP fstP ++ " cannot be redeclared as `" ++ show sndT ++ "`"
 
-        UndefinedType name var p ->
+        UndefinedType nameT var p ->
             "Attempted to declare variable of undefined type at " ++ showP p ++
-            ", type `" ++ name ++ "`, variable `" ++ var ++ "`"
+            ", type `" ++ nameT ++ "`, variable `" ++ var ++ "`"
 
-        UndeclaredProcedure name p ->
+        UndefinedProcedure  name p ->
             "Call to undeclared procedure at " ++ showP p ++ " named `" ++
             name ++ "`"
 
         InvalidMember member p ->
             "Invalid member requested at " ++ showP p ++ " named `" ++
             member ++ "`"
+
+        MemberOfArray member p ->
+            "Expected array index instead of member at " ++ showP p ++
+            " member named `" ++ member ++ "`"
+
+        InvalidIndex p ->
+            "Index of non-array variable at " ++ showP p
+
+        NoMain _ ->
+            "No procedure `main` defined in the program"
 
 -- State Type --------------------------
 data ContextState = ContextState
@@ -141,7 +161,7 @@ basicTypes =
     [ ("character", (charT  , ST.empty, Epilog))
     , ("float",     (floatT , ST.empty, Epilog))
     , ("integer",   (intT   , ST.empty, Epilog))
-    , ("ref??",     (voidT  , ST.empty, Epilog)) -- This will change
+    -- , ("ref??",     (voidT  , ST.empty, Epilog)) -- This will change
     , ("string",    (stringT, ST.empty, Epilog))
     , ("void",      (voidT  , ST.empty, Epilog))
     ] -- Must be ascending
@@ -149,7 +169,7 @@ basicTypes =
 initialState :: ContextState
 initialState  = ContextState
     { symbols      = ST.empty
-    , strings      = Set.empty
+    , strings      = Map.empty
     , pendProcs    = Map.empty
     , procs        = Map.fromAscList languageProcs
     , types        = Map.fromAscList basicTypes
@@ -165,14 +185,18 @@ context (Program decs) = (symbols, strings, types, procs, errors)
         (ContextState {symbols, strings, pendProcs, procs, types}, e) =
             execRWS (mapM_ def decs) () initialState
 
-        errors =
+        errors' =
             Seq.sort $ e >< Map.foldrWithKey pendToErrors Seq.empty pendProcs
+
+        errors = if "main" `Map.member` procs
+            then errors'
+            else NoMain Code <| errors'
 
         pendToErrors name ps errs =
             errs >< foldr (pendToError name) Seq.empty ps
 
         pendToError name p errs =
-            errs |> UndeclaredProcedure name p
+            errs |> UndefinedProcedure  name p
 
 
 -- Definitions -------------------------
@@ -291,8 +315,11 @@ verifyExpr :: Expression -> Context ()
 verifyExpr (Lval      p lval   ) = void $ verifyLval lval p
 verifyExpr (Binary    _ _ e0 e1) = verifyExpr e0 >> verifyExpr e1
 verifyExpr (Unary     _ _ e0   ) = verifyExpr e0
-verifyExpr (LitString _ string ) = modify (\s ->
-    s { strings = Set.insert string (strings s)})
+verifyExpr (LitString p string ) = modify (\s ->
+    s { strings = Map.insertWith (><) string (Seq.singleton p) (strings s) })
+verifyExpr (ECall     p n exprs) = do
+    verifyCall n p
+    sequence_ $ fmap verifyExpr exprs
 verifyExpr                     _ = return ()
 
 verifyLval :: Lval -> Position -> Context (Maybe Type)
@@ -309,14 +336,27 @@ verifyLval (Member lval member) p = do
         Nothing -> return Nothing
         Just type0 -> do
             ts <- gets types
-            case typeName type0 `Map.lookup` ts of
-                Nothing -> return Nothing
-                Just (_, st, _) -> case member `ST.lookup` st of
-                    Left _ -> do
-                        err $ InvalidMember member p
-                        return Nothing
-                    Right Entry { varType } -> return (Just varType)
-verifyLval (Index _ _) _ = undefined
+            if size type0 /= 0
+                then do
+                    err $ MemberOfArray member p
+                    return Nothing
+                else
+                    case typeName type0 `Map.lookup` ts of
+                        Nothing -> return Nothing
+                        Just (_, st, _) -> case member `ST.lookup` st of
+                            Left _ -> do
+                                err $ InvalidMember member p
+                                return Nothing
+                            Right Entry { varType } -> return (Just varType)
+verifyLval (Index lval expr) p = do
+    t <- verifyLval lval p
+    verifyExpr expr
+    case t of
+        Nothing -> return Nothing
+        Just type0@(Type name dims) ->
+            if size type0 == 0
+                then err (InvalidIndex p) >> return Nothing
+                else return $ Just (Type name (Seq.drop 1 dims))
 
 verifyCall :: Name -> Position -> Context ()
 verifyCall proc p = do
@@ -331,7 +371,11 @@ verifySymbol name p = do
     unless (isSymbol name s) $ err $ OutOfScope name p
 
 declaration :: Entry -> Context ()
-declaration entry@(Entry name t _ p) = do
+declaration entry@(Entry name t val p) = do
+    case val of
+        Nothing  -> return ()
+        Just expr -> verifyExpr expr
+
     ContextState { symbols, types } <- get
     case name `local` symbols of
         Right Entry {varType, varPosition} ->
@@ -340,7 +384,7 @@ declaration entry@(Entry name t _ p) = do
             Just _  -> modify (\s -> s
                 { symbols = insertSymbol name entry symbols })
             Nothing ->
-                err $ UndefinedType name (typeName t) p
+                err $ UndefinedType (typeName t) name p
 
 openScope' :: Position -> Context ()
 openScope' p = modify (\s -> s {symbols = openScope p (symbols s) })

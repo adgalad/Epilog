@@ -8,9 +8,15 @@ record hola :-
 either hola :-
 	character C.
 
-	
+record pepe :-
+	character K,
+	integer[4}{5] WW.
 
-procedure main(integer T, character T) :-
+record caca :-
+	character K,
+	integer K.
+
+procedure maing(integer T, character T) :-
 	Kilo is 5,
 	integer Kilo,
 	integer X,
@@ -22,23 +28,35 @@ procedure main(integer T, character T) :-
 	float2 Filo2,
 	float2 Filo3,
 
+	inexistente(H),
+
+	character W is inexistente(H),
+
+	pepe A,
+	A_W is 3,
+
+	A_WW{3]_T is 8,
+
+	A_WW{3]{3]{3] is 9,
+	A_W{3]{3]{3] is 9,
+
 	%% No funciona
 	for Xilo from 1 to 5 -> Z is 7 end,
 	%% Funciona
-	for integer Xilo 
-		from 1 to 5 
+	for integer Xilo
+		from 1 to 5
 			-> for integer I
 					from 5 to 6 -> integer Z is 5
 				end
 	end,
 	for X from 1 to 5 -> character Z is 'a' end,
 
-	if 
+	if
 		B = X   -> integer X;
 		B = X-1 -> integer X, Kilo is 4
 	end,
 
-	case X of 
+	case X of
 		1,2,3 -> integer Hola;
 		4,5   -> integer Chao;
 		10    -> integer Adios

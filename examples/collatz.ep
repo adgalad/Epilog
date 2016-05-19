@@ -7,13 +7,17 @@ procedure collatz (integer X, integer N) :-
         2 !| X -> X is X * 3 + 1
     end.
 
+record p :-
+    integer[3}{4] Q.
+
 procedure main () :-
     integer X,
     integer N,
-    read X, :
+    read X,
     collatz(X, N),
-    write N.
-
+    write N,
+    write "Chau",
+    write "Chau".
 
 /%
 int collatz(int x) {

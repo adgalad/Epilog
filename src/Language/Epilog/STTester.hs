@@ -84,6 +84,7 @@ initialBuildState = BuildState
 
 nextPos :: Position -> Position
 nextPos (Position (r, c)) = Position (r+1, (c+2) `mod` 80)
+nextPos p = p
 
 -- Computations --------------
 builder :: StateT BuildState IO ()

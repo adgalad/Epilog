@@ -10,7 +10,7 @@ module Language.Epilog.Position
     ) where
 --------------------------------------------------------------------------------
 
-data Position = Position (Int, Int) | Epilog
+data Position = Position (Int, Int) | Epilog | Code
     deriving (Eq, Ord)
 
 instance Show Position where
@@ -18,16 +18,20 @@ instance Show Position where
         Position (r, 0) -> "row " ++ show r
         Position (r, c) -> "row " ++ show r ++ ", col " ++ show c
         Epilog          -> "in epilog"
+        Code            -> "in the program code"
 
 showP :: Position -> String
 showP (Position p) = show p
-showP Epilog       = "(in epilog)"
+showP Epilog       = "(epilog)"
+showP Code         = "(the program code)"
 
 row, col :: Position -> Int
 row (Position (r, _)) = r
 row Epilog            = 0
+row Code              = 0
 col (Position (_, c)) = c
 col Epilog            = 0
+col Code              = 0
 
 class P a where
     pos :: a -> Position

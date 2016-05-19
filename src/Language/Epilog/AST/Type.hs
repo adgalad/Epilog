@@ -1,7 +1,9 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase     #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Epilog.AST.Type
     ( Type (..)
+    , size
     , boolT
     , charT
     , floatT
@@ -16,11 +18,11 @@ import           Language.Epilog.Treelike
 import           Data.Foldable            (toList)
 import           Data.Int                 (Int32)
 import           Data.Sequence            (Seq)
-import qualified Data.Sequence            as Seq (empty, null)
+import qualified Data.Sequence            as Seq (empty, null, length)
 --------------------------------------------------------------------------------
 data Type = Type
     { typeName  :: String
-    , dimension ::Seq Int32
+    , dimension :: Seq Int32
     } deriving (Eq)
 
 instance Show Type where
@@ -35,13 +37,16 @@ instance Treelike Type where
             ("Array of " ++ t ++ " " ++ show (toList dimensions))
             []
 
+size :: Type -> Int
+size Type { dimension } = Seq.length dimension
+
 boolT, charT, intT, floatT, stringT, voidT :: Type
-boolT   = Type "bool"   Seq.empty
-charT   = Type "char"   Seq.empty
-intT    = Type "int"    Seq.empty
-floatT  = Type "float"  Seq.empty
-stringT = Type "string" Seq.empty
-voidT   = Type "void"   Seq.empty
+boolT   = Type "boolean"   Seq.empty
+charT   = Type "character" Seq.empty
+intT    = Type "integer"   Seq.empty
+floatT  = Type "float"     Seq.empty
+stringT = Type "string"    Seq.empty
+voidT   = Type "void"      Seq.empty
 
 userT :: String -> Type
 userT name = Type name Seq.empty
