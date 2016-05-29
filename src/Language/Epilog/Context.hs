@@ -11,10 +11,12 @@ module Language.Epilog.Context
     , Context
     , context
     , verifyExpr
+    ,verifyLval
     , inst
     , def
     , initialState
     , binaryOperation
+    , unaryOperation
     , literal
     ) where
 --------------------------------------------------------------------------------
@@ -156,7 +158,7 @@ data ContextState = ContextState
     , pendProcs :: Pending
     , procs     :: Procs
     , types     :: Types
-    , expr      :: Seq Expression
+    , expression :: Seq Expression
     }
 
 languageProcs :: [(Name, ProcSignature)]
@@ -184,7 +186,7 @@ initialState  = ContextState
     , pendProcs    = Map.empty
     , procs        = Map.fromAscList languageProcs
     , types        = Map.fromAscList basicTypes
-    , expr         = Seq.empty
+    , expression   = Seq.empty
     }
 
 -- The Monad ---------------------------
@@ -385,10 +387,6 @@ verifySymbol name p = do
 
 declaration :: Entry -> Context ()
 declaration entry@(Entry name t val p) = do
-    case val of
-        Nothing  -> return ()
-        Just expr -> verifyExpr expr
-
     ContextState { symbols, types } <- get
     case name `local` symbols of
         Right Entry {varType, varPosition} ->
@@ -399,6 +397,10 @@ declaration entry@(Entry name t val p) = do
             Nothing ->
                 err $ UndefinedType (typeName t) name p
 
+    case val of
+        Nothing  -> return ()
+        Just expr -> verifyExpr expr
+
 openScope' :: Position -> Context ()
 openScope' p = modify (\s -> s {symbols = openScope p (symbols s) })
 
@@ -408,15 +410,20 @@ closeScope' = modify (\s -> s { symbols = case goUp (symbols s) of
                                             Right x -> x })
 binaryOperation :: BinaryOp -> Context ()
 binaryOperation op = do
-    exp <- gets expr
-    case Seq.viewl exp of
+    expr <- gets expression
+    case Seq.viewl expr of 
         e2 :< xs -> case Seq.viewl xs of 
-            e1 :< xs ->
-                modify (\s -> s {expr = xs |> Binary (pos e1) op e1 e2 })
+            e1 :< ys -> 
+                modify (\s -> s {expression =  (Binary (pos e1) op e1 e2) <| ys } )
 
+unaryOperation :: UnaryOp -> Context ()
+unaryOperation op =  do
+    expr <- gets expression
+    case Seq.viewl expr of 
+        e :< xs -> modify (\s -> s {expression =  Unary (pos e) op e <| xs } )
 
 
 literal :: Expression -> Context ()
 literal lit = do 
     verifyExpr (lit)
-    modify (\s-> s {expr = lit <| (expr s) }) 
+    modify (\s-> s {expression = lit <| (expression s) }) 

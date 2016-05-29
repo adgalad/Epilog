@@ -126,6 +126,7 @@ doParse handle filename = do
         putStrLn $ "\t" ++ name ++ " at " ++ showP p
         ) (Map.toList $ types (fst p))
     putStrLn $ show $ strings (fst p)
+    mapM_ (hPrint stderr) (snd p)
 
     --when (null plerrs) $ putStrLn . drawTree $ toTree prog
 
@@ -143,7 +144,7 @@ doST handle filename = do
 
 doContext :: Handle -> String -> IO ()
 doContext handle filename = do
-    print "hola"
+    print "usa -p"
 --doContext handle filename = do
 --    input <- hGetContents handle
 --    putStrLn $ unwords ["Checking the contexts of", filename]

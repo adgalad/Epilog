@@ -150,9 +150,9 @@ import           Control.Monad.Trans.RWS.Strict  (RWS, execRWS, get, gets,
     --: TopDefs                       { Program $1 }
 
 -- Top Level Definitions --------------
---TopDefs :: { Defs }
---    : TopDef                        { Seq.singleton $1 }
---    | TopDefs TopDef                { $1 |> $2 }
+TopDefs :: { () }
+    : TopDef                        { % return () }
+    | TopDefs TopDef                { % return () }
 
 TopDef :: {  () }
     --: proc GenId "(" Params0 ")" ":-" Insts "."
@@ -161,12 +161,8 @@ TopDef :: {  () }
 --                                    { ProcD   (pos $1) (item $2) $4 (item $7) $9 }
 --    | either GenId ":-" Conts "."   { StructD (pos $1) (item $2) Either $4 }
 --    | record GenId ":-" Conts "."   { StructD (pos $1) (item $2) Record $4 }
-      : Type VarId "."                { % do def (GlobalD (pos $1) (item $1) (item $2) Nothing) }
-      | Type VarId is Exp "."         { % do
-                                            exp <- gets expr 
-                                            case Seq.viewl exp of 
-                                                x :< xs -> def (GlobalD (pos $1) (item $1) (item $2) (Just x)) }
-                                            
+      : Declaration "."             { % return () }
+      | Initialization "."          { % return () }
 
 GenId :: { At String }
     : genId                         { unTokenGenId `fmap` $1}
@@ -212,7 +208,11 @@ Declaration :: { () }
     : Type VarId                    { % do inst (Declaration (pos $1) (item $1) (item $2) Nothing) }
 
 Initialization :: { () }
-    : Type VarId is Exp             { % do inst (Declaration (pos $1) (item $1) (item $2) Nothing) }
+    : Type VarId is Exp             { % do 
+                                        expr <- gets expression
+                                        case Seq.viewl expr of 
+                                            x :< xs ->
+                                                inst (Declaration (pos $1) (item $1) (item $2) (Just x)) }
 
 Type :: { At Type }
     : GenId                         { Type (item $1) Seq.empty <$ $1 }
@@ -227,9 +227,10 @@ Type :: { At Type }
 ------ Assignment ------------------------
 Assign :: { () }
     : Lval is Exp                   { % do 
-                                        exp <- gets expr
-                                        case Seq.viewl exp of 
-                                            x :< xs -> inst $ Assign (pos $1) (item $1) x }
+                                        expr <- gets expression
+                                        case Seq.viewl expr of 
+                                            x :< xs ->
+                                                inst $ Assign (pos $1) (item $1) x }
 
 Lval :: { At Lval }
     : VarId                         { Variable (item $1)           <$ $1 }
@@ -296,37 +297,39 @@ VarId :: { At String }
 
 ---- Expressions -------------------------
 Exp :: { () }
-    --: "(" Exp ")"                   { $2 }
-    : Bool                          { % literal (LitBool   (pos $1) (item $1)) }
+    : "(" Exp ")"                   { % modify (\s -> s)  }
+    | Bool                          { % literal (LitBool   (pos $1) (item $1)) }
     | Char                          { % literal (LitChar   (pos $1) (item $1)) }
     | Int                           { % literal (LitInt    (pos $1) (item $1)) }
     | Float                         { % literal (LitFloat  (pos $1) (item $1)) }
     | String                        { % literal (LitString (pos $1) (item $1)) }
 --    | otherwise                     { Otherwise (pos $1) }
 
---    | Lval                          { Lval      (pos $1) (item $1) }
+    | Lval                          { % do
+                                        let lval = Lval (pos $1) (item $1)
+                                        modify (\s -> s {expression = lval <| expression s})}
 
 --    | GenId "(" Args ")"            { ECall (pos $1) (item $1) $3 }
 
 --    -- Operators
---    ---- Logical
---    | Exp and     Exp               { % return () }
---    | Exp andalso Exp               { % return () }
---    | Exp or      Exp               { % return () }
---    | Exp orelse  Exp               { % return () }
---    | Exp xor     Exp               { % return () }
---    |     not     Exp %prec NEG     { % return () }
+    -- Logical
+    | Exp and     Exp               { % binaryOperation And    }
+    | Exp andalso Exp               { % binaryOperation Andalso}
+    | Exp or      Exp               { % binaryOperation Or     }
+    | Exp orelse  Exp               { % binaryOperation Orelse }
+    | Exp xor     Exp               { % binaryOperation Xor    }
+    |     not     Exp %prec NEG     { % unaryOperation  Not }
 
---    ---- Bitwise
---    | Exp band Exp                  { % return () }
---    | Exp bor  Exp                  { % return () }
---    | Exp bsl  Exp                  { % return () }
---    | Exp bsr  Exp                  { % return () }
---    | Exp bxor Exp                  { % return () }
---    |     bnot Exp %prec NEG        { % return () }
+    ---- Bitwise
+    | Exp band Exp                  { % binaryOperation Band }
+    | Exp bor  Exp                  { % binaryOperation Bor  }
+    | Exp bsl  Exp                  { % binaryOperation Bsl  }
+    | Exp bsr  Exp                  { % binaryOperation Bsr  }
+    | Exp bxor Exp                  { % binaryOperation Bxor }
+    |     bnot Exp %prec NEG        { % unaryOperation  Bnot }
 
-----    ---- Array / Record / Either
---    | length Exp                    { % return () }
+--    ---- Array / Record / Either
+    | length Exp                    { % return () }
 
 ----    ---- Arithmetic
     | Exp "+" Exp                   { % binaryOperation Plus   }
@@ -335,7 +338,7 @@ Exp :: { () }
     | Exp "/" Exp                   { % binaryOperation FloatDiv }
     | Exp div Exp                   { % binaryOperation IntDiv }
     | Exp rem Exp                   { % binaryOperation Rem    }
-    --|     "-" Exp %prec NEG         { % binaryOperation Uminus }
+    |     "-" Exp %prec NEG         { % unaryOperation Uminus }
 
     ---- Relational
     | Exp "<"  Exp                  { % binaryOperation LTop }
