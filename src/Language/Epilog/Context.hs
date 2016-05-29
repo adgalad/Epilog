@@ -3,11 +3,19 @@
 
 module Language.Epilog.Context
     ( ContextError (..)
+    , ContextState (..)
     , ProcSignature (..)
     , Errors
     , Strings
     , Types
+    , Context
     , context
+    , verifyExpr
+    , inst
+    , def
+    , initialState
+    , binaryOperation
+    , literal
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
@@ -22,10 +30,11 @@ import qualified Language.Epilog.SymbolTable     as ST (empty, lookup)
 import           Control.Monad.Trans.RWS.Strict  (RWS, execRWS, get, gets,
                                                   modify, tell)
 import           Control.Monad                   (foldM, void, unless)
+import qualified Control.Monad.Identity          as Id          
 import           Data.Function                   (on)
 import           Data.Map.Strict                 (Map)
 import qualified Data.Map.Strict                 as Map
-import           Data.Sequence                   (Seq, (><), (|>), (<|))
+import           Data.Sequence                   (Seq, (><), (|>), (<|), ViewL((:<)))
 import qualified Data.Sequence                   as Seq
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
@@ -35,6 +44,7 @@ type Types        = Map Name (Type, SymbolTable, Position)
 type Procs        = Map Name ProcSignature
 type Pending      = Map Name (Seq Position)
 type Errors       = Seq ContextError
+
 
 -- Table Element Types -----------------
 data ProcSignature = ProcSignature
@@ -84,7 +94,7 @@ data ContextError
         { nmP :: Position }
     deriving (Eq)
 
-err :: a -> RWS r (Seq a) s ()
+err :: a -> RWS r (Seq a) s () 
 err = tell . Seq.singleton
 
 instance P ContextError where
@@ -146,6 +156,7 @@ data ContextState = ContextState
     , pendProcs :: Pending
     , procs     :: Procs
     , types     :: Types
+    , expr      :: Seq Expression
     }
 
 languageProcs :: [(Name, ProcSignature)]
@@ -173,30 +184,32 @@ initialState  = ContextState
     , pendProcs    = Map.empty
     , procs        = Map.fromAscList languageProcs
     , types        = Map.fromAscList basicTypes
+    , expr         = Seq.empty
     }
 
 -- The Monad ---------------------------
 type Context = RWS () Errors ContextState
 
 -- Context -----------------------------
-context :: Program -> (SymbolTable, Strings, Types, Procs, Errors)
-context (Program decs) = (symbols, strings, types, procs, errors)
-    where
-        (ContextState {symbols, strings, pendProcs, procs, types}, e) =
-            execRWS (mapM_ def decs) () initialState
+context :: Program -> Int
+context str = 1;
+--context String = (symbols, strings, types, procs, errors)
+--    where
+--        (ContextState {symbols, strings, pendProcs, procs, types}, e) =
+--            execRWS (mapM_ def decs) () initialState
 
-        errors' =
-            Seq.sort $ e >< Map.foldrWithKey pendToErrors Seq.empty pendProcs
+--        errors' =
+--            Seq.sort $ e >< Map.foldrWithKey pendToErrors Seq.empty pendProcs
 
-        errors = if "main" `Map.member` procs
-            then errors'
-            else NoMain Code <| errors'
+--        errors = if "main" `Map.member` procs
+--            then errors'
+--            else NoMain Code <| errors'
 
-        pendToErrors name ps errs =
-            errs >< foldr (pendToError name) Seq.empty ps
+--        pendToErrors name ps errs =
+--            errs >< foldr (pendToError name) Seq.empty ps
 
-        pendToError name p errs =
-            errs |> UndefinedProcedure  name p
+--        pendToError name p errs =
+--            errs |> UndefinedProcedure  name p
 
 
 -- Definitions -------------------------
@@ -393,3 +406,17 @@ closeScope' :: Context ()
 closeScope' = modify (\s -> s { symbols = case goUp (symbols s) of
                                             Left _ -> symbols s
                                             Right x -> x })
+binaryOperation :: BinaryOp -> Context ()
+binaryOperation op = do
+    exp <- gets expr
+    case Seq.viewl exp of
+        e2 :< xs -> case Seq.viewl xs of 
+            e1 :< xs ->
+                modify (\s -> s {expr = xs |> Binary (pos e1) op e1 e2 })
+
+
+
+literal :: Expression -> Context ()
+literal lit = do 
+    verifyExpr (lit)
+    modify (\s-> s {expr = lit <| (expr s) }) 

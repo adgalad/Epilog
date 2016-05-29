@@ -39,7 +39,8 @@ procedure maing(integer T, character T) :-
 
 	A_WW{3]{3]{3] is 9,
 	A_W{3]{3]{3] is 9,
-
+	A is "hola",
+	B is "Hola",
 	%% No funciona
 	for Xilo from 1 to 5 -> Z is 7 end,
 	%% Funciona
@@ -57,7 +58,7 @@ procedure maing(integer T, character T) :-
 	end,
 
 	case X of
-		1,2,3 -> integer Hola;
+		-1,2,3 -> integer Hola;
 		4,5   -> integer Chao;
 		10    -> integer Adios
 	end.

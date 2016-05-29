@@ -20,7 +20,7 @@ executable Epilog
     default-language:  Haskell2010
 
     ghc-options:
-        -Wall
+        -Wall 
 
     other-modules:
         Language.Epilog.Lexer, Language.Epilog.Parser

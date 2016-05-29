@@ -102,7 +102,7 @@ doLex handle filename = do
 
     putStrLn $ unwords ["Lexing", filename]
     case scanner input of
-        Left msg -> error msg
+        Left  msg    -> error msg
         Right tokens -> mapM_ split tokens
 
     where
@@ -117,8 +117,17 @@ doParse handle filename = do
 
     putStrLn $ unwords ["Parsing", filename]
 
-    let (prog, plerrs) = parseProgram input
-    when (null plerrs) $ putStrLn . drawTree $ toTree prog
+    let p =  parseProgram input
+
+    putStrLn "Symbols:"
+    putStr . drawTree . toTree $ defocus $ symbols (fst p)
+    putStrLn "Types:"
+    mapM_ (\(name, (_, _, p)) ->
+        putStrLn $ "\t" ++ name ++ " at " ++ showP p
+        ) (Map.toList $ types (fst p))
+    putStrLn $ show $ strings (fst p)
+
+    --when (null plerrs) $ putStrLn . drawTree $ toTree prog
 
 doST :: Handle -> String -> IO ()
 doST handle filename = do
@@ -134,42 +143,46 @@ doST handle filename = do
 
 doContext :: Handle -> String -> IO ()
 doContext handle filename = do
-    input <- hGetContents handle
-    putStrLn $ unwords ["Checking the contexts of", filename]
+    print "hola"
+--doContext handle filename = do
+--    input <- hGetContents handle
+--    putStrLn $ unwords ["Checking the contexts of", filename]
 
-    let (prog, plerrs) = parseProgram input
-    when (null plerrs) $ do
-        let (symbols, strings, types, procs, errors) = context prog
-        putStrLn "Symbols:"
-        putStr . drawTree . toTree $ defocus symbols
+--    let (prog, plerrs) = parseProgram input
+--    when (null plerrs) $ do
+--        let (symbols, strings, types, procs, errors) = context prog
+--        putStrLn "Symbols:"
+--        putStr . drawTree . toTree $ defocus symbols
 
-        unless (Map.null strings) $ do
-            putStrLn "Strings:"
-            mapM_ (\(s, ps) -> do
-                print s
-                mapM_ (\p -> putStrLn $ "\t" ++ show p) ps
-                ) (Map.toList strings)
+--        unless (Map.null strings) $ do
+--            putStrLn "Strings:"
+--            mapM_ (\(s, ps) -> do
+--                print s
+--                mapM_ (\p -> putStrLn $ "\t" ++ show p) ps
+--                ) (Map.toList strings)
 
-        unless (Map.null types) $ do
-            putStrLn "Types:"
-            mapM_ (\(name, (_, _, p)) ->
-                putStrLn $ "\t" ++ name ++ " at " ++ showP p
-                ) (Map.toList types)
+--        unless (Map.null types) $ do
+--            putStrLn "Types:"
+--            mapM_ (\(name, (_, _, p)) ->
+--                putStrLn $ "\t" ++ name ++ " at " ++ showP p
+--                ) (Map.toList types)
 
-        unless (Map.null procs) $ do
-            putStrLn "Procs:"
-            mapM_ (\(name, ProcSignature _ t p) ->
-                putStrLn $
-                    "\t" ++ name ++ "->" ++ typeName t ++ " at " ++ showP p
-                ) (Map.toList procs)
+--        unless (Map.null procs) $ do
+--            putStrLn "Procs:"
+--            mapM_ (\(name, ProcSignature _ t p) ->
+--                putStrLn $
+--                    "\t" ++ name ++ "->" ++ typeName t ++ " at " ++ showP p
+--                ) (Map.toList procs)
 
-        unless (Seq.null errors) $ do
-            hPutStrLn stderr "Errors:"
-            mapM_ (hPrint stderr) errors
+--        unless (Seq.null errors) $ do
+--            hPutStrLn stderr "Errors:"
+--            mapM_ (hPrint stderr) errors
+
 
 -- Main --------------------------------
 main :: IO ()
 main = do
+
     (opts, args) <- getOpts
 
     when (optVersion opts) doVersion
