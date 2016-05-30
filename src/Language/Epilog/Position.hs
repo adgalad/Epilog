@@ -15,8 +15,8 @@ data Position = Position (Int, Int) | Epilog | Code
 
 instance Show Position where
     show = \case
-        Position (r, 0) -> "row " ++ show r
-        Position (r, c) -> "row " ++ show r ++ ", col " ++ show c
+        Position (r, 0) -> "in row " ++ show r
+        Position (r, c) -> "at row " ++ show r ++ ", col " ++ show c
         Epilog          -> "in epilog"
         Code            -> "in the program code"
 

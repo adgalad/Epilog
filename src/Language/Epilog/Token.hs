@@ -76,11 +76,11 @@ data Token
     deriving (Eq)
 
 isError :: Token -> Bool
-isError (ErrorUnderflow             _) = True
-isError (ErrorOverflow              _) = True
+isError (ErrorUnderflow         _) = True
+isError (ErrorOverflow          _) = True
 isError (ErrorUnclosedStringLit _) = True
-isError (ErrorUnexpectedToken       _) = True
-isError _                              = False
+isError (ErrorUnexpectedToken   _) = True
+isError _                          = False
 
 instance Show Token where
     show t = "TOKEN: " ++ case t of

@@ -1,6 +1,5 @@
-{
-module Language.Epilog.Parser
-    ( parseProgram
+{ module Language.Epilog.Parser
+    ( parse
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
@@ -9,24 +8,24 @@ import           Language.Epilog.AST.Program
 import           Language.Epilog.AST.Type
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
-import           Language.Epilog.Context 
-
+import           Language.Epilog.Context
+import           Language.Epilog.Epilog
+import           Language.Epilog.Error
 --------------------------------------------------------------------------------
-import           Data.Int                        (Int32)
-import           Data.Sequence                   (Seq, (<|), (><), (|>), ViewL((:<)))
-import qualified Data.Sequence                   as Seq (empty, singleton, viewl)
-import           Prelude                         hiding (Either)
-import           Control.Monad.Trans.RWS.Strict  (RWS, execRWS, get, gets,
-                                                  modify, tell)
-
+import           Control.Monad.Trans.RWS.Strict (RWS, execRWS, get, gets,
+                                                 modify, tell, put)
+import           Data.Int                       (Int32)
+import           Data.Sequence                  (Seq, ViewL ((:<)), (<|), (><),
+                                                 (|>))
+import qualified Data.Sequence                  as Seq (empty, singleton, viewl)
+import           Prelude                        hiding (Either)
 --------------------------------------------------------------------------------
 }
 
-%name parser
+%name parse
 %tokentype { At Token }
-%monad { Context }
---%monad { Alex }
---%lexer { lexer } { EOF :@ _ }
+%monad { Epilog }
+%lexer { lexer } { EOF :@ _ }
 %error { parseError }
 
 -- Tokens
@@ -146,255 +145,233 @@ import           Control.Monad.Trans.RWS.Strict  (RWS, execRWS, get, gets,
 
 %% -----------------------------------------------------------------------------
 -- Program -----------------------------
---Program :: { Program }
-    --: TopDefs                       { Program $1 }
+Program -- :: { () }
+    : TopDefs                       {}
 
--- Top Level Definitions --------------
-TopDefs :: { () }
-    : TopDef                        { % return () }
-    | TopDefs TopDef                { % return () }
+-- Top Level Definitions ---------------
+TopDefs -- :: { () }
+    : TopDef                        {}
+    | TopDefs TopDef                {}
 
-TopDef :: {  () }
-    --: proc GenId "(" Params0 ")" ":-" Insts "."
-    --                                { % Return () }
---    | proc GenId "(" Params0 ")" "->" Type ":-" Insts "."
---                                    { ProcD   (pos $1) (item $2) $4 (item $7) $9 }
---    | either GenId ":-" Conts "."   { StructD (pos $1) (item $2) Either $4 }
---    | record GenId ":-" Conts "."   { StructD (pos $1) (item $2) Record $4 }
-      : Declaration "."             { % return () }
-      | Initialization "."          { % return () }
+TopDef -- :: {  () }
+    : proc GenId "(" Params0 ")" ":-" Insts "." {}
+    | proc GenId "(" Params0 ")" "->" Type ":-" Insts "."
+                                    {}
+    | either GenId ":-" Conts "."   {}
+    | record GenId ":-" Conts "."   {}
+    | Declaration "."               {}
+    | Initialization "."            {}
 
-GenId :: { At String }
-    : genId                         { unTokenGenId `fmap` $1}
+GenId -- :: { At String }
+    : genId                         {}
 
---Params0 :: { Params }
---    : {- lambda -}                  { Seq.empty }
---    | Params                        { $1 }
+Params0 -- :: { Params }
+   : {- lambda -}                   {}
+   | Params                         {}
 
---Params :: { Params }
---    : Param                         { Seq.singleton $1 }
---    | Params "," Param              { $1 |> $3 }
+Params -- :: { Params }
+   : Param                          {}
+   | Params "," Param               {}
 
---Param :: { Parameter }
---    : Type VarId                    { Parameter (pos $1) (item $1) (item $2) }
+Param -- :: { Parameter }
+   : Type VarId                     {}
 
---Conts :: { Conts }
---    : Cont                          { Seq.singleton $1 }
---    | Conts "," Cont                { $1 |> $3 }
+Conts -- :: { Conts }
+   : Cont                           {}
+   | Conts "," Cont                 {}
 
---Cont :: { Content }
---    : Type VarId                    { Content (pos $1) (item $1) (item $2) }
+Cont -- :: { Content }
+   : Type VarId                     {}
 
----- Instructions ------------------------
-Insts :: { () }
-    : Inst                          { % return () }
-    | Insts "," Inst                { % return () }
+---- Instructions ----------------------
+Insts -- :: { () }
+    : Inst                          {}
+    | Insts "," Inst                {}
 
-Inst :: { () }
-    : Declaration                   { % return () }
-    | Initialization                { % return () }
-    | Assign                        { % return () }
---    | Call                          { $1 }
---    | If                            { $1 }
---    | Case                          { $1 }
---    | For                           { $1 }
---    | While                         { $1 }
---    | read Lval                     { Read   (pos $1) (item $2) }
---    | write Exp                     { Write  (pos $1) $2 }
---    | finish                        { Finish (pos $1) }
+Inst -- :: { () }
+    : Declaration                   {}
+    | Initialization                {}
+    | Assign                        {}
+    | Call                          {}
+    | If                            {}
+    | Case                          {}
+    | For                           {}
+    | While                         {}
+    | read Lval                     {}
+    | write Exp                     {}
+    | finish                        {}
 
 ------ Declaration and Initialization ----
-Declaration :: { () }
-    : Type VarId                    { % do inst (Declaration (pos $1) (item $1) (item $2) Nothing) }
+Declaration -- :: { () }
+    : Type VarId                    {} -- {% do inst (Declaration (pos $1) (item $1) (item $2) Nothing) }
 
-Initialization :: { () }
-    : Type VarId is Exp             { % do 
-                                        expr <- gets expression
-                                        case Seq.viewl expr of 
-                                            x :< xs ->
-                                                inst (Declaration (pos $1) (item $1) (item $2) (Just x)) }
+Initialization -- :: { () }
+    : Type VarId is Exp             {} -- {% do
+                                    --     expr <- gets expression
+                                    --     case Seq.viewl expr of
+                                    --         x :< xs ->
+                                    --             inst (Declaration (pos $1) (item $1) (item $2) (Just x)) }
 
-Type :: { At Type }
-    : GenId                         { Type (item $1) Seq.empty <$ $1 }
-    --| GenId ArraySize               { Type (item $1) $2 <$ $1 }
+Type -- :: { At Type }
+    : GenId                         {} -- { Type (item $1) Seq.empty <$ $1 }
+    | GenId ArraySize               {} -- { Type (item $1) $2 <$ $1 }
 
---ArraySize :: { Seq Int32 }
---    : "{" Int "]"                   { Seq.singleton (item $2) }
---    | "[" Int "}"                   { Seq.singleton (item $2) }
---    | ArraySize "{" Int "]"         { $1 |> (item $3) }
---    | ArraySize "[" Int "}"         { $1 |> (item $3) }
+ArraySize -- :: { Seq Int32 }
+    : "{" Int "]"                   {} -- { Seq.singleton (item $2) }
+    | "[" Int "}"                   {} -- { Seq.singleton (item $2) }
+    | ArraySize "{" Int "]"         {} -- { $1 |> (item $3) }
+    | ArraySize "[" Int "}"         {} -- { $1 |> (item $3) }
 
 ------ Assignment ------------------------
-Assign :: { () }
-    : Lval is Exp                   { % do 
-                                        expr <- gets expression
-                                        case Seq.viewl expr of 
-                                            x :< xs ->
-                                                inst $ Assign (pos $1) (item $1) x }
+Assign -- :: { () }
+    : Lval is Exp                   {} -- {% do
+                                    --     expr <- gets expression
+                                    --     case Seq.viewl expr of
+                                    --         x :< xs ->
+                                    --             inst $ Assign (pos $1) (item $1) x }
 
-Lval :: { At Lval }
-    : VarId                         { Variable (item $1)           <$ $1 }
---    | Lval "_" VarId                { Member   (item $1) (item $3) <$ $1 }
---    | Lval "{" Exp "]"              { Index    (item $1)       $3  <$ $1 }
---    | Lval "[" Exp "}"              { Index    (item $1)       $3  <$ $1 }
+Lval -- :: { At Lval }
+    : VarId                         {}
+    | Lval "_" VarId                {}
+    | Lval "{" Exp "]"              {}
+    | Lval "[" Exp "}"              {}
 
-VarId :: { At String }
-    : varId                         { unTokenVarId `fmap` $1 }
+VarId -- :: { At String }
+    : varId                         {}
 
 ------ Call ------------------------------
---Call :: { Instruction }
---    : GenId "(" Args ")"            { ICall (pos $1) (item $1) $3 }
+Call -- :: { Instruction }
+   : GenId "(" Args ")"             {}
 
---Args :: { Exps }
---    : {- lambda -}                  { Seq.empty }
---    | Args1                         { $1 }
+Args -- :: { Exps }
+   : {- lambda -}                   {}
+   | Args1                          {}
 
---Args1 :: { Exps }
---    : Exp                           { Seq.singleton $1 }
---    | Args1 "," Exp                 { $1 |> $3 }
+Args1 -- :: { Exps }
+   : Exp                            {}
+   | Args1 "," Exp                  {}
 
------- If --------------------------------
---If :: { Instruction }
---    : if Guards end                 { If (pos $1) $2}
+---- If --------------------------------
+If -- :: { Instruction }
+   : if Guards end                  {}
 
---Guards :: { Guards }
---    : Guard                         { Seq.singleton $1 }
---    | Guards ";" Guard              { $1 |> $3 }
+Guards -- :: { Guards }
+   : Guard                          {}
+   | Guards ";" Guard               {}
 
---Guard :: { Guard }
---    : Exp "->" Insts                { (pos $1, $1, $3) }
+Guard -- :: { Guard }
+   : Exp "->" Insts                 {}
 
------- Case ------------------------------
---Case :: { Instruction }
---    : case Exp of Sets end          { Case (pos $1) $2 $4 }
+---- Case ------------------------------
+Case -- :: { Instruction }
+   : case Exp of Sets end           {}
 
---Sets :: { Sets }
---    : Set                           { Seq.singleton $1 }
---    | Sets ";" Set                  { $1 |> $3 }
+Sets -- :: { Sets }
+   : Set                            {}
+   | Sets ";" Set                   {}
 
---Elems :: { At Exps }
---    : Exp                           { (Seq.singleton $1) :@ (pos $1) }
---    | Elems "," Exp                 { ((item $1) |> $3) :@ (pos $1) }
+Elems -- :: { At Exps }
+   : Exp                            {}
+   | Elems "," Exp                  {}
 
---Set :: { Set }
---    : Elems "->" Insts              { (pos $1, item $1, $3) }
+Set -- :: { Set }
+   : Elems "->" Insts               {}
 
------- For loops -------------------------
---For :: { Instruction }
---    : for      VarId Ranges end     { For (pos $1)  Nothing         (item $2) $3 }
---    | for Type VarId Ranges end     { For (pos $1) (Just (item $2)) (item $3) $4 }
+---- For loops -------------------------
+For -- :: { Instruction }
+   : for      VarId Ranges end      {}
+   | for Type VarId Ranges end      {}
 
---Ranges :: { Ranges }
---    : Range                         { Seq.singleton $1 }
---    | Ranges ";" Range              { $1 |> $3 }
+Ranges -- :: { Ranges }
+   : Range                          {}
+   | Ranges ";" Range               {}
 
---Range :: { Range }
---    : from Exp to Exp "->" Insts    { (pos $1, $2, $4, $6) }
+Range -- :: { Range }
+   : from Exp to Exp "->" Insts     {}
 
------- While loops -----------------------
---While :: { Instruction }
---    : while Guards end              { While (pos $1) $2 }
+---- While loops -----------------------
+While -- :: { Instruction }
+   : while Guards end               {}
 
 ---- Expressions -------------------------
-Exp :: { () }
-    : "(" Exp ")"                   { % modify (\s -> s)  }
-    | Bool                          { % literal (LitBool   (pos $1) (item $1)) }
-    | Char                          { % literal (LitChar   (pos $1) (item $1)) }
-    | Int                           { % literal (LitInt    (pos $1) (item $1)) }
-    | Float                         { % literal (LitFloat  (pos $1) (item $1)) }
-    | String                        { % literal (LitString (pos $1) (item $1)) }
---    | otherwise                     { Otherwise (pos $1) }
+Exp -- :: { () }
+    : "(" Exp ")"                   {}
+    | Bool                          {}
+    | Char                          {}
+    | Int                           {}
+    | Float                         {}
+    | String                        {}
+    | otherwise                     {}
 
-    | Lval                          { % do
-                                        let lval = Lval (pos $1) (item $1)
-                                        modify (\s -> s {expression = lval <| expression s})}
+    | Lval                          {} -- {% do
+                                    --     let lval = Lval (pos $1) (item $1)
+                                    --     modify (\s -> s {expression = lval <| expression s})}
 
---    | GenId "(" Args ")"            { ECall (pos $1) (item $1) $3 }
+   | GenId "(" Args ")"             {} -- { ECall (pos $1) (item $1) $3 }
 
---    -- Operators
-    -- Logical
-    | Exp and     Exp               { % binaryOperation And    }
-    | Exp andalso Exp               { % binaryOperation Andalso}
-    | Exp or      Exp               { % binaryOperation Or     }
-    | Exp orelse  Exp               { % binaryOperation Orelse }
-    | Exp xor     Exp               { % binaryOperation Xor    }
-    |     not     Exp %prec NEG     { % unaryOperation  Not }
+    -- Operators
+    ---- Logical
+    | Exp and     Exp               {}
+    | Exp andalso Exp               {}
+    | Exp or      Exp               {}
+    | Exp orelse  Exp               {}
+    | Exp xor     Exp               {}
+    |     not     Exp %prec NEG     {}
 
     ---- Bitwise
-    | Exp band Exp                  { % binaryOperation Band }
-    | Exp bor  Exp                  { % binaryOperation Bor  }
-    | Exp bsl  Exp                  { % binaryOperation Bsl  }
-    | Exp bsr  Exp                  { % binaryOperation Bsr  }
-    | Exp bxor Exp                  { % binaryOperation Bxor }
-    |     bnot Exp %prec NEG        { % unaryOperation  Bnot }
+    | Exp band Exp                  {}
+    | Exp bor  Exp                  {}
+    | Exp bsl  Exp                  {}
+    | Exp bsr  Exp                  {}
+    | Exp bxor Exp                  {}
+    |     bnot Exp %prec NEG        {}
 
---    ---- Array / Record / Either
-    | length Exp                    { % return () }
+    ---- Array / Record / Either
+    | length Exp                    {}
 
-----    ---- Arithmetic
-    | Exp "+" Exp                   { % binaryOperation Plus   }
-    | Exp "-" Exp                   { % binaryOperation Minus  }
-    | Exp "*" Exp                   { % binaryOperation Times  }
-    | Exp "/" Exp                   { % binaryOperation FloatDiv }
-    | Exp div Exp                   { % binaryOperation IntDiv }
-    | Exp rem Exp                   { % binaryOperation Rem    }
-    |     "-" Exp %prec NEG         { % unaryOperation Uminus }
+    ---- Arithmetic
+    | Exp "+" Exp                   {}
+    | Exp "-" Exp                   {}
+    | Exp "*" Exp                   {}
+    | Exp "/" Exp                   {}
+    | Exp div Exp                   {}
+    | Exp rem Exp                   {}
+    |     "-" Exp %prec NEG         {}
 
     ---- Relational
-    | Exp "<"  Exp                  { % binaryOperation LTop }
-    | Exp "=<" Exp                  { % binaryOperation LEop }
-    | Exp ">"  Exp                  { % binaryOperation GTop }
-    | Exp ">=" Exp                  { % binaryOperation GEop }
-    | Exp "="  Exp                  { % binaryOperation EQop }
-    | Exp "/=" Exp                  { % binaryOperation NEop }
-    | Exp "|"  Exp                  { % binaryOperation FAop }
-    | Exp "!|" Exp                  { % binaryOperation NFop }
+    | Exp "<"  Exp                  {}
+    | Exp "=<" Exp                  {}
+    | Exp ">"  Exp                  {}
+    | Exp ">=" Exp                  {}
+    | Exp "="  Exp                  {}
+    | Exp "/=" Exp                  {}
+    | Exp "|"  Exp                  {}
+    | Exp "!|" Exp                  {}
 
-    Bool :: { At Bool }
-        : boolLit                       { unTokenBoolLit   `fmap` $1 }
+    Bool -- :: { At Bool }
+        : boolLit                   {} -- { unTokenBoolLit   `fmap` $1 }
 
-    Char :: { At Char }
-        : charLit                       { unTokenCharLit   `fmap` $1 }
+    Char -- :: { At Char }
+        : charLit                   {} -- { unTokenCharLit   `fmap` $1 }
 
-    Int :: { At Int32 }
-        : intLit                        { unTokenIntLit    `fmap` $1 }
+    Int -- :: { At Int32 }
+        : intLit                    {} -- { unTokenIntLit    `fmap` $1 }
 
-    Float :: { At Float }
-        : floatLit                      { unTokenFloatLit  `fmap` $1 }
+    Float -- :: { At Float }
+        : floatLit                  {} -- { unTokenFloatLit  `fmap` $1 }
 
-    String :: { At String }
-        : stringLit                     { unTokenStringLit `fmap` $1 }
+    String -- :: { At String }
+        : stringLit                 {} -- { unTokenStringLit `fmap` $1 }
 
 { ------------------------------------------------------------------------------
--- Parser
+parseError :: At Token -> Epilog a
+parseError (t :@ p) = do
+    err $ UnexpectedToken t p
+    return undefined
 
-
---lexer :: (At Token -> Context ()) -> Context ()
---lexer cont = do
---    let l@(t :@ _) = alexMonadScan
---    case t of
---        ErrorUnderflow _ -> do
---            lexer cont
---        ErrorOverflow _ -> do
---            lexer cont
---        ErrorUnclosedStringLit s -> do
---            cont $ TokenStringLit s <$ l
---        ErrorUnexpectedToken _ -> do
---            lexer cont
---        _ -> cont l
-
---parseError :: [Lexeme Token] -> a
-parseError l = case l of
-  [] -> error $ "Unexpected EOF"
-  _  -> error $ "Unexpected " ++ show (head l)
-
---parseProgram :: String -> (Program, String)
-parseProgram input = 
-    case scanner input of
-            Left  msg    -> error msg
-            Right tokens ->  execRWS (parser tokens) () initialState
-
-                    
-
-
+-- parseProgram :: String -> (Program, String)
+-- parseProgram input =
+--     case scanner input of
+--             Left  msg    -> error msg
+--             Right tokens ->  execRWS (parser tokens) () initialState
 }

@@ -1,25 +1,26 @@
 { {-# OPTIONS_GHC -w #-}
   {-# LANGUAGE MultiWayIf #-}
 module Language.Epilog.Lexer
-    ( Alex (..)
-    , Token (..)
-    , alexMonadScan
+    ( Token (..)
+    , lexer
     , isError
-    , runAlex'
-    , scanner
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.At
+import           Language.Epilog.Epilog
+import           Language.Epilog.Error
 import           Language.Epilog.Token
 --------------------------------------------------------------------------------
-import           Numeric.Limits         (minValue, maxValue)
-import           Data.Int               (Int32)
-import           Control.Monad          (liftM, when)
-import           Data.Maybe             (fromJust, isJust)
+import           Control.Monad  (liftM, when)
+import qualified Data.Bits
+import           Data.Char      (ord)
+import           Data.Int       (Int32)
+import           Data.Maybe     (fromJust, isJust)
+import           Numeric.Limits (maxValue, minValue)
+import           Control.Lens   ((^.), (.=), (+=), (-=), (<-=), _1, use)
 --------------------------------------------------------------------------------
 }
-
-%wrapper "monadUserState"
+-- We don't use any wrapper because we want to use our own Monad
 
 $octit       = [0-7]
 $digit       = [0-9]
@@ -45,6 +46,7 @@ $symbol      = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\^\|\-\~\(\)\,\:\;\[\]\`\{\}\ ]
 $graphic     = [$alpha $digit $symbol]
 
 $charesc     = [0nt\\\'\"]
+-- \\"'
 @escape      = \\ ($charesc)
 
 @charval     = ($graphic | @escape)
@@ -52,7 +54,9 @@ $charesc     = [0nt\\\'\"]
 
 @char        = \' @charval \'
 @string      = \" @stringval \"
+-- \\"
 @badstring   = \" @stringval
+-- \\"
 
 --------------------------------------------------------------------------------
 epilog :-
@@ -62,9 +66,9 @@ epilog :-
 
     -- Comments
     <0> \% \% .*                ;
-    <0> "/%"                    { enterNewComment `andBegin` c }
-    <c> "/%"                    { embedComment   }
-    <c> "%/"                    { unembedComment }
+    <0> "/%"                    { changeCommentDepth (.=1) }
+    <c> "/%"                    { changeCommentDepth (+=1) }
+    <c> "%/"                    { changeCommentDepth (-=1) }
     <c> .                       ;
 
     -- Operators
@@ -177,24 +181,100 @@ epilog :-
     <0> .                       { make' $ ErrorUnexpectedToken . head }
 
 { ------------------------------------------------------------------------------
+-- Bytes -------------------------------
+-- | Converts a Char into the corresponding list of Bytes
+utf8Encode :: Char -> [Byte]
+utf8Encode = map fromIntegral . go . ord
+    where
+        go oc
+            | oc <= 0x7f   =
+                [oc]
+            | oc <= 0x7ff  =
+                [ 0xc0 + (oc `Data.Bits.shiftR` 6)
+                , 0x80 + oc Data.Bits..&. 0x3f
+                ]
+            | oc <= 0xffff =
+                [ 0xe0 + (oc `Data.Bits.shiftR` 12)
+                , 0x80 + ((oc `Data.Bits.shiftR` 6) Data.Bits..&. 0x3f)
+                , 0x80 + oc Data.Bits..&. 0x3f
+                ]
+            | otherwise    =
+                [ 0xf0 + (oc `Data.Bits.shiftR` 18)
+                , 0x80 + ((oc `Data.Bits.shiftR` 12) Data.Bits..&. 0x3f)
+                , 0x80 + ((oc `Data.Bits.shiftR` 6) Data.Bits..&. 0x3f)
+                , 0x80 + oc Data.Bits..&. 0x3f
+                ]
 
-type Action = AlexInput -> Int -> Alex (At Token)
+-- | Gets the next Byte
+alexGetByte :: LexerInput -> Maybe (Byte, LexerInput)
+alexGetByte (p,c,(b:bs),s) = Just (b,(p,c,bs,s))
+alexGetByte (p,c,[],[])    = Nothing
+alexGetByte (p,_,[],(c:s)) =
+    let p' = alexMove p c
+        (b:bs) = utf8Encode c
+    in p' `seq` Just (b, (p', c, bs, s))
 
-toPair :: AlexPosn -> Position
-toPair (AlexPn _ r c) = Position (r, c)
+-- | Ignores remaining bytes in current char
+ignorePendingBytes :: LexerInput -> LexerInput
+ignorePendingBytes (p,c,ps,s) = (p,c,[],s)
 
-make' :: (String -> Token) -> Action
+
+-- Lexer input -------------------------
+-- | Alex wants this type
+type LexerInput =
+    ( Position -- current position,
+    , Char     -- previous char
+    , [Byte]   -- pending bytes on current char
+    , String   -- current input string
+    )
+type AlexInput = LexerInput -- Alex
+
+getInput :: Epilog LexerInput
+getInput = do
+    s <- get
+    return (s^.position, s^.prevChar, s^.bytes, s^.input)
+
+
+-- Utility functions -------------------
+-- | Updates the position after moving one char
+alexMove :: Position -> Char -> Position
+alexMove (Position (l, c)) '\t' =
+    Position (l, (((c+alex_tab_size-1) `div` alex_tab_size)*alex_tab_size+1))
+alexMove (Position (l, c)) '\n' =
+    Position ((l+1), 1)
+alexMove (Position (l, c)) _    =
+    Position (l, (c+1))
+
+skip _input _len = readToken
+
+initialScanCode :: Int
+initialScanCode = 0
+
+changeCommentDepth change input len = do
+    change commentDepth
+    cd <- use commentDepth
+    scanCode .= if (cd == 0)
+        then initialScanCode
+        else c
+    skip input len
+
+
+-- Token builders ----------------------
+-- | For tokens which need their value
+make' :: (String -> Token) -> LexerInput -> Int -> Epilog (At Token)
 make' t (p, _, _, str) size =
-    return $ (t $ take size str) :@ (toPair p)
+    return $ (t $ take size str) :@ p
 
-make :: Token -> Action
-make  = make' . const
+-- | For tokens without a value
+make :: Token -> LexerInput -> Int -> Epilog (At Token)
+make = make' . const
 
 floatLiteral :: String -> Token
 floatLiteral str = if
-    | value > ( maxValue :: Float) -> ErrorOverflow str
-    | otherwise -> TokenFloatLit value
-    where value = read str :: Float
+    | value > realToFrac (maxValue :: Float) -> ErrorOverflow str
+    | value < realToFrac (minValue :: Float) -> ErrorUnderflow str
+    | otherwise -> TokenFloatLit (read str :: Float)
+    where value = read str :: Double
 
 integerLiteral :: String -> Token
 integerLiteral str = if
@@ -202,78 +282,30 @@ integerLiteral str = if
     | otherwise -> TokenIntLit . fromIntegral $ value
     where value = read str :: Integer
 
--- states
-state_initial :: Int
-state_initial = 0
 
--- actions
----- comments
-enterNewComment :: Action
-enterNewComment input len = do
-        setLexerCommentDepth 1
-        skip input len
-embedComment :: Action
-embedComment input len = do
-        cd <- getLexerCommentDepth
-        setLexerCommentDepth (cd + 1)
-        skip input len
-unembedComment :: Action
-unembedComment input len = do
-        cd <- getLexerCommentDepth
-        setLexerCommentDepth (cd - 1)
-        when (cd == 1) (alexSetStartCode state_initial)
-        skip input len
+-- The Lexer itself --------------------
+readToken = do
+    inp <- getInput
+    code <- use scanCode
+    case alexScan inp code of
+        AlexEOF -> return $
+            EOF :@ (inp^._1)
+        AlexError (p,_,_,_) -> do
+            err $ LexicalError p
+            readToken
+        AlexSkip  (pos, c, bs, inp') len -> do
+            position .= pos
+            prevChar .= c
+            bytes    .= bs
+            input    .= inp'
+            readToken
+        AlexToken (pos, c, bs, inp') len action -> do
+            position .= pos
+            prevChar .= c
+            bytes    .= bs
+            input    .= inp'
+            action (ignorePendingBytes inp) len
 
--- The user state monad
-data AlexUserState = AlexUserState { lexerCommentDepth :: Int }
-
-alexInitUserState :: AlexUserState
-alexInitUserState = AlexUserState { lexerCommentDepth = 0 }
-
-getFromUserState :: (AlexUserState -> a) -> Alex a
-getFromUserState f =
-    Alex $ \s@AlexState{alex_ust=ust} -> Right (s, f ust)
-modifyUserState :: (AlexUserState -> AlexUserState) -> Alex ()
-modifyUserState f =
-    Alex $ \s -> let st = alex_ust s in Right (s {alex_ust = f st}, ())
-
-getLexerCommentDepth :: Alex Int
-getLexerCommentDepth = getFromUserState lexerCommentDepth
-setLexerCommentDepth :: Int -> Alex ()
-setLexerCommentDepth d = modifyUserState $ \st -> st { lexerCommentDepth = d }
-
--- The basic lexer
-alexEOF :: Alex (At Token)
-alexEOF = (EOF :@) . toPair . fst4 <$> alexGetInput
-    where
-        fst4 (x,_,_,_) = x
-
-scanner :: String -> Either String [At Token]
-scanner str =
-    let loop = do
-            t <- alexMonadScan
-            let tok@(i :@ _) = t
-            if (i == EOF)
-                then return []
-                else do
-                    toks <- loop
-                    return (tok : toks)
-    in runAlex str loop
-
--- The lexer for happy
-runAlex' :: String -> Alex a -> (a, String)
-runAlex' input (Alex f) =
-    let Right (st, a) = f state
-        ust = ""
-    in (a, ust)
-    where
-        state :: AlexState
-        state = AlexState
-            { alex_pos   = alexStartPos
-            , alex_inp   = input
-            , alex_chr   = '\n'
-            , alex_bytes = []
-            , alex_ust   = alexInitUserState
-            , alex_scd   = 0
-            }
+lexer :: (At Token -> Epilog a) -> Epilog a
+lexer cont = readToken >>= cont
 }

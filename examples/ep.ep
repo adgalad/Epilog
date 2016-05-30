@@ -1,10 +1,10 @@
 procedure special'procedure'(integer X, float Y, integer K) :-
-    Y is toFloat X + 3.0,
+    Y is toFloat (X + 3.0),
     X is K,
 
     int W, read W,
     if (K > W) -> finish
-    ;  (toInteger Y > W) -> K is X
+    ;  (toInteger (Y) > W) -> K is X
     end.
 
 procedure greetEveryone(integer X) :-
@@ -54,7 +54,7 @@ procedure main () :-
         float Y is 5.123e12,
         string Z is "a",
         character W is 'a',
-        X is X + toInteger W - toInteger Y,
+        X is X + toInteger(W) - toInteger(Y),
         Hola is 5,
         specialProcedure(X, Y, 5 + 3)
 

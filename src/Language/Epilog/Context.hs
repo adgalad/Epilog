@@ -2,16 +2,9 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Epilog.Context
-    ( ContextError (..)
-    , ContextState (..)
-    , ProcSignature (..)
-    , Errors
-    , Strings
-    , Types
-    , Context
-    , context
+    ( ProcSignature (..)
     , verifyExpr
-    ,verifyLval
+    , verifyLval
     , inst
     , def
     , initialState
@@ -20,6 +13,8 @@ module Language.Epilog.Context
     , literal
     ) where
 --------------------------------------------------------------------------------
+import           Language.Epilog.Error
+import           Language.Epilog.Common
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction hiding (Set)
 import qualified Language.Epilog.AST.Instruction as Inst (Set)
@@ -27,210 +22,52 @@ import           Language.Epilog.AST.Program
 import           Language.Epilog.AST.Type
 import           Language.Epilog.Position
 import           Language.Epilog.SymbolTable     hiding (empty)
-import qualified Language.Epilog.SymbolTable     as ST (empty, lookup)
+import qualified Language.Epilog.SymbolTable     as ST (lookup)
+import           Language.Epilog.Epilog
 --------------------------------------------------------------------------------
-import           Control.Monad.Trans.RWS.Strict  (RWS, execRWS, get, gets,
-                                                  modify, tell)
+
 import           Control.Monad                   (foldM, void, unless)
-import qualified Control.Monad.Identity          as Id          
-import           Data.Function                   (on)
-import           Data.Map.Strict                 (Map)
 import qualified Data.Map.Strict                 as Map
-import           Data.Sequence                   (Seq, (><), (|>), (<|), ViewL((:<)))
+import           Data.Sequence                   ((><), (<|), ViewL((:<)))
 import qualified Data.Sequence                   as Seq
+import Control.Lens (use, (.=), (%=))
 --------------------------------------------------------------------------------
--- Synonyms ----------------------------
-type Name         = String
-type Strings      = Map String (Seq Position)
-type Types        = Map Name (Type, SymbolTable, Position)
-type Procs        = Map Name ProcSignature
-type Pending      = Map Name (Seq Position)
-type Errors       = Seq ContextError
-
-
--- Table Element Types -----------------
-data ProcSignature = ProcSignature
-    { procName     :: Name
-    , procType     :: Type
-    , procPosition :: Position
-    }
-
--- Error Type --------------------------
-data ContextError
-    = DuplicateDefinition
-        { dDefName :: Name
-        , dDefFstP :: Position
-        , dDefSndP :: Position
-        }
-    | OutOfScope
-        { oosName :: Name
-        , oosP    :: Position
-        }
-    | DuplicateDeclaration
-        { dDecName :: Name
-        , dDecFstT :: Type
-        , dDecFstP :: Position
-        , dDecSndT :: Type
-        , dDecSndP :: Position
-        }
-    | UndefinedType
-        { utTName :: Name
-        , utVar   :: Name
-        , utP     :: Position
-        }
-    | UndefinedProcedure
-        { upName    :: Name
-        , upP       :: Position
-        }
-    | InvalidMember
-        { imName :: Name
-        , imP    :: Position
-        }
-    | MemberOfArray
-        { moaName :: Name
-        , moaP    :: Position
-        }
-    | InvalidIndex
-        { iiP :: Position }
-    | NoMain
-        { nmP :: Position }
-    deriving (Eq)
-
-err :: a -> RWS r (Seq a) s () 
-err = tell . Seq.singleton
-
-instance P ContextError where
-    pos = \case
-        DuplicateDefinition      _ _ p -> p
-        OutOfScope                 _ p -> p
-        DuplicateDeclaration _ _ _ _ p -> p
-        UndefinedType            _ _ p -> p
-        UndefinedProcedure         _ p -> p
-        InvalidMember              _ p -> p
-        MemberOfArray              _ p -> p
-        InvalidIndex                 p -> p
-        NoMain                       p -> p
-
-instance Ord ContextError where
-    compare = compare `on` pos
-
-instance Show ContextError where
-    show = \case
-        DuplicateDefinition name fstP sndP ->
-            "Duplicate definition at " ++ showP sndP ++ ": `" ++ name ++
-            "` already defined at " ++ showP fstP
-
-        OutOfScope name p ->
-            "Out of scope variable at " ++ showP p ++ ": `" ++ name ++
-            "` not available in this scope."
-
-        DuplicateDeclaration name fstT fstP sndT sndP ->
-            "Duplicate declaration at " ++ showP sndP ++ ", variable `" ++
-            name ++ "` already defined as `" ++ show fstT ++ "` at " ++
-            showP fstP ++ " cannot be redeclared as `" ++ show sndT ++ "`"
-
-        UndefinedType nameT var p ->
-            "Attempted to declare variable of undefined type at " ++ showP p ++
-            ", type `" ++ nameT ++ "`, variable `" ++ var ++ "`"
-
-        UndefinedProcedure  name p ->
-            "Call to undeclared procedure at " ++ showP p ++ " named `" ++
-            name ++ "`"
-
-        InvalidMember member p ->
-            "Invalid member requested at " ++ showP p ++ " named `" ++
-            member ++ "`"
-
-        MemberOfArray member p ->
-            "Expected array index instead of member at " ++ showP p ++
-            " member named `" ++ member ++ "`"
-
-        InvalidIndex p ->
-            "Index of non-array variable at " ++ showP p
-
-        NoMain _ ->
-            "No procedure `main` defined in the program"
-
--- State Type --------------------------
-data ContextState = ContextState
-    { symbols   :: SymbolTable
-    , strings   :: Strings
-    , pendProcs :: Pending
-    , procs     :: Procs
-    , types     :: Types
-    , expression :: Seq Expression
-    }
-
-languageProcs :: [(Name, ProcSignature)]
-languageProcs =
-    [ ("toBoolean",   ProcSignature "toBoolean"   boolT  Epilog)
-    , ("toCharacter", ProcSignature "toCharacter" charT  Epilog)
-    , ("toFloat",     ProcSignature "toFloat"     floatT Epilog)
-    , ("toInteger",   ProcSignature "toInteger"   intT   Epilog)
-    ] -- Must be ascending
-
-basicTypes :: [(Name, (Type, SymbolTable, Position))]
-basicTypes =
-    [ ("character", (charT  , ST.empty, Epilog))
-    , ("float",     (floatT , ST.empty, Epilog))
-    , ("integer",   (intT   , ST.empty, Epilog))
-    -- , ("ref??",     (voidT  , ST.empty, Epilog)) -- This will change
-    , ("string",    (stringT, ST.empty, Epilog))
-    , ("void",      (voidT  , ST.empty, Epilog))
-    ] -- Must be ascending
-
-initialState :: ContextState
-initialState  = ContextState
-    { symbols      = ST.empty
-    , strings      = Map.empty
-    , pendProcs    = Map.empty
-    , procs        = Map.fromAscList languageProcs
-    , types        = Map.fromAscList basicTypes
-    , expression   = Seq.empty
-    }
-
--- The Monad ---------------------------
-type Context = RWS () Errors ContextState
-
 -- Context -----------------------------
-context :: Program -> Int
-context str = 1;
---context String = (symbols, strings, types, procs, errors)
---    where
---        (ContextState {symbols, strings, pendProcs, procs, types}, e) =
---            execRWS (mapM_ def decs) () initialState
+-- context :: Program -> (SymbolTable, Strings, Types, Procs, Errors)
+-- context (Program decs) = (symbols, strings, types, procs, errors)
+--     where
+--         -- (EpilogState {symbols, strings, pendProcs, procs, types}, e) =
+--         (state, errs) = execRWS (mapM_ def decs) () initialState
 
---        errors' =
---            Seq.sort $ e >< Map.foldrWithKey pendToErrors Seq.empty pendProcs
+--         errors' =
+--             Seq.sort $ e >< Map.foldrWithKey pendToErrors Seq.empty pendProcs
 
---        errors = if "main" `Map.member` procs
---            then errors'
---            else NoMain Code <| errors'
+--         errors = if "main" `Map.member` procs
+--             then errors'
+--             else NoMain Code <| errors'
 
---        pendToErrors name ps errs =
---            errs >< foldr (pendToError name) Seq.empty ps
+--         pendToErrors name ps errs =
+--             errs >< foldr (pendToError name) Seq.empty ps
 
---        pendToError name p errs =
---            errs |> UndefinedProcedure  name p
-
+--         pendToError name p errs =
+--             errs |> UndefinedProcedure  name p
 
 -- Definitions -------------------------
-def :: Definition -> Context ()
+def :: Definition -> Epilog ()
 def GlobalD { gPos, gType, gName, gVal} =
     declaration (Entry gName gType gVal gPos)
 
 def StructD { sPos, sName, sConts {-, sClass -} } = do
-    t <- gets types
+    t <- use types
     case sName `Map.lookup` t of
         Just (_, _, p) -> err $ DuplicateDefinition sName p sPos
         Nothing -> do
             st <- foldM cont (emptyP sPos) sConts
-            modify (\s ->
-                s {types = Map.insert sName (userT sName, st, sPos) (types s)})
+            types %= Map.insert sName (userT sName, st, sPos)
 
 def ProcD { pPos, pName, pParams, pType, pInsts } = do
     let signature = ProcSignature pName pType pPos
-    modify (\s -> s { procs = Map.insert pName signature (procs s) })
+    procs %= Map.insert pName signature
 
     openScope' pPos
     sequence_ $ fmap param pParams
@@ -242,10 +79,10 @@ def ProcD { pPos, pName, pParams, pType, pInsts } = do
     closeScope'
 
 -- Contents ----------------------------
-cont :: SymbolTable -> Content -> Context SymbolTable
+cont :: SymbolTable -> Content -> Epilog SymbolTable
 cont st Content { cPos, cType, cName } = do
-    ContextState { types } <- get
-    case typeName cType `Map.lookup` types of
+    ts <- use types
+    case typeName cType `Map.lookup` ts of
         Just _ -> case cName `local` st of
             Right Entry { varType, varPosition } -> do
                 err $ DuplicateDeclaration cName varType varPosition cType cPos
@@ -258,12 +95,12 @@ cont st Content { cPos, cType, cName } = do
         entry = Entry cName cType Nothing cPos
 
 -- Parameters --------------------------
-param :: Parameter -> Context ()
+param :: Parameter -> Epilog ()
 param (Parameter p t name) =
     declaration (Entry name t Nothing p)
 
 -- Instructions ------------------------
-inst :: Instruction -> Context ()
+inst :: Instruction -> Epilog ()
 inst (Declaration p t name val) =
     declaration (Entry name t val p)
 
@@ -303,21 +140,21 @@ inst (Write _ expr) =
 
 inst (Finish _) = return ()
 
-guard :: Guard -> Context ()
+guard :: Guard -> Epilog ()
 guard (p, expr, insts) = do
     verifyExpr expr
     openScope' p
     sequence_ $ fmap inst insts
     closeScope'
 
-set :: Inst.Set -> Context ()
+set :: Inst.Set -> Epilog ()
 set (p, exprs, insts) = do
     sequence_ $ fmap verifyExpr exprs
     openScope' p
     sequence_ $ fmap inst insts
     closeScope'
 
-range :: Range -> Context ()
+range :: Range -> Epilog ()
 range (p, from, to, insts) = do
     verifyExpr from
     verifyExpr to
@@ -326,20 +163,20 @@ range (p, from, to, insts) = do
     closeScope'
 
 -- Expression --------------------------
-verifyExpr :: Expression -> Context ()
+verifyExpr :: Expression -> Epilog ()
 verifyExpr (Lval      p lval   ) = void $ verifyLval lval p
 verifyExpr (Binary    _ _ e0 e1) = verifyExpr e0 >> verifyExpr e1
 verifyExpr (Unary     _ _ e0   ) = verifyExpr e0
-verifyExpr (LitString p string ) = modify (\s ->
-    s { strings = Map.insertWith (><) string (Seq.singleton p) (strings s) })
+verifyExpr (LitString p string ) =
+    strings %= Map.insertWith (><) string (Seq.singleton p)
 verifyExpr (ECall     p n exprs) = do
     verifyCall n p
     sequence_ $ fmap verifyExpr exprs
 verifyExpr                     _ = return ()
 
-verifyLval :: Lval -> Position -> Context (Maybe Type)
+verifyLval :: Lval -> Position -> Epilog (Maybe Type)
 verifyLval (Variable n) p = do
-    s <- gets symbols
+    s <- use symbols
     case n `ST.lookup` s of
         Right Entry {varType} -> return (Just varType)
         Left _ -> do
@@ -350,7 +187,7 @@ verifyLval (Member lval member) p = do
     case t of
         Nothing -> return Nothing
         Just type0 -> do
-            ts <- gets types
+            ts <- use types
             if size type0 /= 0
                 then do
                     err $ MemberOfArray member p
@@ -373,27 +210,29 @@ verifyLval (Index lval expr) p = do
                 then err (InvalidIndex p) >> return Nothing
                 else return $ Just (Type name (Seq.drop 1 dims))
 
-verifyCall :: Name -> Position -> Context ()
+verifyCall :: Name -> Position -> Epilog ()
 verifyCall proc p = do
-    ContextState { procs, pendProcs } <- get
-    unless (proc `Map.member` procs) $
-        modify (\ s -> s {pendProcs =
-            Map.insertWith (><) proc (Seq.singleton p) pendProcs})
+    procedures <- use procs
+    unless (proc `Map.member` procedures) $
+        pendProcs %= Map.insertWith (><) proc (Seq.singleton p)
 
-verifySymbol :: String -> Position -> Context ()
+verifySymbol :: String -> Position -> Epilog ()
 verifySymbol name p = do
-    s <- gets symbols
-    unless (isSymbol name s) $ err $ OutOfScope name p
+    s <- use symbols
+    unless (isSymbol name s) $
+        err $ OutOfScope name p
 
-declaration :: Entry -> Context ()
+declaration :: Entry -> Epilog ()
 declaration entry@(Entry name t val p) = do
-    ContextState { symbols, types } <- get
-    case name `local` symbols of
+    -- EpilogState { symbols, types } <- get
+    symbs <- use symbols
+    ts    <- use types
+    case name `local` symbs of
         Right Entry {varType, varPosition} ->
             err $ DuplicateDeclaration name varType varPosition t p
-        Left _ -> case typeName t `Map.lookup` types of
-            Just _  -> modify (\s -> s
-                { symbols = insertSymbol name entry symbols })
+        Left _ -> case typeName t `Map.lookup` ts of
+            Just _  ->
+                symbols %= insertSymbol name entry
             Nothing ->
                 err $ UndefinedType (typeName t) name p
 
@@ -401,29 +240,32 @@ declaration entry@(Entry name t val p) = do
         Nothing  -> return ()
         Just expr -> verifyExpr expr
 
-openScope' :: Position -> Context ()
-openScope' p = modify (\s -> s {symbols = openScope p (symbols s) })
+openScope' :: Position -> Epilog ()
+openScope' p =
+    symbols %= openScope p
 
-closeScope' :: Context ()
-closeScope' = modify (\s -> s { symbols = case goUp (symbols s) of
-                                            Left _ -> symbols s
-                                            Right x -> x })
-binaryOperation :: BinaryOp -> Context ()
+closeScope' :: Epilog ()
+closeScope' =
+    symbols %= \st -> case goUp st of
+        Left  _   -> st
+        Right st' -> st'
+
+binaryOperation :: BinaryOp -> Epilog ()
 binaryOperation op = do
-    expr <- gets expression
-    case Seq.viewl expr of 
-        e2 :< xs -> case Seq.viewl xs of 
-            e1 :< ys -> 
-                modify (\s -> s {expression =  (Binary (pos e1) op e1 e2) <| ys } )
+    expr <- use expression
+    case Seq.viewl expr of
+        e2 :< xs -> case Seq.viewl xs of
+            e1 :< ys ->
+                expression .= Binary (pos e1) op e1 e2 <| ys
 
-unaryOperation :: UnaryOp -> Context ()
+unaryOperation :: UnaryOp -> Epilog ()
 unaryOperation op =  do
-    expr <- gets expression
-    case Seq.viewl expr of 
-        e :< xs -> modify (\s -> s {expression =  Unary (pos e) op e <| xs } )
+    expr <- use expression
+    case Seq.viewl expr of
+        e :< xs ->
+            expression .= Unary (pos e) op e <| xs
 
-
-literal :: Expression -> Context ()
-literal lit = do 
-    verifyExpr (lit)
-    modify (\s-> s {expression = lit <| (expression s) }) 
+literal :: Expression -> Epilog ()
+literal lit = do
+    verifyExpr lit
+    expression %= (lit <|)
