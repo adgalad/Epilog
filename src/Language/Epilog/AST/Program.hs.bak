@@ -84,7 +84,7 @@ instance Treelike Definition where
     toTree = \case
         GlobalD p t name val ->
             Node (unwords ["Global Declaration", showP p]) $
-                Node (unwords ["Variable", name]) [] :
+                leaf (unwords ["Variable", name]) :
                 toTree t :
                 (case val of
                     Nothing -> []
@@ -103,7 +103,7 @@ instance Treelike Definition where
         ProcD p name params t insts ->
             Node (unwords ["Procedure", name, showP p, show t])
                 [ if null params
-                    then Node "No parameters" []
+                    then leaf "No parameters"
                     else Node "Parameters" (toForest params)
                 , Node "Body" (toForest insts)
                 ]

@@ -2,51 +2,95 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Epilog.AST.Type
-    ( Type (..)
-    , size
+    ( Atom (..)
+    , Type (..)
     , boolT
     , charT
-    , floatT
     , intT
+    , floatT
     , stringT
-    , userT
-    , voidT
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Treelike
+import           Language.Epilog.Common
 --------------------------------------------------------------------------------
-import           Data.Foldable            (toList)
+import           Data.List                (intercalate)
 import           Data.Int                 (Int32)
-import           Data.Sequence            (Seq)
-import qualified Data.Sequence            as Seq (empty, null, length)
+import           Data.Map                 (Map)
+import qualified Data.Map                 as Map
+import           Prelude                  hiding (Either)
 --------------------------------------------------------------------------------
-data Type = Type
-    { typeName  :: String
-    , dimension :: Seq Int32
-    } deriving (Eq)
+data Atom
+    = EpBoolean
+    | EpCharacter
+    | EpInteger
+    | EpFloat
+    | EpString
+    deriving (Eq)
+
+
+instance Show Atom where
+    show = \case
+        EpBoolean   -> "boolean"
+        EpCharacter -> "character"
+        EpInteger   -> "integer"
+        EpFloat     -> "float"
+        EpString    -> "string"
+
+
+instance Treelike Atom where
+    toTree = leaf . show
+
+
+data Type
+    = Basic   { atom    :: Atom }
+    | Pointer { pointed :: Type }
+    | Array   { low     :: Int32, high :: Int32, item :: Type }
+    | Record  { fields  :: Map Name Type }
+    | Either  { fields  :: Map Name Type }
+    | Any
+    | None
+    deriving (Eq)
+
 
 instance Show Type where
-    show (Type t dimensions) = "Type " ++ t ++ if Seq.null dimensions
-        then ""
-        else show (toList dimensions)
+    show = \case
+        Basic   { atom }            -> show atom
+        Pointer { pointed }         -> "pointer to " ++ show pointed
+        Array   { low, high, item } ->
+            "array [" ++ show low ++ "," ++ show high ++ ") of " ++ show item
+        Record  { fields }          ->
+            "record {" ++ show' fields ++ "}"
+        Either  { fields }          ->
+            "either {" ++ show' fields ++ "}"
+        Any                         -> "any type"
+        None                        -> "no type at all"
+
+        where
+            show' = intercalate ", " . Map.foldrWithKey aux []
+            aux k a b = (k ++ " : " ++ show a) : b
+
 
 instance Treelike Type where
-    toTree (Type t dimensions) = if Seq.null dimensions
-        then Node ("Type " ++ t) []
-        else Node
-            ("Array of " ++ t ++ " " ++ show (toList dimensions))
-            []
+    toTree = \case
+        Basic   { atom }            -> leaf . show $ atom
+        Pointer { pointed }         -> Node "pointer to" [toTree pointed]
+        Array   { low, high, item } ->
+            Node ("array [" ++ show low ++ "," ++ show high ++ ") of")
+                [toTree item]
+        Record  { fields }          -> Node "record" (toTree' fields)
+        Either  { fields }          -> Node "either" (toTree' fields)
+        Any                         -> leaf "any type"
+        None                        -> leaf "no type at all"
 
-size :: Type -> Int
-size Type { dimension } = Seq.length dimension
+        where
+            toTree' = Map.foldrWithKey aux []
+            aux k a b = Node k [toTree a] : b
 
-boolT, charT, intT, floatT, stringT, voidT :: Type
-boolT   = Type "boolean"   Seq.empty
-charT   = Type "character" Seq.empty
-intT    = Type "integer"   Seq.empty
-floatT  = Type "float"     Seq.empty
-stringT = Type "string"    Seq.empty
-voidT   = Type "void"      Seq.empty
 
-userT :: String -> Type
-userT name = Type name Seq.empty
+boolT, charT, intT, floatT, stringT :: Type
+boolT   = Basic EpBoolean
+charT   = Basic EpCharacter
+intT    = Basic EpInteger
+floatT  = Basic EpFloat
+stringT = Basic EpString

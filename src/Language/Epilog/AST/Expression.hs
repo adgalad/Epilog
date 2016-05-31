@@ -54,22 +54,22 @@ instance P Expression where
 instance Treelike Expression where
     toTree = \case
         LitBool p val ->
-            Node (unwords [(if val then "true" else "false"), showP p]) []
+            leaf (unwords [(if val then "true" else "false"), showP p])
 
         LitChar p val ->
-            Node (unwords [show val, showP p]) []
+            leaf (unwords [show val, showP p])
 
         LitInt p val ->
-            Node (unwords [show val, showP p]) []
+            leaf (unwords [show val, showP p])
 
         LitFloat p val ->
-            Node (unwords [show val, showP p]) []
+            leaf (unwords [show val, showP p])
 
         LitString p val ->
-            Node (unwords [show val, showP p]) []
+            leaf (unwords [show val, showP p])
 
         Otherwise p ->
-            Node (unwords ["otherwise", showP p]) []
+            leaf (unwords ["otherwise", showP p])
 
         Lval p lval ->
             Node (unwords ["Lval", showP p]) [toTree lval]
@@ -165,6 +165,6 @@ instance Treelike Lval where
             aux1 (x:y:xs) =
                 Node x [aux1 (y:xs)]
             aux1 [x] =
-                Node x []
+                leaf x
             aux1 [] =
-                Node "" []
+                leaf ""

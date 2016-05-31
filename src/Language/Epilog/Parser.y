@@ -4,11 +4,11 @@
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
-import           Language.Epilog.AST.Program
+-- import           Language.Epilog.AST.Program
 import           Language.Epilog.AST.Type
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
-import           Language.Epilog.Context
+-- import           Language.Epilog.Context
 import           Language.Epilog.Epilog
 import           Language.Epilog.Error
 --------------------------------------------------------------------------------

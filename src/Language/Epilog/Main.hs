@@ -5,7 +5,7 @@
 
 module Main (main) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.Context
+-- import           Language.Epilog.Context
 import           Language.Epilog.Epilog
 import           Language.Epilog.Parser
 import           Language.Epilog.STTester

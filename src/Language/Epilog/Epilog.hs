@@ -40,7 +40,7 @@ import           Data.Word                      (Word8)
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
 type Strings      = Map String (Seq Position)
-type Types        = Map Name (Type, SymbolTable, Position)
+type Types        = Map Name (Type, Position)
 type Procs        = Map Name ProcSignature
 type Pending      = Map Name (Seq Position)
 
@@ -78,19 +78,19 @@ makeLenses ''EpilogState
 
 languageProcs :: [(Name, ProcSignature)]
 languageProcs =
-    [ ("toBoolean",   ProcSignature "toBoolean"   boolT  Epilog)
+    [ ("toBoolean"  , ProcSignature "toBoolean"   boolT  Epilog)
     , ("toCharacter", ProcSignature "toCharacter" charT  Epilog)
-    , ("toFloat",     ProcSignature "toFloat"     floatT Epilog)
-    , ("toInteger",   ProcSignature "toInteger"   intT   Epilog)
+    , ("toFloat"    , ProcSignature "toFloat"     floatT Epilog)
+    , ("toInteger"  , ProcSignature "toInteger"   intT   Epilog)
     ] -- Must be ascending
 
-basicTypes :: [(Name, (Type, SymbolTable, Position))]
+basicTypes :: [(Name, (Type, Position))]
 basicTypes =
-    [ ("character", (charT  , ST.empty, Epilog))
-    , ("float",     (floatT , ST.empty, Epilog))
-    , ("integer",   (intT   , ST.empty, Epilog))
-    , ("string",    (stringT, ST.empty, Epilog))
-    , ("void",      (voidT  , ST.empty, Epilog))
+    [ ("boolean"  , ( boolT  , Epilog ))
+    , ("character", ( charT  , Epilog ))
+    , ("float"    , ( intT   , Epilog ))
+    , ("integer"  , ( floatT , Epilog ))
+    , ("string"   , ( stringT, Epilog ))
     ] -- Must be ascending
 
 initialState :: String -> EpilogState

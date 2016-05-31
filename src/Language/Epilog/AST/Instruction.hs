@@ -71,7 +71,7 @@ instance Treelike Instruction where
     toTree = \case
         Declaration p t var val ->
             Node (unwords ["Declaration", showP p]) $
-                Node (unwords ["Variable", var]) [] :
+                leaf (unwords ["Variable", var]) :
                 toTree t :
                 (case val of
                     Nothing -> []
@@ -96,15 +96,15 @@ instance Treelike Instruction where
 
         For p Nothing var ranges ->
             Node (unwords ["For", showP p]) $
-                Node ("Variable " ++ var) [] :
+                leaf ("Variable " ++ var) :
                 (toList . fmap rangeTree $ ranges)
 
         For p (Just t) var ranges ->
             Node (unwords ["For", showP p]) $
-                (Node "Declaration"
-                    [ Node (unwords ["Variable", var]) []
+                Node "Declaration"
+                    [ leaf (unwords ["Variable", var])
                     , toTree t
-                    ]) :
+                    ] :
                 (toList . fmap rangeTree $ ranges)
 
         While p guards ->
@@ -120,7 +120,7 @@ instance Treelike Instruction where
                 [toTree expr]
 
         Finish p ->
-            Node (unwords ["Finish", showP p]) []
+            leaf (unwords ["Finish", showP p])
 
         where
             guardTree :: Guard -> Tree String

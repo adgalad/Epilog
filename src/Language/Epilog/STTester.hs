@@ -14,9 +14,6 @@ import           Control.Monad.Trans.State   (StateT, execStateT, get, gets,
 import           Prelude                     hiding (lookup)
 import           System.IO                   (hFlush, stdout)
 --------------------------------------------------------------------------------
------------ The code that follows is truly awful but it works, kinda -----------
--------------- It would probably be pretty cool with more monads ---------------
-
 -- Utility Computations ----------------
 say :: MonadIO m => String -> m ()
 say = liftIO . putStrLn
@@ -108,7 +105,7 @@ doVar name = do
 
             say $ "OK. integer `" ++ name ++ "` declared at " ++ show p ++ "."
 
-            let entry = Entry name intT Nothing p
+            let entry = Entry name (Basic EpInteger) Nothing p
 
             put BuildState
                 { symbols  = insertSymbol name entry st

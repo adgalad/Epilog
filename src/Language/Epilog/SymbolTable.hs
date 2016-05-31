@@ -48,16 +48,11 @@ data Entry = Entry
 instance Treelike Entry where
     toTree Entry { varName, varType, varInitialValue, varPosition } =
         Node ("Variable `" ++ varName ++ "`") $
-            Node ("Declared at " ++ show varPosition) [] :
-            Node ("Type: " ++ show varType) [] :
+            leaf ("Declared at " ++ show varPosition) :
+            leaf ("Type: " ++ show varType) :
             case varInitialValue of
-                Nothing -> [Node "Not initialized" []]
+                Nothing -> [leaf "Not initialized"]
                 Just e  -> [Node "Initialized with value" [toTree e]]
-    -- toTree EntryProc { procName, procType, procPosition } =
-    --     Node ("Procedure `" ++ procName ++ "`") $
-    --         Node ("Declared at " ++ show procPosition) [] :
-    --         [Node ("Type: " ++ show procType) []]
-
 
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry
@@ -75,7 +70,7 @@ instance Treelike Scope where
     toTree Scope { sFrom, sTo, sEntries, sChildren } =
         Node ("Scope " ++ showP sFrom ++ " -> " ++ showP sTo) $
             (if Map.null sEntries
-                then Node "No symbols" []
+                then leaf "No symbols"
                 else Node "Symbols" (toForest . Map.elems $ sEntries)) :
             toForest sChildren
 

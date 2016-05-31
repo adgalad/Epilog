@@ -1,10 +1,11 @@
 module Language.Epilog.Treelike
-    ( Treelike
-    , toTree
-    , toForest
-    , posRoot
-    , Tree(..)
+    ( Tree(..)
+    , Treelike
     , drawTree
+    , leaf
+    , posRoot
+    , toForest
+    , toTree
     ) where
 --------------------------------------------------------------------------------
 import           Data.Foldable (toList)
@@ -19,3 +20,6 @@ class Treelike a where
 posRoot  :: (Int, Int) -> Tree String -> Tree String
 posRoot pos tree =
     tree {rootLabel = show pos ++ rootLabel tree}
+
+leaf :: String -> Tree String
+leaf s = Node s []
