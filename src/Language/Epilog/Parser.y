@@ -5,7 +5,7 @@
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
 -- import           Language.Epilog.AST.Program
-import           Language.Epilog.AST.Type
+import           Language.Epilog.AST.Type        
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
 import           Language.Epilog.Context
@@ -225,7 +225,7 @@ Inst -- :: { () }
 
 ------ Declaration and Initialization ----
 Declaration -- :: { () }
-    : Type VarId                    {} -- {% do inst (Declaration (pos $1) (item $1) (item $2) Nothing) }
+    : Type VarId                    { % do verifyDecl $1 $2 } -- {% do inst (Declaration (pos $1) (item $1) (item $2) Nothing) }
 
 Initialization -- :: { () }
     : Type VarId is Exp             {} -- {% do
@@ -235,8 +235,8 @@ Initialization -- :: { () }
                                     --             inst (Declaration (pos $1) (item $1) (item $2) (Just x)) }
 
 Type -- :: { At Type }
-    : GenId                         {} -- { Type (item $1) Seq.empty <$ $1 }
-    | GenId ArraySize               {} -- { Type (item $1) $2 <$ $1 }
+    : GenId                         { $1 } -- { Type (item $1) Seq.empty <$ $1 }
+    --| GenId ArraySize               {} -- { Type (item $1) $2 <$ $1 }
 
 ArraySize -- :: { Seq Int32 }
     : "{" Int "]"                   {} -- { Seq.singleton (item $2) }
@@ -259,7 +259,7 @@ Lval -- :: { At Lval }
     | Lval "[" Exp "}"              {}
 
 VarId -- :: { At String }
-    : varId                         {}
+    : varId                         { unTokenVarId `fmap` $1 }
 
 ------ Call ------------------------------
 Call -- :: { Instruction }

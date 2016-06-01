@@ -234,10 +234,10 @@ getInput = do
     s <- get
     return (s^.position, s^.prevChar, s^.bytes, s^.input)
 
-#if __FreeBSD__
+
 alex_tab_size :: Int
 alex_tab_size = 8
-#endif
+
 
 -- Utility functions -------------------
 -- | Updates the position after moving one char
