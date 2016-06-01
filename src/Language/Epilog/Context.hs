@@ -1,5 +1,6 @@
-{-# LANGUAGE LambdaCase     #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE NamedFieldPuns  #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module Language.Epilog.Context
     ( isSymbol'
@@ -8,6 +9,7 @@ module Language.Epilog.Context
     , findType
     , buildPointer
     , buildArray
+    , storeProcedure
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Type
@@ -17,11 +19,12 @@ import           Language.Epilog.Error
 import           Language.Epilog.Lexer
 import           Language.Epilog.SymbolTable
 --------------------------------------------------------------------------------
-import           Control.Lens                (use, (%=))
-import qualified Data.Map                    as Map (insertWith, lookup)
+import           Control.Lens                (use, (%=), (.=))
+import qualified Data.Map                    as Map (insertWith, lookup, elems)
 import           Data.Sequence               ((><))
-import qualified Data.Sequence               as Seq (singleton)
+import qualified Data.Sequence               as Seq (singleton, fromList)
 import           Data.Int                    (Int32)
+import           Data.List                   (sortOn)
 --------------------------------------------------------------------------------
 
 string :: At Token -> Epilog ()
@@ -81,3 +84,24 @@ buildArray (t :@ p) i =
 buildPointer :: At Type -> Epilog (At Type)
 buildPointer (t :@ p) = do
     return (t :@ p)
+
+
+storeProcedure :: Type -> Epilog ()
+storeProcedure t = do
+    Just (p, n) <- use current
+    (Scope { sEntries }, _) <- use symbols
+
+    let params = Seq.fromList . map eType . sortOn ePosition . Map.elems $
+            sEntries
+
+    let entry' = Entry { eName         = n
+                       , eType         = params :-> t
+                       , eInitialValue = Nothing
+                       , ePosition     = p
+                       }
+
+    symbols %= (\(Right st) -> st) . goUp
+    symbols %= insertSymbol n (entry')
+    symbols %= (\(Right st) -> st) . goDownLast
+
+    current .= Nothing

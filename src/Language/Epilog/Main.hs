@@ -100,8 +100,7 @@ doParse filename handle  = do
     let (_a, s, errors) = runEpilog parse () (initialState inp)
 
     putStrLn "Symbols:"
-    putStrLn . drawTree . toTree . defocus .
-        (\(Right st) -> st) . goUp $ s^.symbols
+    putStrLn . drawTree . toTree . defocus $ s^.symbols
     putStrLn ""
 
     unless (Map.null $ s^.types) $ do

@@ -18,7 +18,7 @@ module Language.Epilog.Epilog
     , runEpilog
     -- Lenses
     , symbols, strings, pendProcs, types, expression, position, input
-    , prevChar, bytes, scanCode, commentDepth
+    , prevChar, bytes, scanCode, commentDepth, current
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
@@ -32,9 +32,8 @@ import           Control.Lens                   (makeLenses)
 import           Control.Monad.Trans.RWS.Strict (RWS, get, gets, modify, runRWS,
                                                  tell)
 import           Data.Map.Strict                (Map)
-import qualified Data.Map.Strict                as Map (empty, fromAscList)
 import           Data.Sequence                  (Seq)
-import qualified Data.Sequence                  as Seq (empty, singleton)
+import qualified Data.Sequence                  as Seq (singleton)
 import           Data.Word                      (Word8)
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
@@ -62,6 +61,7 @@ data EpilogState = EpilogState
     , _pendProcs    :: Pending
     , _types        :: Types
     , _expression   :: Seq Expression
+    , _current      :: Maybe (Position, String)
 
     , _position     :: Position
     , _input        :: String
@@ -81,14 +81,15 @@ predefinedProcs =
     , entry "toInteger"   ([Any] :-> intT  ) Epilog
     ] -- Must be ascending
 
-basicTypes :: [(Name, (Type, Position))]
+basicTypes :: Map Name (Type, Position)
 basicTypes =
     [ ("boolean"  , ( boolT  , Epilog ))
     , ("character", ( charT  , Epilog ))
     , ("float"    , ( floatT , Epilog ))
     , ("integer"  , ( intT   , Epilog ))
     , ("string"   , ( stringT, Epilog ))
-    ] -- Must be ascending
+    , ("void"     , ( voidT  , Epilog ))
+    ]
 
 initialST :: SymbolTable
 initialST = foldr aux (emptyP Epilog) predefinedProcs
@@ -99,10 +100,11 @@ initialST = foldr aux (emptyP Epilog) predefinedProcs
 initialState :: String -> EpilogState
 initialState inp = EpilogState
     { _symbols      = initialST
-    , _strings      = Map.empty
-    , _pendProcs    = Map.empty
-    , _types        = Map.fromAscList basicTypes
-    , _expression   = Seq.empty
+    , _strings      = []
+    , _pendProcs    = []
+    , _types        = basicTypes
+    , _expression   = []
+    , _current      = Nothing
 
     , _position     = Position (1, 1)
     , _input        = inp

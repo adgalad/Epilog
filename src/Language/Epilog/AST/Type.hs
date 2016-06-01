@@ -9,6 +9,7 @@ module Language.Epilog.AST.Type
     , intT
     , floatT
     , stringT
+    , voidT
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
@@ -28,6 +29,7 @@ data Atom
     | EpInteger
     | EpFloat
     | EpString
+    | EpVoid
     deriving (Eq)
 
 
@@ -38,6 +40,7 @@ instance Show Atom where
         EpInteger   -> "integer"
         EpFloat     -> "float"
         EpString    -> "string"
+        EpVoid      -> "void"
 
 
 instance Treelike Atom where
@@ -48,8 +51,8 @@ data Type
     = Basic   { name    :: String,   atom    :: Atom }
     | Pointer { pointed :: Type }
     | Array   { low     :: Int32,    high    :: Int32, inner :: Type }
-    | Record  { name    :: String,   fields  :: Map Name Type }
-    | Either  { name    :: String,   fields  :: Map Name Type }
+    | Record  { name    :: String,   fields  :: Map Name Name }
+    | Either  { name    :: String,   fields  :: Map Name Name }
     | (:->)   { params  :: Seq Type, returns :: Type }
     | Any
     | None
@@ -67,7 +70,7 @@ instance Show Type where
         Either  { name, fields }     ->
             name ++ " ~ either {" ++ showFs fields ++ "}"
         (:->)   { params, returns }  ->
-            "function (" ++ showPs params ++ ") → " ++ show returns
+            "procedure (" ++ showPs params ++ ") → " ++ show returns
         Any                          -> "any type"
         None                         -> "no type at all"
 
@@ -89,7 +92,7 @@ instance Treelike Type where
         Either  { name, fields }     ->
             Node (name ++ " ~ either") (toTreeFs fields)
         (:->)   { params, returns }  ->
-            Node "function"
+            Node "procedure"
                 [ Node "parameters" (toTreePs params)
                 , Node "returns" [toTree returns]
                 ]
@@ -98,13 +101,14 @@ instance Treelike Type where
 
         where
             toTreeFs = Map.foldrWithKey aux []
-            aux k a b = Node k [toTree a] : b
+            aux k a b = Node k [leaf a] : b
             toTreePs = Foldable.toList . fmap toTree
 
 
-boolT, charT, intT, floatT, stringT :: Type
+boolT, charT, intT, floatT, stringT, voidT :: Type
 boolT   = Basic "boolean"   EpBoolean
 charT   = Basic "character" EpCharacter
 intT    = Basic "integer"   EpInteger
 floatT  = Basic "float"     EpFloat
 stringT = Basic "string"    EpString
+voidT   = Basic "void"      EpString

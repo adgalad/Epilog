@@ -52,11 +52,11 @@ instance Treelike Entry where
             leaf ("Declared " ++ show ePosition) :
             leaf ("Type: " ++ show eType) :
             case eInitialValue of
-                Nothing -> [leaf "Not initialized"]
+                Nothing -> []
                 Just e  -> [Node "Initialized with value" [toTree e]]
 
 entry :: String -> Type -> Position -> Entry
-entry s t p = Entry s t Nothing p
+entry s t = Entry s t Nothing
 
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry

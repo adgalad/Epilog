@@ -21,7 +21,7 @@ import           Data.Sequence                  (Seq, ViewL ((:<)), (<|), (><),
 import qualified Data.Sequence                  as Seq (empty, singleton, viewl)
 import           Prelude                        hiding (Either)
 
-import           Control.Lens           ((%=), use)
+import           Control.Lens                   ((%=), use, (.=))
 --------------------------------------------------------------------------------
 }
 
@@ -150,7 +150,22 @@ import           Control.Lens           ((%=), use)
 %% -----------------------------------------------------------------------------
 -- Program -----------------------------
 Program
-    : TopDefs                       {}
+    : OPEN TopDefs CLOSE            {}
+
+OPEN
+    : {- lambda -}
+    {%
+        symbols %= openScope (Position (1,1))
+    }
+
+CLOSE
+    : {- lambda -}
+    {%
+        symbols %= \st ->
+            case goUp (closeScope EOFP st) of
+                Left  _   -> st
+                Right st' -> st'
+    }
 
 -- Top Level Definitions ---------------
 TopDefs
@@ -161,15 +176,7 @@ TopDef
     : Declaration "."               {}
     | Initialization "."            {}
 
-    | proc GenId OPEN( "(" ) Params0 ")" OPEN( ":-" ) Insts CLOSE(CLOSE( "." ))
-    { -- % do
-
-    }
-
-    | proc GenId OPEN( "(" ) Params0 ")" "->" Type OPEN( ":-" ) Insts CLOSE(CLOSE( "." ))
-    { -- % do
-
-    }
+    | Procedure                     {}
 
     | either GenId OPEN( ":-" ) Conts CLOSE( "." )
     { -- % do
@@ -180,6 +187,33 @@ TopDef
     { -- % do
 
     }
+
+-- proc GenId "(" Params0 ")"           ":-" Insts "."
+-- proc GenId "(" Params0 ")" "->" Type ":-" Insts "."
+
+Procedure
+    : Procedure1 Procedure2 Procedure3 {}
+
+Procedure1
+    : proc GenId OPEN( "(" ) Params0 ")"
+    {%
+        current .= Just (pos $1, item $2)
+    }
+
+Procedure2
+    : {- lambda -}
+    {% do
+        storeProcedure voidT
+    }
+    | "->" Type
+    {% do
+        storeProcedure (item $2)
+    }
+
+
+Procedure3
+    : OPEN ( ":-" ) Insts CLOSE(CLOSE( "." ))
+    {}
 
 
 OPEN(TOKEN)
@@ -330,7 +364,7 @@ Range
 
 ---- While loops -----------------------
 While
-   : while Guards end               {}
+   : while Guards CLOSE( end )      {}
 
 ---- Expressions -------------------------
 Exp
