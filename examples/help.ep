@@ -1,7 +1,7 @@
 integer X is 5+X.
 integer Y.	
 
-procedure main () :-
+procedure main (integer Hola) :-
 	integer G is 5,
 	for I 
 		from 1 to 5 -> 

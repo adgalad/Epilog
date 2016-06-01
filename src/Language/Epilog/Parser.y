@@ -158,12 +158,12 @@ TopDefs
     | TopDefs TopDef                {}
 
 TopDef
-    : proc GenId "(" Params0 ")" ":-" OpenScope Insts CloseScope "."
+    : proc  GenId "(" OpenScope Params0 ")" ":-" OpenScope Insts CloseScope CloseScope "."
     { -- % do
 
     }
 
-    | proc GenId "(" Params0 ")" "->" OpenScope Type ":-" Insts "."
+    | proc GenId "(" OpenScope Params0 ")" "->" OpenScope Type ":-" Insts CloseScope CloseScope"."
     { -- % do
 
     }
@@ -210,7 +210,7 @@ Params
    | Params "," Param               {}
 
 Param
-   : Type VarId                     {}
+   : Type VarId                     {% do verifyDecl $1 $2}
 
 Conts
    : Cont                           {}
