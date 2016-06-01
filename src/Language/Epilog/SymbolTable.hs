@@ -209,5 +209,4 @@ openScope :: Position -> SymbolTable -> SymbolTable
 openScope p = (\(Right x) -> x) . goDownLast . insertST (empty' p)
 
 closeScope :: Position -> SymbolTable -> SymbolTable
-closeScope p (s, bs) =
-    (close' p s, bs)
+closeScope p (s, bs) = (close' p s, bs)

@@ -161,34 +161,43 @@ TopDef
     : Declaration "."               {}
     | Initialization "."            {}
 
-    | proc GenId "(" Params0 ")" ":-" OpenScope Insts CloseScope "."
+    | proc GenId OPEN( "(" ) Params0 ")" OPEN( ":-" ) Insts CLOSE(CLOSE( "." ))
     { -- % do
 
     }
 
-    | proc GenId "(" Params0 ")" "->" OpenScope Type ":-" Insts "."
+    | proc GenId OPEN( "(" ) Params0 ")" "->" Type OPEN( ":-" ) Insts CLOSE(CLOSE( "." ))
     { -- % do
 
     }
 
-    | either GenId ":-" OpenScope Conts CloseScope"."
+    | either GenId OPEN( ":-" ) Conts CLOSE( "." )
     { -- % do
 
     }
 
-    | record GenId ":-" OpenScope Conts CloseScope"."
+    | record GenId OPEN( ":-" ) Conts CLOSE( "." )
     { -- % do
 
     }
 
-OpenScope
-    : {- lambda -}                  { % symbols %= openScope (Position (0,0))}
 
-CloseScope
-    : {- lambda -}                  { % do
-                                            symbols %= \st -> case goUp st of
-                                                Left  _   -> st
-                                                Right st' -> st' }
+OPEN(TOKEN)
+    : TOKEN
+    {% do
+        symbols %= openScope (pos $1)
+        return $1
+    }
+
+CLOSE(TOKEN)
+    : TOKEN
+    {% do
+        symbols %= \st ->
+            case goUp (closeScope (pos $1) st) of
+                Left  _   -> st
+                Right st' -> st'
+        return $1
+    }
 
 GenId
     : genId                         { unTokenGenId `fmap` $1 }
@@ -202,7 +211,7 @@ Params
    | Params "," Param               {}
 
 Param
-   : Type VarId                     {}
+   : Type VarId                     {% do verifyDecl $1 $2}
 
 Conts
    : Cont                           {}
@@ -278,43 +287,45 @@ Args1
 
 ---- If --------------------------------
 If
-   : if Guards end                  {}
+   : if Guards CLOSE( end )         {}
 
 Guards
    : Guard                          {}
-   | Guards ";" Guard               {}
+   | Guards CLOSE( ";" ) Guard      {}
 
 Guard
-   : Exp "->" OpenScope Insts CloseScope
+   : Exp OPEN( "->" ) Insts
                                     {}
 
 ---- Case ------------------------------
 Case
-   : case Exp of Sets end           {}
+   : case Exp of Sets CLOSE( end )  {}
 
 Sets
    : Set                            {}
-   | Sets ";" Set                   {}
+   | Sets CLOSE( ";" ) Set          {}
 
 Elems
    : Exp                            {}
    | Elems "," Exp                  {}
 
 Set
-   : Elems "->" OpenScope Insts CloseScope
-                                    {}
+   : Elems OPEN( "->" ) Insts       {}
 
 ---- For loops -------------------------
 For
-   : for      VarId Ranges end      { % do isSymbol' $2 }
-   | for Type VarId Ranges end      { % do verifyDecl $2 $3}
+   : for      VarId Ranges CLOSE( end )
+   { % do isSymbol' $2 }
+
+   | for Type VarId Ranges CLOSE( end )
+   { % do verifyDecl $2 $3}
 
 Ranges
    : Range                          {}
-   | Ranges ";" Range               {}
+   | Ranges CLOSE( ";" ) Range      {}
 
 Range
-   : from Exp to Exp "->" OpenScope Insts CloseScope
+   : from Exp to Exp OPEN( "->" ) Insts
                                     {}
 
 ---- While loops -----------------------
