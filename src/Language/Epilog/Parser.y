@@ -4,12 +4,14 @@
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
-import           Language.Epilog.AST.Type
+-- import           Language.Epilog.AST.Program
+import           Language.Epilog.AST.Type        
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
 import           Language.Epilog.Context
 import           Language.Epilog.Epilog
 import           Language.Epilog.Error
+import           Language.Epilog.SymbolTable
 --------------------------------------------------------------------------------
 import           Control.Monad.Trans.RWS.Strict (RWS, execRWS, get, gets,
                                                  modify, put, tell)
@@ -18,6 +20,8 @@ import           Data.Sequence                  (Seq, ViewL ((:<)), (<|), (><),
                                                  (|>))
 import qualified Data.Sequence                  as Seq (empty, singleton, viewl)
 import           Prelude                        hiding (Either)
+
+import           Control.Lens           ((%=), use)
 --------------------------------------------------------------------------------
 }
 
@@ -46,14 +50,14 @@ import           Prelude                        hiding (Either)
     bsr             { TokenBxor :@ _ }
     bxor            { TokenBxor :@ _ }
 
-    ---- Array / Record / Either / Pointer
+    ---- Array / Record / Either
     length          { TokenLength       :@ _ }
-    "_"             { TokenUnderscore   :@ _ }
     "["             { TokenLeftBracket  :@ _ }
     "]"             { TokenRightBracket :@ _ }
     "{"             { TokenLeftBrace    :@ _ }
     "}"             { TokenRightBrace   :@ _ }
     "^"             { TokenCaret        :@ _ }
+    "_"             { TokenUnderscore   :@ _ }
 
     ---- Arithmetic
     "+"             { TokenPlus     :@ _ }
@@ -145,31 +149,31 @@ import           Prelude                        hiding (Either)
 
 %% -----------------------------------------------------------------------------
 -- Program -----------------------------
-Program
+Program 
     : TopDefs                       {}
 
 -- Top Level Definitions ---------------
-TopDefs
+TopDefs 
     : TopDef                        {}
     | TopDefs TopDef                {}
 
-TopDef
-    : proc GenId "(" Params0 ")" ":-" Insts "."
+TopDef 
+    : proc GenId "(" Params0 ")" ":-" OpenScope Insts CloseScope "." 
     { -- % do
 
     }
 
-    | proc GenId "(" Params0 ")" "->" Type ":-" Insts "."
+    | proc GenId "(" Params0 ")" "->" OpenScope Type ":-" Insts "."
     { -- % do
 
     }
 
-    | either GenId ":-" Conts "."
+    | either GenId ":-" OpenScope Conts CloseScope"."
     { -- % do
 
     }
 
-    | record GenId ":-" Conts "."
+    | record GenId ":-" OpenScope Conts CloseScope"."
     { -- % do
 
     }
@@ -184,33 +188,43 @@ TopDef
 
     }
 
-GenId
+OpenScope 
+    : {- lambda -}                  { % do 
+                                            symbols %= openScope (Position (0,0))}
+
+CloseScope 
+    : {- lambda -}                  { % do 
+                                            symbols %= \st -> case goUp st of
+                                                Left  _   -> st
+                                                Right st' -> st' }
+
+GenId 
     : genId                         { unTokenGenId `fmap` $1 }
 
-Params0
+Params0 
    : {- lambda -}                   {}
    | Params                         {}
 
-Params
+Params 
    : Param                          {}
    | Params "," Param               {}
 
-Param
+Param 
    : Type VarId                     {}
 
-Conts
+Conts 
    : Cont                           {}
    | Conts "," Cont                 {}
 
-Cont
+Cont 
    : Type VarId                     {}
 
 ---- Instructions ----------------------
-Insts
+Insts 
     : Inst                          {}
     | Insts "," Inst                {}
 
-Inst
+Inst 
     : Declaration                   {}
     | Initialization                {}
     | Assign                        {}
@@ -224,94 +238,104 @@ Inst
     | finish                        {}
 
 ------ Declaration and Initialization ----
-Declaration
-    : Type VarId                    {% verifyDecl $1 $2 }
+Declaration 
+    : Type VarId                    { % do verifyDecl $1 $2 } -- {% do inst (Declaration (pos $1) (item $1) (item $2) Nothing) }
 
-Initialization
-    : Type VarId is Exp             {% verifyDecl $1 $2 }
+Initialization 
+    : Declaration is Exp            {  } -- {% do
+                                    --     expr <- gets expression
+                                    --     case Seq.viewl expr of
+                                    --         x :< xs ->
+                                    --             inst (Declaration (pos $1) (item $1) (item $2) (Just x)) }
 
 Type
     : GenId                         {% findType     $1 }
     | Type ArraySize                {% buildArray   $1 $2 }
     | Type "^"                      {% buildPointer $1 }
 
-ArraySize
-    : "{" Int "]"                   { item $2 }
-    | "[" Int "}"                   { item $2 }
+
+ArraySize 
+    : "{" Int "]"                   {} -- { Seq.singleton (item $2) }
+    | "[" Int "}"                   {} -- { Seq.singleton (item $2) }
+    | ArraySize "{" Int "]"         {} -- { $1 |> (item $3) }
+    | ArraySize "[" Int "}"         {} -- { $1 |> (item $3) }
 
 ------ Assignment ------------------------
-Assign
+Assign 
     : Lval is Exp                   {} -- {% do
                                     --     expr <- gets expression
                                     --     case Seq.viewl expr of
                                     --         x :< xs ->
                                     --             inst $ Assign (pos $1) (item $1) x }
 
-Lval
+Lval 
     : VarId                         { %do isSymbol' $1 }
     | Lval "_" VarId                { %do isSymbol' $3 }
     | Lval "{" Exp "]"              {}
     | Lval "[" Exp "}"              {}
 
-VarId
+VarId 
     : varId                         { unTokenVarId `fmap` $1 }
 
 ------ Call ------------------------------
-Call
+Call 
    : GenId "(" Args ")"             {}
 
-Args
+Args 
    : {- lambda -}                   {}
    | Args1                          {}
 
-Args1
+Args1 
    : Exp                            {}
    | Args1 "," Exp                  {}
 
 ---- If --------------------------------
-If
+If 
    : if Guards end                  {}
 
-Guards
+Guards 
    : Guard                          {}
    | Guards ";" Guard               {}
 
-Guard
-   : Exp "->" Insts                 {}
+Guard 
+   : Exp "->" OpenScope Insts CloseScope
+                                    {}
 
 ---- Case ------------------------------
-Case
+Case 
    : case Exp of Sets end           {}
 
-Sets
+Sets 
    : Set                            {}
    | Sets ";" Set                   {}
 
-Elems
+Elems 
    : Exp                            {}
    | Elems "," Exp                  {}
 
-Set
-   : Elems "->" Insts               {}
+Set 
+   : Elems "->" OpenScope Insts CloseScope
+                                    {}
 
 ---- For loops -------------------------
-For
+For 
    : for      VarId Ranges end      { % do isSymbol' $2 }
    | for Type VarId Ranges end      { % do verifyDecl $2 $3}
 
-Ranges
+Ranges 
    : Range                          {}
    | Ranges ";" Range               {}
 
-Range
-   : from Exp to Exp "->" Insts     {}
+Range 
+   : from Exp to Exp "->" OpenScope Insts CloseScope
+                                    {}
 
 ---- While loops -----------------------
-While
+While 
    : while Guards end               {}
 
 ---- Expressions -------------------------
-Exp
+Exp 
     : "(" Exp ")"                   {}
     | Bool                          {}
     | Char                          {}
@@ -365,19 +389,20 @@ Exp
     | Exp "|"  Exp                  {}
     | Exp "!|" Exp                  {}
 
-    Bool
+    Bool 
         : boolLit                   {} -- { unTokenBoolLit   `fmap` $1 }
 
-    Char
+    Char 
         : charLit                   {} -- { unTokenCharLit   `fmap` $1 }
 
     Int
         : intLit                    { unTokenIntLit `fmap` $1 }
 
-    Float
+
+    Float 
         : floatLit                  {} -- { unTokenFloatLit  `fmap` $1 }
 
-    String
+    String 
         : stringLit                 {% string $1 }
 
 { ------------------------------------------------------------------------------

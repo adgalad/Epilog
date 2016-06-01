@@ -2,5 +2,9 @@ integer X is 5+X.
 integer Y.	
 
 procedure main () :-
-	for I from 1 to 5 -> X is 5
+	integer G is 5,
+	for I 
+		from 1 to 5 -> 
+			integer H is 5,
+			if H > 6 -> character P is 'c' end
 	end.
