@@ -47,18 +47,14 @@ isSymbol' (name :@ p) = do
 
 
 verifyDecl :: At Type -> At String -> Epilog ()
+verifyDecl (None :@ _) (_ :@ _) = return ()
 verifyDecl (t :@ p) (var :@ _) = do
     symbs <- use symbols
-    ts    <- use types
-    let base = name (baseType t)
-    case base `Map.lookup` ts of
-        Just _ -> case var `local` symbs of
-            Right Entry { eType, ePosition } ->
-                err $ DuplicateDeclaration var eType ePosition t p
-            Left _ ->
-                    symbols %= insertSymbol var (Entry var t Nothing p)
-        Nothing ->
-            err $ UndefinedType base  p
+    case var `local` symbs of
+        Right Entry { eType, ePosition } ->
+            err $ DuplicateDeclaration var eType ePosition t p
+        Left _ ->
+            symbols %= insertSymbol var (Entry var t Nothing p)
 
 
 findType :: At String -> Epilog (At Type)

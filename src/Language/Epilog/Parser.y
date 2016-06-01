@@ -232,8 +232,8 @@ Initialization
 
 Type
     : GenId                         {% findType     $1 }
-    | Type ArraySize                {% buildArray   $1 $2 } -- { Array 0 $2 (item $1) <$ $1 }
-    | Type "^"                      {% buildPointer $1 } -- { Pointer    (item $1) <$ $1 }
+    | Type ArraySize                {% buildArray   $1 $2 }
+    | Type "^"                      {% buildPointer $1 }
 
 ArraySize
     : "{" Int "]"                   { item $2 }
