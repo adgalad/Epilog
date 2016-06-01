@@ -117,7 +117,6 @@ doParse filename handle  = do
             print str
             mapM_ (\p -> putStrLn $ "\t" ++ show p) ps
             ) (Map.toList $ s^.strings)
-        putStrLn ""
 
     unless (Seq.null errors) $ do
         hPutStrLn stderr "Errors:"
@@ -150,5 +149,3 @@ main = do
         else (, head args) <$> openFile (head args) ReadMode
 
     (opts^.action) filename handle
-
-

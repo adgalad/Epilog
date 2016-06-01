@@ -20,7 +20,6 @@ import           Data.Sequence                  (Seq, ViewL ((:<)), (<|), (><),
                                                  (|>))
 import qualified Data.Sequence                  as Seq (empty, singleton, viewl)
 import           Prelude                        hiding (Either)
-
 import           Control.Lens                   ((%=), use, (.=))
 --------------------------------------------------------------------------------
 }
@@ -179,27 +178,22 @@ TopDef
     | Procedure                     {}
 
     | either GenId OPEN( ":-" ) Conts CLOSE( "." )
-    { -- % do
-
+    {% do
+        declStruct $2 $4 Either
     }
 
     | record GenId OPEN( ":-" ) Conts CLOSE( "." )
-    { -- % do
-
+    { % do
+        declStruct $2 $4 Record
     }
-
--- proc GenId "(" Params0 ")"           ":-" Insts "."
--- proc GenId "(" Params0 ")" "->" Type ":-" Insts "."
 
 Procedure
     : Procedure1 Procedure2 Procedure3 {}
-
 Procedure1
     : proc GenId OPEN( "(" ) Params0 ")"
     {%
         current .= Just (pos $1, item $2)
     }
-
 Procedure2
     : {- lambda -}
     {% do
@@ -209,8 +203,6 @@ Procedure2
     {% do
         storeProcedure (item $2)
     }
-
-
 Procedure3
     : OPEN ( ":-" ) Insts CLOSE(CLOSE( "." ))
     {}
@@ -245,14 +237,15 @@ Params
    | Params "," Param               {}
 
 Param
-   : Type VarId                     {% do verifyDecl $1 $2}
+   : Type VarId                     {% do declVar $1 $2}
 
 Conts
-   : Cont                           {}
-   | Conts "," Cont                 {}
+   : Cont                           { Seq.singleton $1}
+   | Conts "," Cont                 { $1 |> $3}
 
 Cont
-   : Type VarId                     {}
+   : Type VarId                     { (item $2, item $1) }
+
 
 ---- Instructions ----------------------
 Insts
@@ -274,10 +267,10 @@ Inst
 
 ------ Declaration and Initialization ----
 Declaration
-    : Type VarId                    { % do verifyDecl $1 $2 }
+    : Type VarId                    { % do declVar $1 $2 }
 
 Initialization
-    : Type VarId is Exp             { % do verifyDecl $1 $2 }
+    : Type VarId is Exp             { % do declVar $1 $2 }
                                     -- ignoring $4 for now
 
 Type
@@ -347,12 +340,16 @@ Set
    : Elems OPEN( "->" ) Insts       {}
 
 ---- For loops -------------------------
+
+ForD -- It could be Declaration
+    : Type VarId                    {% do declVar $1 $2}
+
 For
    : for      VarId Ranges CLOSE( end )
    { % do isSymbol' $2 }
 
-   | for Type VarId Ranges CLOSE( end )
-   { % do verifyDecl $2 $3}
+   | OPEN( for ) ForD Ranges CLOSE( CLOSE( end ) )
+   { }
 
 Ranges
    : Range                          {}

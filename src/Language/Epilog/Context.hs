@@ -5,7 +5,8 @@
 module Language.Epilog.Context
     ( isSymbol'
     , string
-    , verifyDecl
+    , declVar
+    , declStruct
     , findType
     , buildPointer
     , buildArray
@@ -20,11 +21,15 @@ import           Language.Epilog.Lexer
 import           Language.Epilog.SymbolTable
 --------------------------------------------------------------------------------
 import           Control.Lens                (use, (%=), (.=))
-import qualified Data.Map                    as Map (insertWith, lookup, elems)
-import           Data.Sequence               ((><))
-import qualified Data.Sequence               as Seq (singleton, fromList)
+import           Data.Foldable               (toList)
 import           Data.Int                    (Int32)
 import           Data.List                   (sortOn)
+import           Data.Map                    (Map)
+import qualified Data.Map                    as Map (elems, insert, fromList,
+                                                     insertWith, lookup)
+import           Data.Sequence               (Seq, (><))
+import qualified Data.Sequence               as Seq (fromList, singleton)
+import           Prelude                     hiding (Either)
 --------------------------------------------------------------------------------
 
 string :: At Token -> Epilog ()
@@ -32,15 +37,6 @@ string (TokenStringLit s :@ p) = do
     strings %= Map.insertWith (flip (><)) s (Seq.singleton p)
 string _ = undefined
 
-
---either :: Position -> String -> Class -> Conts
---either pos name conts = do
---    symbs <- use symbols
---    t <- use types
---    case name `Map.lookup` t of
---        Just (_, _, p) -> err $ DuplicateDefinition name p pos
---        Nothing -> do
---            types %= Map.insert name (Either conts)
 
 isSymbol' :: At String -> Epilog ()
 isSymbol' (name :@ p) = do
@@ -50,15 +46,25 @@ isSymbol' (name :@ p) = do
         else err $ OutOfScope name p
 
 
-verifyDecl :: At Type -> At String -> Epilog ()
-verifyDecl (None :@ _) (_ :@ _) = return ()
-verifyDecl (t :@ p) (var :@ _) = do
+declVar :: At Type -> At String -> Epilog ()
+declVar (None :@ _) (_ :@ _) = return ()
+declVar (t :@ p) (var :@ _) = do
     symbs <- use symbols
     case var `local` symbs of
         Right Entry { eType, ePosition } ->
             err $ DuplicateDeclaration var eType ePosition t p
         Left _ ->
             symbols %= insertSymbol var (Entry var t Nothing p)
+
+declStruct :: At String -> Seq (String, Type)
+           -> (String-> Map String Type ->Type)
+           ->  Epilog ()
+declStruct (name :@ p) conts f = do
+    ts <- use types
+    case name `Map.lookup` ts of
+        Just _  -> return ()
+        Nothing ->
+            types %= Map.insert name (f name (Map.fromList $ toList conts), p)
 
 
 findType :: At String -> Epilog (At Type)

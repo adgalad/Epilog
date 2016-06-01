@@ -51,8 +51,8 @@ data Type
     = Basic   { name    :: String,   atom    :: Atom }
     | Pointer { pointed :: Type }
     | Array   { low     :: Int32,    high    :: Int32, inner :: Type }
-    | Record  { name    :: String,   fields  :: Map Name Name }
-    | Either  { name    :: String,   fields  :: Map Name Name }
+    | Record  { name    :: String,   fields  :: Map Name Type }
+    | Either  { name    :: String,   fields  :: Map Name Type }
     | (:->)   { params  :: Seq Type, returns :: Type }
     | Any
     | None
@@ -101,7 +101,7 @@ instance Treelike Type where
 
         where
             toTreeFs = Map.foldrWithKey aux []
-            aux k a b = Node k [leaf a] : b
+            aux k a b = Node k [toTree a] : b
             toTreePs = Foldable.toList . fmap toTree
 
 
