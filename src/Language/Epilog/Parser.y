@@ -231,9 +231,9 @@ Initialization
     : Type VarId is Exp             {% verifyDecl $1 $2 }
 
 Type
-    : GenId                         { (item $1, pos $1) }
-    | Type ArraySize                { (Array 0 $2 (fst $1), snd $1) }
-    | Type "^"                      { (Pointer    (fst $1), snd $1) }
+    : GenId                         {% findType     $1 }
+    | Type ArraySize                {% buildArray   $1 $2 } -- { Array 0 $2 (item $1) <$ $1 }
+    | Type "^"                      {% buildPointer $1 } -- { Pointer    (item $1) <$ $1 }
 
 ArraySize
     : "{" Int "]"                   { item $2 }
@@ -372,7 +372,7 @@ Exp
         : charLit                   {} -- { unTokenCharLit   `fmap` $1 }
 
     Int
-        : intLit                    {} -- { unTokenIntLit    `fmap` $1 }
+        : intLit                    { unTokenIntLit `fmap` $1 }
 
     Float
         : floatLit                  {} -- { unTokenFloatLit  `fmap` $1 }

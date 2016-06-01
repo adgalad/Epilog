@@ -10,7 +10,6 @@ module Language.Epilog.Epilog
     , ProcSignature (..)
     , Strings
     , Types
-    , Procs
     , err
     , get
     , gets
@@ -40,9 +39,8 @@ import           Data.Word                      (Word8)
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
 type Strings      = Map String (Seq Position)
-type Types        = Map Name (Type, Position)
-type Procs        = Map Name ProcSignature
-type Pending      = Map Name (Seq Position)
+type Types        = Map Name   (Type, Position)
+type Pending      = Map Name   (Seq Position)
 
 -- Table Element Types -----------------
 data ProcSignature = ProcSignature
@@ -87,8 +85,8 @@ basicTypes :: [(Name, (Type, Position))]
 basicTypes =
     [ ("boolean"  , ( boolT  , Epilog ))
     , ("character", ( charT  , Epilog ))
-    , ("float"    , ( floatT   , Epilog ))
-    , ("integer"  , ( intT , Epilog ))
+    , ("float"    , ( floatT , Epilog ))
+    , ("integer"  , ( intT   , Epilog ))
     , ("string"   , ( stringT, Epilog ))
     ] -- Must be ascending
 

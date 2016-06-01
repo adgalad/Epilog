@@ -88,13 +88,14 @@ epilog :-
     <0> "bsr"                   { make TokenBsr  }
     <0> "bxor"                  { make TokenBxor }
 
-    ---- Array / Record / Either
+    ---- Array / Record / Either / Pointer
     <0> "length"                { make TokenLength       }
     <0> "_"                     { make TokenUnderscore   }
     <0> "["                     { make TokenLeftBracket  }
     <0> "]"                     { make TokenRightBracket }
     <0> "{"                     { make TokenLeftBrace    }
     <0> "}"                     { make TokenRightBrace   }
+    <0> "^"                     { make TokenCaret        }
 
     ---- Arithmetic
     <0> "+"                     { make TokenPlus     }
@@ -234,15 +235,11 @@ getInput = do
     s <- get
     return (s^.position, s^.prevChar, s^.bytes, s^.input)
 
-
-alex_tab_size :: Int
-alex_tab_size = 8
-
-
 -- Utility functions -------------------
 -- | Updates the position after moving one char
 alexMove :: Position -> Char -> Position
 alexMove (Position (l, c)) '\t' =
+    let alex_tab_size = 8 in
     Position (l, (((c+alex_tab_size-1) `div` alex_tab_size)*alex_tab_size+1))
 alexMove (Position (l, c)) '\n' =
     Position ((l+1), 1)

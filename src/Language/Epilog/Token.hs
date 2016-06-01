@@ -17,10 +17,11 @@ data Token
     ---- Bitwise
     | TokenBand | TokenBor | TokenBnot | TokenBsl  | TokenBsr  | TokenBxor
 
-    ---- Array / Record / Either
+    ---- Array / Record / Either / Pointer
     | TokenLength      | TokenUnderscore
     | TokenLeftBracket | TokenRightBracket
     | TokenLeftBrace   | TokenRightBrace
+    | TokenCaret
 
     ---- Arithmetic
     | TokenPlus | TokenMinus | TokenTimes | TokenFloatDiv
@@ -102,13 +103,14 @@ instance Show Token where
         TokenBsr  -> "bsr"
         TokenBxor -> "bxor"
 
-    ---- Array
+    ---- Array / Record / Either / Pointer
         TokenLength       -> "length"
         TokenUnderscore   -> "_"
         TokenLeftBracket  -> "["
         TokenRightBracket -> "]"
         TokenLeftBrace    -> "{"
         TokenRightBrace   -> "}"
+        TokenCaret        -> "^"
 
     ---- Arithmetic
         TokenPlus     -> "+"

@@ -2,7 +2,7 @@ module Language.Epilog.STTester
     ( tester
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.AST.Type
+import           Language.Epilog.AST.Type    hiding (name)
 import           Language.Epilog.Position
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
@@ -105,7 +105,7 @@ doVar name = do
 
             say $ "OK. integer `" ++ name ++ "` declared at " ++ show p ++ "."
 
-            let entry' = Entry name (Basic EpInteger) Nothing p
+            let entry' = Entry name intT Nothing p
 
             put BuildState
                 { symbols  = insertSymbol name entry' st

@@ -4,6 +4,7 @@
 module Language.Epilog.AST.Type
     ( Atom (..)
     , Type (..)
+    , baseType
     , boolT
     , charT
     , intT
@@ -45,11 +46,11 @@ instance Treelike Atom where
 
 
 data Type
-    = Basic   { atom :: Atom }
+    = Basic   { name    :: String,   atom    :: Atom }
     | Pointer { pointed :: Type }
-    | Array   { low     :: Int32, high :: Int32, item :: Type }
-    | Record  { fields :: Map Name Type }
-    | Either  { fields :: Map Name Type }
+    | Array   { low     :: Int32,    high    :: Int32, inner :: Type }
+    | Record  { name    :: String,   fields  :: Map Name Type }
+    | Either  { name    :: String,   fields  :: Map Name Type }
     | (:->)   { params  :: Seq Type, returns :: Type }
     | Any
     | None
@@ -58,14 +59,14 @@ data Type
 
 instance Show Type where
     show = \case
-        Basic   { atom }             -> show atom
+        Basic   { name }             -> name
         Pointer { pointed }          -> "pointer to " ++ show pointed
-        Array   { low, high, item }  ->
-            "array [" ++ show low ++ "," ++ show high ++ ") of " ++ show item
-        Record  { fields }           ->
-            "record {" ++ showFs fields ++ "}"
-        Either  { fields }           ->
-            "either {" ++ showFs fields ++ "}"
+        Array   { low, high, inner } ->
+            "array [" ++ show low ++ "," ++ show high ++ ") of " ++ show inner
+        Record  { name, fields }     ->
+            name ++ " ~ record {" ++ showFs fields ++ "}"
+        Either  { name, fields }     ->
+            name ++ " ~ either {" ++ showFs fields ++ "}"
         (:->)   { params, returns }  ->
             "function (" ++ showPs params ++ ") → " ++ show returns
         Any                          -> "any type"
@@ -76,22 +77,25 @@ instance Show Type where
             aux k a b = (k ++ " : " ++ show a) : b
             showPs = intercalate " × " . Foldable.toList . fmap show
 
+
 instance Treelike Type where
     toTree = \case
-        Basic   { atom }            -> leaf . show $ atom
-        Pointer { pointed }         -> Node "pointer to" [toTree pointed]
-        Array   { low, high, item } ->
+        Basic   { name }             -> leaf name
+        Pointer { pointed }          -> Node "pointer to" [toTree pointed]
+        Array   { low, high, inner } ->
             Node ("array [" ++ show low ++ "," ++ show high ++ ") of")
-                [toTree item]
-        Record  { fields }          -> Node "record" (toTreeFs fields)
-        Either  { fields }          -> Node "either" (toTreeFs fields)
-        (:->)   { params, returns } ->
+                [toTree inner]
+        Record  { name, fields }     ->
+            Node (name ++ " ~ record") (toTreeFs fields)
+        Either  { name, fields }     ->
+            Node (name ++ " ~ either") (toTreeFs fields)
+        (:->)   { params, returns }  ->
             Node "function"
                 [ Node "parameters" (toTreePs params)
                 , Node "returns" [toTree returns]
                 ]
-        Any                         -> leaf "any type"
-        None                        -> leaf "no type at all"
+        Any                          -> leaf "any type"
+        None                         -> leaf "no type at all"
 
         where
             toTreeFs = Map.foldrWithKey aux []
@@ -100,8 +104,20 @@ instance Treelike Type where
 
 
 boolT, charT, intT, floatT, stringT :: Type
-boolT   = Basic EpBoolean
-charT   = Basic EpCharacter
-intT    = Basic EpInteger
-floatT  = Basic EpFloat
-stringT = Basic EpString
+boolT   = Basic "boolean"   EpBoolean
+charT   = Basic "character" EpCharacter
+intT    = Basic "integer"   EpInteger
+floatT  = Basic "float"     EpFloat
+stringT = Basic "string"    EpString
+
+
+baseType :: Type -> Type
+baseType = \case
+    b @ Basic { }       -> b
+    Pointer { pointed } -> pointed
+    Array   { inner }   -> inner
+    r @ Record {}       -> r
+    e @ Either {}       -> e
+    (:->) {  }          -> undefined
+    Any                 -> Any
+    None                -> None

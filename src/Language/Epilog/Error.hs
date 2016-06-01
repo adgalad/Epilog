@@ -5,7 +5,7 @@ module Language.Epilog.Error
     , Errors
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.AST.Type
+import           Language.Epilog.AST.Type hiding (name)
 import           Language.Epilog.Common
 import           Language.Epilog.Position
 import           Language.Epilog.Token
@@ -35,7 +35,6 @@ data EpilogError
         }
     | UndefinedType
         { utTName :: Name
-        , utVar   :: Name
         , utP     :: Position
         }
     | UndefinedProcedure
@@ -80,7 +79,7 @@ instance P EpilogError where
         DuplicateDefinition      _ _ p -> p
         OutOfScope                 _ p -> p
         DuplicateDeclaration _ _ _ _ p -> p
-        UndefinedType            _ _ p -> p
+        UndefinedType              _ p -> p
         UndefinedProcedure         _ p -> p
         InvalidMember              _ p -> p
         MemberOfArray              _ p -> p
@@ -111,9 +110,9 @@ instance Show EpilogError where
             name ++ "` already defined as `" ++ show fstT ++ "` " ++
             showP fstP ++ " cannot be redeclared as `" ++ show sndT ++ "`"
 
-        UndefinedType nameT var p ->
+        UndefinedType nameT p ->
             "Attempted to declare variable of undefined type " ++ showP p ++
-            ", type `" ++ nameT ++ "`, variable `" ++ var ++ "`"
+            ", type `" ++ nameT ++ "`"
 
         UndefinedProcedure  name p ->
             "Call to undeclared procedure " ++ showP p ++ " named `" ++
