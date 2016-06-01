@@ -60,7 +60,7 @@ declStruct (name :@ pos) conts f = do
         Just (t, _) -> return ()
         Nothing -> 
             types %= Map.insert name (f name (Map.fromList $ toList conts), pos)
-
+            
 
 findType :: At String -> Epilog (At Type)
 findType (tname :@ p) = do

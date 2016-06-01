@@ -14,4 +14,5 @@ procedure main (integer Hola) :-
 		from 1 to 5 -> 
 			integer H is 5,
 			if H > 6 -> character P is 'c' end
-	end.
+	end,
+	integer U.

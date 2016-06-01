@@ -250,8 +250,6 @@ Initialization
     : Type VarId is Exp             { % do declVar $1 $2 }
                                     -- ignoring $4 for now
 
-
-
 Type
     : GenId                         {% findType     $1 }
     | Type ArraySize                {% buildArray   $1 $2 }
@@ -320,12 +318,15 @@ Set
 
 ---- For loops -------------------------
 
+ForD -- It could be Declaration
+    : Type VarId                    {% do declVar $1 $2}
+
 For
    : for      VarId Ranges CLOSE( end )
    { % do isSymbol' $2 }
 
-   | for Type VarId Ranges CLOSE( end )
-   { % do declVar $2 $3}
+   | OPEN( for ) ForD Ranges CLOSE( CLOSE( end ) )
+   { }
 
 Ranges
    : Range                          {}
