@@ -158,7 +158,10 @@ TopDefs
     | TopDefs TopDef                {}
 
 TopDef
-    : proc GenId "(" Params0 ")" ":-" OpenScope Insts CloseScope "."
+    : Declaration "."               {}
+    | Initialization "."            {}
+
+    | proc GenId "(" Params0 ")" ":-" OpenScope Insts CloseScope "."
     { -- % do
 
     }
@@ -178,19 +181,8 @@ TopDef
 
     }
 
-    | Declaration "."
-    { -- % do
-
-    }
-
-    | Initialization "."
-    { -- % do
-
-    }
-
 OpenScope
-    : {- lambda -}                  { % do
-                                            symbols %= openScope (Position (0,0))}
+    : {- lambda -}                  { % symbols %= openScope (Position (0,0))}
 
 CloseScope
     : {- lambda -}                  { % do
