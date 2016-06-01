@@ -87,8 +87,8 @@ basicTypes :: [(Name, (Type, Position))]
 basicTypes =
     [ ("boolean"  , ( boolT  , Epilog ))
     , ("character", ( charT  , Epilog ))
-    , ("integer"    , ( intT   , Epilog ))
-    , ("float"  , ( floatT , Epilog ))
+    , ("float"    , ( floatT   , Epilog ))
+    , ("integer"  , ( intT , Epilog ))
     , ("string"   , ( stringT, Epilog ))
     ] -- Must be ascending
 

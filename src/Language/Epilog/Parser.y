@@ -228,7 +228,7 @@ Declaration -- :: { () }
     : Type VarId                    { % do verifyDecl $1 $2 } -- {% do inst (Declaration (pos $1) (item $1) (item $2) Nothing) }
 
 Initialization -- :: { () }
-    : Type VarId is Exp             {} -- {% do
+    : Type VarId is Exp             { % do verifyDecl $1 $2 } -- {% do
                                     --     expr <- gets expression
                                     --     case Seq.viewl expr of
                                     --         x :< xs ->
