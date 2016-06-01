@@ -1,9 +1,16 @@
-integer X is 5+X.
+integer X is 5.
 integer Y.	
+
+either pedro :-
+	character Y,
+	integer P.
+
+record hola :-
+	character Y.
 
 procedure main (integer Hola) :-
 	integer G is 5,
-	for I 
+	for integer I 
 		from 1 to 5 -> 
 			integer H is 5,
 			if H > 6 -> character P is 'c' end

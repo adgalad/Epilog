@@ -100,8 +100,7 @@ doParse filename handle  = do
     let (_a, s, errors) = runEpilog parse () (initialState inp)
 
     putStrLn "Symbols:"
-    putStrLn . drawTree . toTree . defocus .
-        (\(Right st) -> st) . goUp $ s^.symbols
+    putStr . drawTree . toTree . defocus $ s^.symbols
     putStrLn ""
 
     unless (Map.null $ s^.types) $ do
@@ -118,7 +117,15 @@ doParse filename handle  = do
             print str
             mapM_ (\p -> putStrLn $ "\t" ++ show p) ps
             ) (Map.toList $ s^.strings)
-        putStrLn ""
+
+
+    -- unless (Map.null $ s^.procs) $ do
+    --     putStrLn "Procs:"
+    --     mapM_ (\(name, ProcSignature _ t p) ->
+    --         putStrLn $
+    --             "\t" ++ name ++ "->" ++ typeName t ++ " at " ++ showP p
+    --         ) (Map.toList $ s^.procs)
+
 
     unless (Seq.null errors) $ do
         hPutStrLn stderr "Errors:"

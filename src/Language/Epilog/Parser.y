@@ -172,14 +172,17 @@ TopDef
     }
 
     | either GenId OPEN( ":-" ) Conts CLOSE( "." )
-    { -- % do
+    { % do
+            declStruct $2 $4 Either
 
     }
 
     | record GenId OPEN( ":-" ) Conts CLOSE( "." )
-    { -- % do
-
+    { % do
+            declStruct $2 $4 Record
     }
+
+
 
 
 OPEN(TOKEN)
@@ -211,14 +214,15 @@ Params
    | Params "," Param               {}
 
 Param
-   : Type VarId                     {% do verifyDecl $1 $2}
+   : Type VarId                     {% do declVar $1 $2}
 
 Conts
-   : Cont                           {}
-   | Conts "," Cont                 {}
+   : Cont                           { Seq.singleton $1}
+   | Conts "," Cont                 { $1 |> $3}
 
 Cont
-   : Type VarId                     {}
+   : Type VarId                     { (item $2, item $1) }
+                                       
 
 ---- Instructions ----------------------
 Insts
@@ -240,11 +244,13 @@ Inst
 
 ------ Declaration and Initialization ----
 Declaration
-    : Type VarId                    { % do verifyDecl $1 $2 }
+    : Type VarId                    { % do declVar $1 $2 }
 
 Initialization
-    : Type VarId is Exp             { % do verifyDecl $1 $2 }
+    : Type VarId is Exp             { % do declVar $1 $2 }
                                     -- ignoring $4 for now
+
+
 
 Type
     : GenId                         {% findType     $1 }
@@ -313,12 +319,13 @@ Set
    : Elems OPEN( "->" ) Insts       {}
 
 ---- For loops -------------------------
+
 For
    : for      VarId Ranges CLOSE( end )
    { % do isSymbol' $2 }
 
    | for Type VarId Ranges CLOSE( end )
-   { % do verifyDecl $2 $3}
+   { % do declVar $2 $3}
 
 Ranges
    : Range                          {}
