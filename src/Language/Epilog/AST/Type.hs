@@ -4,7 +4,6 @@
 module Language.Epilog.AST.Type
     ( Atom (..)
     , Type (..)
-    , baseType
     , boolT
     , charT
     , intT
@@ -110,15 +109,3 @@ charT   = Basic "character" EpCharacter
 intT    = Basic "integer"   EpInteger
 floatT  = Basic "float"     EpFloat
 stringT = Basic "string"    EpString
-
-
-baseType :: Type -> Type
-baseType = \case
-    b @ Basic { }       -> b
-    Pointer { pointed } -> pointed
-    Array   { inner }   -> inner
-    r @ Record {}       -> r
-    e @ Either {}       -> e
-    (:->) {  }          -> undefined
-    Any                 -> Any
-    None                -> None
