@@ -55,15 +55,16 @@ data EpilogError
         { nmP :: Position }
     | LexicalError
         { leP :: Position }
+    | Overflow
+        { oMsg :: String
+        , oP   :: Position
+        }
     | UnclosedComment
     | Underflow
         { uMsg :: String
         , uP   :: Position
         }
-    | Overflow
-        { oMsg :: String
-        , oP   :: Position
-        }
+
     | UnclosedStringLit
         { uslVal :: String
         , uslP   :: Position

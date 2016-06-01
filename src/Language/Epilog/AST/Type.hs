@@ -80,6 +80,7 @@ instance Show Type where
 
 instance Treelike Type where
     toTree = \case
+
         Basic   { name }             -> leaf name
         Pointer { pointed }          -> Node "pointer to" [toTree pointed]
         Array   { low, high, inner } ->
