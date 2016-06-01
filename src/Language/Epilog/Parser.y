@@ -154,16 +154,38 @@ TopDefs -- :: { () }
     | TopDefs TopDef                {}
 
 TopDef -- :: {  () }
-    : proc GenId "(" Params0 ")" ":-" Insts "." {}
+    : proc GenId "(" Params0 ")" ":-" Insts "."
+    { -- % do
+
+    }
+
     | proc GenId "(" Params0 ")" "->" Type ":-" Insts "."
-                                    {}
-    | either GenId ":-" Conts "."   {}
-    | record GenId ":-" Conts "."   {}
-    | Declaration "."               {}
-    | Initialization "."            {}
+    { -- % do
+
+    }
+
+    | either GenId ":-" Conts "."
+    { -- % do
+
+    }
+
+    | record GenId ":-" Conts "."
+    { -- % do
+
+    }
+
+    | Declaration "."
+    { -- % do
+
+    }
+
+    | Initialization "."
+    { -- % do
+
+    }
 
 GenId -- :: { At String }
-    : genId                         {}
+    : genId                         { unTokenGenId `fmap` $1 }
 
 Params0 -- :: { Params }
    : {- lambda -}                   {}
@@ -368,10 +390,4 @@ parseError :: At Token -> Epilog a
 parseError (t :@ p) = do
     err $ UnexpectedToken t p
     return undefined
-
--- parseProgram :: String -> (Program, String)
--- parseProgram input =
---     case scanner input of
---             Left  msg    -> error msg
---             Right tokens ->  execRWS (parser tokens) () initialState
 }

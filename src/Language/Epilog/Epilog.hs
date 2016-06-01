@@ -28,7 +28,6 @@ import           Language.Epilog.Common
 import           Language.Epilog.Error
 import           Language.Epilog.Position
 import           Language.Epilog.SymbolTable    hiding (empty)
-import qualified Language.Epilog.SymbolTable    as ST (empty)
 --------------------------------------------------------------------------------
 import           Control.Lens                   (makeLenses)
 import           Control.Monad.Trans.RWS.Strict (RWS, get, gets, modify, runRWS,
@@ -94,10 +93,10 @@ basicTypes =
     ] -- Must be ascending
 
 initialST :: SymbolTable
-initialST = foldr aux ST.empty predefinedProcs
+initialST = foldr aux (emptyP Epilog) predefinedProcs
     where
-        aux e @ Entry { eName } st =
-            insertSymbol eName e st
+        aux e @ Entry { eName } =
+            insertSymbol eName e
 
 initialState :: String -> EpilogState
 initialState inp = EpilogState
