@@ -228,7 +228,7 @@ Declaration -- :: { () }
     : Type VarId                    { % do verifyDecl $1 $2 } -- {% do inst (Declaration (pos $1) (item $1) (item $2) Nothing) }
 
 Initialization -- :: { () }
-    : Type VarId is Exp             { % do verifyDecl $1 $2 } -- {% do
+    : Declaration is Exp            {  } -- {% do
                                     --     expr <- gets expression
                                     --     case Seq.viewl expr of
                                     --         x :< xs ->
@@ -253,8 +253,8 @@ Assign -- :: { () }
                                     --             inst $ Assign (pos $1) (item $1) x }
 
 Lval -- :: { At Lval }
-    : VarId                         {}
-    | Lval "_" VarId                {}
+    : VarId                         { %do isSymbol' $1 }
+    | Lval "_" VarId                { %do isSymbol' $3 }
     | Lval "{" Exp "]"              {}
     | Lval "[" Exp "}"              {}
 
@@ -301,8 +301,8 @@ Set -- :: { Set }
 
 ---- For loops -------------------------
 For -- :: { Instruction }
-   : for      VarId Ranges end      {}
-   | for Type VarId Ranges end      {}
+   : for      VarId Ranges end      { % do isSymbol' $2 }
+   | for Type VarId Ranges end      { % do verifyDecl $2 $3}
 
 Ranges -- :: { Ranges }
    : Range                          {}
