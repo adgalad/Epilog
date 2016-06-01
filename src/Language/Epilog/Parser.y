@@ -4,7 +4,6 @@
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
--- import           Language.Epilog.AST.Program
 import           Language.Epilog.AST.Type
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
@@ -249,8 +248,8 @@ Assign
                                     --             inst $ Assign (pos $1) (item $1) x }
 
 Lval
-    : VarId                         {}
-    | Lval "_" VarId                {}
+    : VarId                         { %do isSymbol' $1 }
+    | Lval "_" VarId                { %do isSymbol' $3 }
     | Lval "{" Exp "]"              {}
     | Lval "[" Exp "}"              {}
 
@@ -297,8 +296,8 @@ Set
 
 ---- For loops -------------------------
 For
-   : for      VarId Ranges end      {}
-   | for Type VarId Ranges end      {}
+   : for      VarId Ranges end      { % do isSymbol' $2 }
+   | for Type VarId Ranges end      { % do verifyDecl $2 $3}
 
 Ranges
    : Range                          {}

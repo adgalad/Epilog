@@ -2,7 +2,8 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Epilog.Context
-    ( string
+    ( isSymbol'
+    , string
     , verifyDecl
     ) where
 --------------------------------------------------------------------------------
@@ -32,7 +33,12 @@ string (TokenStringLit s :@ p) = do
 --        Nothing -> do
 --            types %= Map.insert name (Either conts)
 
-
+isSymbol' :: At String -> Epilog ()
+isSymbol' (name :@ pos) = do
+    symbs <- use symbols
+    if name `isSymbol` symbs 
+        then return ()
+        else err $ OutOfScope name pos
 
 
 verifyDecl :: At String -> At String -> Epilog ()

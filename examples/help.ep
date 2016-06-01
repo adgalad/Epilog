@@ -1,2 +1,6 @@
-integer X is 5+X-Y.
+integer X is 5+X.
 integer Y.	
+
+procedure main () :-
+	for I from 1 to 5 -> X is 5
+	end.
