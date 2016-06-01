@@ -48,8 +48,8 @@ data Entry = Entry
 
 instance Treelike Entry where
     toTree Entry { eName, eType, eInitialValue, ePosition } =
-        Node ("Variable `" ++ eName ++ "`") $
-            leaf ("Declared at " ++ show ePosition) :
+        Node ("`" ++ eName ++ "`") $
+            leaf ("Declared " ++ show ePosition) :
             leaf ("Type: " ++ show eType) :
             case eInitialValue of
                 Nothing -> [leaf "Not initialized"]

@@ -27,6 +27,7 @@ import           Data.Int                    (Int32)
 string :: At Token -> Epilog ()
 string (TokenStringLit s :@ p) = do
     strings %= Map.insertWith (flip (><)) s (Seq.singleton p)
+string _ = undefined
 
 
 --either :: Position -> String -> Class -> Conts
