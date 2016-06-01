@@ -5,7 +5,7 @@
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
 -- import           Language.Epilog.AST.Program
-import           Language.Epilog.AST.Type        
+import           Language.Epilog.AST.Type
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
 import           Language.Epilog.Context
@@ -47,13 +47,14 @@ import           Prelude                        hiding (Either)
     bsr             { TokenBxor :@ _ }
     bxor            { TokenBxor :@ _ }
 
-    ---- Array / Record / Either
+    ---- Array / Record / Either / Pointer
     length          { TokenLength       :@ _ }
+    "_"             { TokenUnderscore   :@ _ }
     "["             { TokenLeftBracket  :@ _ }
     "]"             { TokenRightBracket :@ _ }
     "{"             { TokenLeftBrace    :@ _ }
     "}"             { TokenRightBrace   :@ _ }
-    "_"             { TokenUnderscore   :@ _ }
+    "^"             { TokenCaret        :@ _ }
 
     ---- Arithmetic
     "+"             { TokenPlus     :@ _ }
@@ -145,15 +146,15 @@ import           Prelude                        hiding (Either)
 
 %% -----------------------------------------------------------------------------
 -- Program -----------------------------
-Program -- :: { () }
+Program
     : TopDefs                       {}
 
 -- Top Level Definitions ---------------
-TopDefs -- :: { () }
+TopDefs
     : TopDef                        {}
     | TopDefs TopDef                {}
 
-TopDef -- :: {  () }
+TopDef
     : proc GenId "(" Params0 ")" ":-" Insts "."
     { -- % do
 
@@ -184,33 +185,33 @@ TopDef -- :: {  () }
 
     }
 
-GenId -- :: { At String }
+GenId
     : genId                         { unTokenGenId `fmap` $1 }
 
-Params0 -- :: { Params }
+Params0
    : {- lambda -}                   {}
    | Params                         {}
 
-Params -- :: { Params }
+Params
    : Param                          {}
    | Params "," Param               {}
 
-Param -- :: { Parameter }
+Param
    : Type VarId                     {}
 
-Conts -- :: { Conts }
+Conts
    : Cont                           {}
    | Conts "," Cont                 {}
 
-Cont -- :: { Content }
+Cont
    : Type VarId                     {}
 
 ---- Instructions ----------------------
-Insts -- :: { () }
+Insts
     : Inst                          {}
     | Insts "," Inst                {}
 
-Inst -- :: { () }
+Inst
     : Declaration                   {}
     | Initialization                {}
     | Assign                        {}
@@ -224,99 +225,94 @@ Inst -- :: { () }
     | finish                        {}
 
 ------ Declaration and Initialization ----
-Declaration -- :: { () }
-    : Type VarId                    { % do verifyDecl $1 $2 } -- {% do inst (Declaration (pos $1) (item $1) (item $2) Nothing) }
+Declaration
+    : Type VarId                    {% verifyDecl $1 $2 }
 
-Initialization -- :: { () }
-    : Type VarId is Exp             { % do verifyDecl $1 $2 } -- {% do
-                                    --     expr <- gets expression
-                                    --     case Seq.viewl expr of
-                                    --         x :< xs ->
-                                    --             inst (Declaration (pos $1) (item $1) (item $2) (Just x)) }
+Initialization
+    : Type VarId is Exp             {% verifyDecl $1 $2 }
 
-Type -- :: { At Type }
-    : GenId                         { $1 } -- { Type (item $1) Seq.empty <$ $1 }
-    --| GenId ArraySize               {} -- { Type (item $1) $2 <$ $1 }
+Type
+    : GenId                         { (item $1, pos $1) }
+    | Type ArraySize                { (Array 0 $2 (fst $1), snd $1) }
+    | Type "^"                      { (Pointer    (fst $1), snd $1) }
 
-ArraySize -- :: { Seq Int32 }
-    : "{" Int "]"                   {} -- { Seq.singleton (item $2) }
-    | "[" Int "}"                   {} -- { Seq.singleton (item $2) }
-    | ArraySize "{" Int "]"         {} -- { $1 |> (item $3) }
-    | ArraySize "[" Int "}"         {} -- { $1 |> (item $3) }
+ArraySize
+    : "{" Int "]"                   { item $2 }
+    | "[" Int "}"                   { item $2 }
 
 ------ Assignment ------------------------
-Assign -- :: { () }
+Assign
     : Lval is Exp                   {} -- {% do
                                     --     expr <- gets expression
                                     --     case Seq.viewl expr of
                                     --         x :< xs ->
                                     --             inst $ Assign (pos $1) (item $1) x }
 
-Lval -- :: { At Lval }
+Lval
     : VarId                         {}
     | Lval "_" VarId                {}
     | Lval "{" Exp "]"              {}
     | Lval "[" Exp "}"              {}
 
-VarId -- :: { At String }
+VarId
     : varId                         { unTokenVarId `fmap` $1 }
 
 ------ Call ------------------------------
-Call -- :: { Instruction }
+Call
    : GenId "(" Args ")"             {}
 
-Args -- :: { Exps }
+Args
    : {- lambda -}                   {}
    | Args1                          {}
 
-Args1 -- :: { Exps }
+Args1
    : Exp                            {}
    | Args1 "," Exp                  {}
 
 ---- If --------------------------------
-If -- :: { Instruction }
+If
    : if Guards end                  {}
 
-Guards -- :: { Guards }
+Guards
    : Guard                          {}
    | Guards ";" Guard               {}
 
-Guard -- :: { Guard }
+Guard
    : Exp "->" Insts                 {}
 
 ---- Case ------------------------------
-Case -- :: { Instruction }
+Case
    : case Exp of Sets end           {}
 
-Sets -- :: { Sets }
+Sets
    : Set                            {}
    | Sets ";" Set                   {}
 
-Elems -- :: { At Exps }
+Elems
    : Exp                            {}
    | Elems "," Exp                  {}
 
-Set -- :: { Set }
+Set
    : Elems "->" Insts               {}
 
 ---- For loops -------------------------
-For -- :: { Instruction }
+For
    : for      VarId Ranges end      {}
    | for Type VarId Ranges end      {}
 
-Ranges -- :: { Ranges }
+Ranges
    : Range                          {}
    | Ranges ";" Range               {}
 
-Range -- :: { Range }
+Range
    : from Exp to Exp "->" Insts     {}
 
 ---- While loops -----------------------
-While -- :: { Instruction }
+While
    : while Guards end               {}
 
 ---- Expressions -------------------------
-Exp -- :: { () }
+Exp
     : "(" Exp ")"                   {}
     | Bool                          {}
     | Char                          {}
@@ -370,19 +366,19 @@ Exp -- :: { () }
     | Exp "|"  Exp                  {}
     | Exp "!|" Exp                  {}
 
-    Bool -- :: { At Bool }
+    Bool
         : boolLit                   {} -- { unTokenBoolLit   `fmap` $1 }
 
-    Char -- :: { At Char }
+    Char
         : charLit                   {} -- { unTokenCharLit   `fmap` $1 }
 
-    Int -- :: { At Int32 }
+    Int
         : intLit                    {} -- { unTokenIntLit    `fmap` $1 }
 
-    Float -- :: { At Float }
+    Float
         : floatLit                  {} -- { unTokenFloatLit  `fmap` $1 }
 
-    String -- :: { At String }
+    String
         : stringLit                 {% string $1 }
 
 { ------------------------------------------------------------------------------

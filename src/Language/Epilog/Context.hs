@@ -36,16 +36,15 @@ string (TokenStringLit s :@ p) = do
 
 
 verifyDecl :: At String -> At String -> Epilog ()
-verifyDecl (t :@ pos) (name :@ _) = do
+verifyDecl (t :@ p) (name :@ _) = do
     symbs <- use symbols
     ts    <- use types
     case t `Map.lookup` ts of
-        Just (t0, posT) -> case name `local` symbs of
+        Just (t0, _posT) -> case name `local` symbs of
             Right Entry {eType, ePosition} ->
-                err $ DuplicateDeclaration name eType ePosition t0 pos
-            Left _ -> 
-                    symbols %= insertSymbol name (Entry name t0 Nothing pos)
+                err $ DuplicateDeclaration name eType ePosition t0 p
+            Left _ ->
+                    symbols %= insertSymbol name (Entry name t0 Nothing p)
         Nothing ->
-                err $ UndefinedType t name pos
+                err $ UndefinedType t name p
 
-            
