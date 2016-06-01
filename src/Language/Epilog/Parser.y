@@ -8,12 +8,12 @@ import           Language.Epilog.AST.Instruction
 import           Language.Epilog.AST.Type
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
--- import           Language.Epilog.Context
+import           Language.Epilog.Context
 import           Language.Epilog.Epilog
 import           Language.Epilog.Error
 --------------------------------------------------------------------------------
 import           Control.Monad.Trans.RWS.Strict (RWS, execRWS, get, gets,
-                                                 modify, tell, put)
+                                                 modify, put, tell)
 import           Data.Int                       (Int32)
 import           Data.Sequence                  (Seq, ViewL ((:<)), (<|), (><),
                                                  (|>))
@@ -361,7 +361,7 @@ Exp -- :: { () }
         : floatLit                  {} -- { unTokenFloatLit  `fmap` $1 }
 
     String -- :: { At String }
-        : stringLit                 {} -- { unTokenStringLit `fmap` $1 }
+        : stringLit                 {% string $1 }
 
 { ------------------------------------------------------------------------------
 parseError :: At Token -> Epilog a

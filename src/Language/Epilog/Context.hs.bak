@@ -84,8 +84,8 @@ cont st Content { cPos, cType, cName } = do
     ts <- use types
     case typeName cType `Map.lookup` ts of
         Just _ -> case cName `local` st of
-            Right Entry { varType, varPosition } -> do
-                err $ DuplicateDeclaration cName varType varPosition cType cPos
+            Right Entry { eType, ePosition } -> do
+                err $ DuplicateDeclaration cName eType ePosition cType cPos
                 return st
             Left _ -> return $ insertSymbol cName entry st
         Nothing -> do
@@ -178,7 +178,7 @@ verifyLval :: Lval -> Position -> Epilog (Maybe Type)
 verifyLval (Variable n) p = do
     s <- use symbols
     case n `ST.lookup` s of
-        Right Entry {varType} -> return (Just varType)
+        Right Entry {eType} -> return (Just eType)
         Left _ -> do
             err $ OutOfScope n p
             return Nothing
@@ -199,7 +199,7 @@ verifyLval (Member lval member) p = do
                             Left _ -> do
                                 err $ InvalidMember member p
                                 return Nothing
-                            Right Entry { varType } -> return (Just varType)
+                            Right Entry { eType } -> return (Just eType)
 verifyLval (Index lval expr) p = do
     t <- verifyLval lval p
     verifyExpr expr
@@ -228,8 +228,8 @@ declaration entry@(Entry name t val p) = do
     symbs <- use symbols
     ts    <- use types
     case name `local` symbs of
-        Right Entry {varType, varPosition} ->
-            err $ DuplicateDeclaration name varType varPosition t p
+        Right Entry {eType, ePosition} ->
+            err $ DuplicateDeclaration name eType ePosition t p
         Left _ -> case typeName t `Map.lookup` ts of
             Just _  ->
                 symbols %= insertSymbol name entry

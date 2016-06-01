@@ -105,10 +105,10 @@ doVar name = do
 
             say $ "OK. integer `" ++ name ++ "` declared at " ++ show p ++ "."
 
-            let entry = Entry name (Basic EpInteger) Nothing p
+            let entry' = Entry name (Basic EpInteger) Nothing p
 
             put BuildState
-                { symbols  = insertSymbol name entry st
+                { symbols  = insertSymbol name entry' st
                 , position = nextPos p
                 }
         Right _ ->

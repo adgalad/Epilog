@@ -5,20 +5,23 @@
 
 module Main (main) where
 --------------------------------------------------------------------------------
--- import           Language.Epilog.Context
 import           Language.Epilog.Epilog
 import           Language.Epilog.Parser
 import           Language.Epilog.STTester
+import           Language.Epilog.SymbolTable
+import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
-import           Control.Lens             (makeLenses, (.~), (^.))
-import           Control.Monad            (unless, when)
-import           System.Console.GetOpt    (ArgDescr (..), ArgOrder (..),
-                                           OptDescr (..), getOpt, usageInfo)
-import           System.Environment       (getArgs)
-import           System.Exit              (exitSuccess)
-import           System.IO                (Handle, IOMode (ReadMode), hClose,
-                                           hGetContents, hPutStrLn, openFile,
-                                           stderr, stdin)
+import           Control.Lens                (makeLenses, (.~), (^.))
+import           Control.Monad               (unless, when)
+import qualified Data.Map                    as Map
+import qualified Data.Sequence               as Seq
+import           System.Console.GetOpt       (ArgDescr (..), ArgOrder (..),
+                                              OptDescr (..), getOpt, usageInfo)
+import           System.Environment          (getArgs)
+import           System.Exit                 (exitSuccess)
+import           System.IO                   (Handle, IOMode (ReadMode), hClose,
+                                              hGetContents, hPrint, hPutStrLn,
+                                              openFile, stderr, stdin)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
 data Options = Options
@@ -94,20 +97,35 @@ doParse filename handle  = do
 
     putStrLn $ unwords ["Parsing", filename]
 
-    let (_a, _s, w) = runEpilog parse () (initialState inp)
-    mapM_ (hPutStrLn stderr . show) w
+    let (_a, s, errors) = runEpilog parse () (initialState inp)
 
+    putStrLn "Symbols:"
+    putStr . drawTree . toTree . defocus $ s^.symbols
 
-    -- putStrLn "Symbols:"
-    -- putStr . drawTree . toTree $ defocus $ symbols (fst p)
-    -- putStrLn "Types:"
-    -- mapM_ (\(name, (_, _, p)) ->
-    --     putStrLn $ "\t" ++ name ++ " at " ++ showP p
-    --     ) (Map.toList $ types (fst p))
-    -- putStrLn $ show $ strings (fst p)
-    -- mapM_ (hPrint stderr) (snd p)
+    unless (Map.null $ s^.strings) $ do
+        putStrLn "Strings:"
+        mapM_ (\(str, ps) -> do
+            print str
+            mapM_ (\p -> putStrLn $ "\t" ++ show p) ps
+            ) (Map.toList $ s^.strings)
 
-    --when (null plerrs) $ putStrLn . drawTree $ toTree prog
+    -- unless (Map.null $ s^.types) $ do
+    --     putStrLn "Types:"
+    --     mapM_ (\(name, (_, _, p)) ->
+    --         putStrLn $ "\t" ++ name ++ " at " ++ showP p
+    --         ) (Map.toList $ s^.types)
+
+    -- unless (Map.null $ s^.procs) $ do
+    --     putStrLn "Procs:"
+    --     mapM_ (\(name, ProcSignature _ t p) ->
+    --         putStrLn $
+    --             "\t" ++ name ++ "->" ++ typeName t ++ " at " ++ showP p
+    --         ) (Map.toList $ s^.procs)
+
+    unless (Seq.null errors) $ do
+        hPutStrLn stderr "Errors:"
+        mapM_ (hPrint stderr) errors
+
 
 doST :: FilePath -> Handle -> IO ()
 doST filename handle = do

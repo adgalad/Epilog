@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module Language.Epilog.Epilog
     ( Byte
@@ -17,7 +18,7 @@ module Language.Epilog.Epilog
     , modify
     , runEpilog
     -- Lenses
-    , symbols, strings, pendProcs, procs, types, expression, position, input
+    , symbols, strings, pendProcs, types, expression, position, input
     , prevChar, bytes, scanCode, commentDepth
     ) where
 --------------------------------------------------------------------------------
@@ -62,7 +63,6 @@ data EpilogState = EpilogState
     { _symbols      :: SymbolTable
     , _strings      :: Strings
     , _pendProcs    :: Pending
-    , _procs        :: Procs
     , _types        :: Types
     , _expression   :: Seq Expression
 
@@ -76,12 +76,12 @@ data EpilogState = EpilogState
 
 makeLenses ''EpilogState
 
-languageProcs :: [(Name, ProcSignature)]
-languageProcs =
-    [ ("toBoolean"  , ProcSignature "toBoolean"   boolT  Epilog)
-    , ("toCharacter", ProcSignature "toCharacter" charT  Epilog)
-    , ("toFloat"    , ProcSignature "toFloat"     floatT Epilog)
-    , ("toInteger"  , ProcSignature "toInteger"   intT   Epilog)
+predefinedProcs :: [Entry]
+predefinedProcs =
+    [ entry "toBoolean"   ([Any] :-> boolT ) Epilog
+    , entry "toCharacter" ([Any] :-> charT ) Epilog
+    , entry "toFloat"     ([Any] :-> floatT) Epilog
+    , entry "toInteger"   ([Any] :-> intT  ) Epilog
     ] -- Must be ascending
 
 basicTypes :: [(Name, (Type, Position))]
@@ -93,12 +93,17 @@ basicTypes =
     , ("string"   , ( stringT, Epilog ))
     ] -- Must be ascending
 
+initialST :: SymbolTable
+initialST = foldr aux ST.empty predefinedProcs
+    where
+        aux e @ Entry { eName } st =
+            insertSymbol eName e st
+
 initialState :: String -> EpilogState
 initialState inp = EpilogState
-    { _symbols      = ST.empty
+    { _symbols      = initialST
     , _strings      = Map.empty
     , _pendProcs    = Map.empty
-    , _procs        = Map.fromAscList languageProcs
     , _types        = Map.fromAscList basicTypes
     , _expression   = Seq.empty
 

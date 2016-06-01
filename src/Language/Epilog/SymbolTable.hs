@@ -9,6 +9,7 @@ module Language.Epilog.SymbolTable
     , defocus
     , empty
     , emptyP
+    , entry
     , focus
     , goDownFirst
     , goDownLast
@@ -39,20 +40,23 @@ import           Prelude                        hiding (lookup)
 --------------------------------------------------------------------------------
 -- Symbol Table Entry ------------------
 data Entry = Entry
-    { varName         :: String
-    , varType         :: Type
-    , varInitialValue :: Maybe Expression
-    , varPosition     :: Position
+    { eName         :: String
+    , eType         :: Type
+    , eInitialValue :: Maybe Expression
+    , ePosition     :: Position
     } deriving (Eq)
 
 instance Treelike Entry where
-    toTree Entry { varName, varType, varInitialValue, varPosition } =
-        Node ("Variable `" ++ varName ++ "`") $
-            leaf ("Declared at " ++ show varPosition) :
-            leaf ("Type: " ++ show varType) :
-            case varInitialValue of
+    toTree Entry { eName, eType, eInitialValue, ePosition } =
+        Node ("Variable `" ++ eName ++ "`") $
+            leaf ("Declared at " ++ show ePosition) :
+            leaf ("Type: " ++ show eType) :
+            case eInitialValue of
                 Nothing -> [leaf "Not initialized"]
                 Just e  -> [Node "Initialized with value" [toTree e]]
+
+entry :: String -> Type -> Position -> Entry
+entry s t p = Entry s t Nothing p
 
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry
@@ -77,12 +81,12 @@ instance Treelike Scope where
 lookup' :: String -> Scope -> Either String Entry
 lookup' key Scope { sEntries } =
     case Map.lookup key sEntries of
-         Just entry -> Right entry
+         Just entry' -> Right entry'
          Nothing    -> Left "Not found."
 
 insert' :: String -> Entry -> Scope -> Scope
-insert' key entry s @ Scope { sEntries } =
-    s { sEntries = Map.insert key entry sEntries }
+insert' key entry' s @ Scope { sEntries } =
+    s { sEntries = Map.insert key entry' sEntries }
 
 insertST' :: Scope -> Scope -> Scope
 insertST' newScope s @ Scope { sChildren } =
@@ -194,8 +198,8 @@ local key (s, _) =
     lookup' key s
 
 insertSymbol :: String -> Entry -> SymbolTable -> SymbolTable
-insertSymbol key entry (s, bs) =
-    (insert' key entry s, bs)
+insertSymbol key entry' (s, bs) =
+    (insert' key entry' s, bs)
 
 insertST :: Scope -> SymbolTable -> SymbolTable
 insertST newST (s, bs) =
