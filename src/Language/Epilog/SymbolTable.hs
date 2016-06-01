@@ -1,5 +1,6 @@
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE TupleSections  #-}
+{-# LANGUAGE NamedFieldPuns  #-}
+{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE OverloadedLists #-}
 
 module Language.Epilog.SymbolTable
     ( Entry (..)
@@ -73,10 +74,10 @@ type Scopes = Seq Scope
 instance Treelike Scope where
     toTree Scope { sFrom, sTo, sEntries, sChildren } =
         Node ("Scope " ++ showP sFrom ++ " -> " ++ showP sTo) $
-            (if Map.null sEntries
-                then leaf "No symbols"
-                else Node "Symbols" (toForest . Map.elems $ sEntries)) :
-            toForest sChildren
+            case sEntries of
+                [] -> toForest sChildren
+                _  -> Node "Symbols" (toForest . Map.elems $ sEntries) :
+                        toForest sChildren
 
 lookup' :: String -> Scope -> Either String Entry
 lookup' key Scope { sEntries } =
