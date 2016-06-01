@@ -21,11 +21,12 @@ import           Language.Epilog.Lexer
 import           Language.Epilog.SymbolTable
 --------------------------------------------------------------------------------
 import           Control.Lens                (use, (%=), (.=))
+import           Control.Monad               (unless)
 import           Data.Foldable               (toList)
 import           Data.Int                    (Int32)
 import           Data.List                   (sortOn)
 import           Data.Map                    (Map)
-import qualified Data.Map                    as Map (elems, insert, fromList,
+import qualified Data.Map                    as Map (elems, fromList, insert,
                                                      insertWith, lookup)
 import           Data.Sequence               (Seq, (><))
 import qualified Data.Sequence               as Seq (fromList, singleton)
@@ -33,7 +34,7 @@ import           Prelude                     hiding (Either)
 --------------------------------------------------------------------------------
 
 string :: At Token -> Epilog ()
-string (TokenStringLit s :@ p) = do
+string (TokenStringLit s :@ p) =
     strings %= Map.insertWith (flip (><)) s (Seq.singleton p)
 string _ = undefined
 
@@ -41,9 +42,8 @@ string _ = undefined
 isSymbol' :: At String -> Epilog ()
 isSymbol' (name :@ p) = do
     symbs <- use symbols
-    if name `isSymbol` symbs
-        then return ()
-        else err $ OutOfScope name p
+    unless (name `isSymbol` symbs) $
+        err $ OutOfScope name p
 
 
 declVar :: At Type -> At String -> Epilog ()

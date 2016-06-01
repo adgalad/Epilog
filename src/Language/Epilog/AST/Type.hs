@@ -54,6 +54,7 @@ data Type
     | Record  { name    :: String,   fields  :: Map Name Type }
     | Either  { name    :: String,   fields  :: Map Name Type }
     | (:->)   { params  :: Seq Type, returns :: Type }
+    | Alias   { name :: Name }
     | Any
     | None
     deriving (Eq)
@@ -71,6 +72,7 @@ instance Show Type where
             name ++ " ~ either {" ++ showFs fields ++ "}"
         (:->)   { params, returns }  ->
             "procedure (" ++ showPs params ++ ") → " ++ show returns
+        Alias   { name }             -> name
         Any                          -> "any type"
         None                         -> "no type at all"
 
@@ -83,10 +85,10 @@ instance Show Type where
 instance Treelike Type where
     toTree = \case
         Basic   { name }             -> leaf name
-        Pointer { pointed }          -> Node "pointer to" [toTree pointed]
+        Pointer { pointed }          -> Node "pointer to" [ toTree pointed ]
         Array   { low, high, inner } ->
             Node ("array [" ++ show low ++ "," ++ show high ++ ") of")
-                [toTree inner]
+                [ toTree inner ]
         Record  { name, fields }     ->
             Node (name ++ " ~ record") (toTreeFs fields)
         Either  { name, fields }     ->
@@ -96,6 +98,7 @@ instance Treelike Type where
                 [ Node "parameters" (toTreePs params)
                 , Node "returns" [toTree returns]
                 ]
+        Alias   { name }             -> leaf name
         Any                          -> leaf "any type"
         None                         -> leaf "no type at all"
 
