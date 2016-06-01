@@ -89,7 +89,7 @@ buildArray (t :@ p) i =
 
 buildPointer :: At Type -> Epilog (At Type)
 buildPointer (t :@ p) = do
-    return (t :@ p)
+    return (Pointer t :@ p)
 
 
 storeProcedure :: Type -> Epilog ()

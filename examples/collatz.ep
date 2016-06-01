@@ -8,7 +8,7 @@ procedure collatz (integer X, integer N) :-
     end.
 
 record p :-
-    integer[3}{4] Q.
+    (^integer)[40}{3] Q.
 
 procedure main () :-
     integer X,

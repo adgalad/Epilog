@@ -276,7 +276,8 @@ Initialization
 Type
     : GenId                         {% findType     $1 }
     | Type ArraySize                {% buildArray   $1 $2 }
-    | Type "^"                      {% buildPointer $1 }
+    | "^" Type                      {% buildPointer $2 }
+    | "(" Type ")"                  { $2 }
 
 
 ArraySize
