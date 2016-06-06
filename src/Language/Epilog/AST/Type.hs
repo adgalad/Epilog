@@ -49,13 +49,13 @@ instance Treelike Atom where
 
 
 data Type
-    = Basic   { name    :: String,   atom    :: Atom }
-    | Pointer { pointed :: Type }
-    | Array   { low     :: Int32,    high    :: Int32, inner :: Type }
-    | Record  { name    :: String,   fields  :: Map Name Type }
-    | Either  { name    :: String,   fields  :: Map Name Type }
-    | (:->)   { params  :: Seq Type, returns :: Type }
-    | Alias   { name :: Name }
+    = Basic    { name    :: String,   atom    :: Atom }
+    | Pointer  { pointed :: Type }
+    | Array    { low     :: Int32,    high    :: Int32, inner :: Type }
+    | Record   { name    :: String,   fields  :: Map Name Type }
+    | Either   { name    :: String,   fields  :: Map Name Type }
+    | (:->)    { params  :: Seq Type, returns :: Type }
+    | Alias    { name :: Name }
     | Any
     | None
     deriving (Eq)

@@ -3,6 +3,7 @@ integer Y.
 
 either pedro :-
 	pedro I,
+	integer I,
 	character U,
 	integer U,
 	integer G, integer H.

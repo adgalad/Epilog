@@ -60,8 +60,9 @@ data EpilogError
         , oP   :: Position
         }
     | RecursiveType
-        { rtMsg :: String
-        , rtP   :: Position
+        { rtType :: String
+        , rtName :: String
+        , rtP    :: Position
         }
     | UnclosedComment
     | Underflow
@@ -90,7 +91,7 @@ instance P EpilogError where
         NoMain                       p -> p
         OutOfScope                 _ p -> p
         Overflow                   _ p -> p
-        RecursiveType              _ p -> p
+        RecursiveType            _ _ p -> p
         UnclosedComment                -> Code
         UnclosedStringLit          _ p -> p
         UndefinedProcedure         _ p -> p
@@ -142,8 +143,9 @@ instance Show EpilogError where
         Overflow msg p ->
             "Overflow \n" ++ msg ++ "\n" ++ show p
 
-        RecursiveType msg p -> 
-            "Attempted to declared a recursive field in struct `" ++ msg ++ "` " ++ showP p 
+        RecursiveType t name p -> 
+            "Attempted to declared a recursive field named `" ++ name ++ 
+            "` in struct `" ++ t ++ "` " ++ showP p 
 
         UndefinedType nameT p ->
             "Attempted to declare variable of undefined type " ++ showP p ++

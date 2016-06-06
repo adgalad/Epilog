@@ -67,19 +67,19 @@ declStruct (sName :@ p) conts f = do
     case sName `Map.lookup` ts of
         Just (_,pos)  -> err $ DuplicateDefinition sName pos p
         Nothing -> do 
-            let (l, e) = list (toList conts) [] [] ts
+            let (l, e) = list (toList conts) [] [] [] ts
             types %= Map.insert sName (f sName (Map.fromList l), p)
             sequence_ $ fmap err e
         where 
-            list [] l e _ = (l, reverse e)
-            list (x@(n :@ pos,t):xs) l e ts =
-                if t == Any
-                    then list xs l (RecursiveType sName pos:e) ts
-                    else case find (comp x) xs of 
+            list [] l _ e _ = (l, reverse e)
+            list (x@(n :@ pos,t):xs) l v e ts =
+                if t == Alias sName
+                    then list xs ((n,t):l) v (RecursiveType sName n pos:e) ts
+                    else case find (comp x) v of 
                         Just (_ :@ p2, t2) ->  
-                            list xs l (DuplicateDeclaration n t2 p2 t pos:e) ts
+                            list xs ((n,t):l) (x:v) (DuplicateDeclaration n t2 p2 t pos:e) ts
                         Nothing ->
-                            list xs ((n,t):l) e ts
+                            list xs ((n,t):l) (x:v) e ts
             comp (n1 :@ _,_) (n2 :@ _,_) = n1 == n2
                         
         
@@ -89,7 +89,7 @@ findType (tname :@ p) = do
     ts <- use types
     ctype <- use current
     if not (null ctype) && tname == (snd $ fromJust ctype)
-        then return (Any :@ p)
+        then return (Alias tname :@ p)
     else case tname `Map.lookup` ts of
         Just (t, _) ->
             return $ t :@ p
