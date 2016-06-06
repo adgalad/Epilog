@@ -177,15 +177,28 @@ TopDef
 
     | Procedure                     {}
 
-    | either GenId OPEN( ":-" ) Conts CLOSE( "." )
-    {% do
-        declStruct $2 $4 Either
-    }
+    | Either OPEN( ":-" ) Conts CLOSE( "." )
+            {% do
+                declStruct $1 $3 Either
+            }
+    | Record OPEN( ":-" ) Conts CLOSE( "." )
+            {% do
+                declStruct $1 $3 Record
+            }
 
-    | record GenId OPEN( ":-" ) Conts CLOSE( "." )
-    { % do
-        declStruct $2 $4 Record
-    }
+
+Either 
+    : either GenId                  {% do 
+                                        current .= Just (pos $2, item $2)
+                                        return $2
+                                    }
+Record 
+    : record GenId                  {% do 
+                                        current .= Just (pos $2, item $2)
+                                        return $2
+                                    }
+
+
 
 Procedure
     : Procedure1 Procedure2 Procedure3 {}
@@ -244,7 +257,7 @@ Conts
    | Conts "," Cont                 { $1 |> $3}
 
 Cont
-   : Type VarId                     { (item $2, item $1) }
+   : Type VarId                     { ($2, item $1) }
 
 
 ---- Instructions ----------------------

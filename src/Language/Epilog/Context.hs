@@ -24,13 +24,16 @@ import           Control.Lens                (use, (%=), (.=))
 import           Control.Monad               (unless)
 import           Data.Foldable               (toList)
 import           Data.Int                    (Int32)
-import           Data.List                   (sortOn)
+import           Data.List                   (sortOn, find)
+import           Data.Maybe                  (fromJust)
 import           Data.Map                    (Map)
 import qualified Data.Map                    as Map (elems, fromList, insert,
                                                      insertWith, lookup)
 import           Data.Sequence               (Seq, (><))
 import qualified Data.Sequence               as Seq (fromList, singleton)
 import           Prelude                     hiding (Either)
+
+import           Debug.Trace
 --------------------------------------------------------------------------------
 
 string :: At Token -> Epilog ()
@@ -56,21 +59,38 @@ declVar (t :@ p) (var :@ _) = do
         Left _ ->
             symbols %= insertSymbol var (Entry var t Nothing p)
 
-declStruct :: At String -> Seq (String, Type)
-           -> (String-> Map String Type ->Type)
+declStruct :: At String -> Seq (At String, Type)
+           -> (String -> Map String Type -> Type)
            ->  Epilog ()
-declStruct (name :@ p) conts f = do
+declStruct (sName :@ p) conts f = do
     ts <- use types
-    case name `Map.lookup` ts of
-        Just _  -> return ()
-        Nothing ->
-            types %= Map.insert name (f name (Map.fromList $ toList conts), p)
-
+    case sName `Map.lookup` ts of
+        Just (_,pos)  -> err $ DuplicateDefinition sName pos p
+        Nothing -> do 
+            let (l, e) = list (toList conts) [] [] ts
+            types %= Map.insert sName (f sName (Map.fromList l), p)
+            sequence_ $ fmap err e
+        where 
+            list [] l e _ = (l, reverse e)
+            list (x@(n :@ pos,t):xs) l e ts =
+                if t == Any
+                    then list xs l (RecursiveType sName pos:e) ts
+                    else case find (comp x) xs of 
+                        Just (_ :@ p2, t2) ->  
+                            list xs l (DuplicateDeclaration n t2 p2 t pos:e) ts
+                        Nothing ->
+                            list xs ((n,t):l) e ts
+            comp (n1 :@ _,_) (n2 :@ _,_) = n1 == n2
+                        
+        
 
 findType :: At String -> Epilog (At Type)
 findType (tname :@ p) = do
     ts <- use types
-    case tname `Map.lookup` ts of
+    ctype <- use current
+    if not (null ctype) && tname == (snd $ fromJust ctype)
+        then return (Any :@ p)
+    else case tname `Map.lookup` ts of
         Just (t, _) ->
             return $ t :@ p
         Nothing -> do

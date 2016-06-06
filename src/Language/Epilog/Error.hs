@@ -59,6 +59,10 @@ data EpilogError
         { oMsg :: String
         , oP   :: Position
         }
+    | RecursiveType
+        { rtMsg :: String
+        , rtP   :: Position
+        }
     | UnclosedComment
     | Underflow
         { uMsg :: String
@@ -78,19 +82,20 @@ data EpilogError
 instance P EpilogError where
     pos = \case
         DuplicateDefinition      _ _ p -> p
-        OutOfScope                 _ p -> p
         DuplicateDeclaration _ _ _ _ p -> p
-        UndefinedType              _ p -> p
-        UndefinedProcedure         _ p -> p
-        InvalidMember              _ p -> p
-        MemberOfArray              _ p -> p
         InvalidIndex                 p -> p
-        NoMain                       p -> p
+        InvalidMember              _ p -> p
         LexicalError                 p -> p
-        UnclosedComment                -> Code
-        Underflow                  _ p -> p
+        MemberOfArray              _ p -> p
+        NoMain                       p -> p
+        OutOfScope                 _ p -> p
         Overflow                   _ p -> p
+        RecursiveType              _ p -> p
+        UnclosedComment                -> Code
         UnclosedStringLit          _ p -> p
+        UndefinedProcedure         _ p -> p
+        UndefinedType              _ p -> p
+        Underflow                  _ p -> p
         UnexpectedToken            _ p -> p
 
 instance Ord EpilogError where
@@ -98,26 +103,17 @@ instance Ord EpilogError where
 
 instance Show EpilogError where
     show = \case
-        DuplicateDefinition name fstP sndP ->
-            "Duplicate definition " ++ showP sndP ++ ": `" ++ name ++
-            "` already defined " ++ showP fstP
-
-        OutOfScope name p ->
-            "Out of scope variable " ++ showP p ++ ": `" ++ name ++
-            "` not available in this scope."
-
         DuplicateDeclaration name fstT fstP sndT sndP ->
             "Duplicate declaration " ++ showP sndP ++ ", variable `" ++
             name ++ "` already defined as `" ++ show fstT ++ "` " ++
             showP fstP ++ " cannot be redeclared as `" ++ show sndT ++ "`"
 
-        UndefinedType nameT p ->
-            "Attempted to declare variable of undefined type " ++ showP p ++
-            ", type `" ++ nameT ++ "`"
-
-        UndefinedProcedure  name p ->
-            "Call to undeclared procedure " ++ showP p ++ " named `" ++
-            name ++ "`"
+        DuplicateDefinition name fstP sndP ->
+            "Duplicate definition " ++ showP sndP ++ ": `" ++ name ++
+            "` already defined " ++ showP fstP
+        
+        InvalidIndex p ->
+            "Index of non-array variable " ++ showP p
 
         InvalidMember member p ->
             "Invalid member requested " ++ showP p ++ " named `" ++
@@ -126,9 +122,6 @@ instance Show EpilogError where
         MemberOfArray member p ->
             "Expected array index instead of member " ++ showP p ++
             " member named `" ++ member ++ "`"
-
-        InvalidIndex p ->
-            "Index of non-array variable " ++ showP p
 
         NoMain _ ->
             "No procedure `main` defined in the program"
@@ -142,11 +135,26 @@ instance Show EpilogError where
         UnclosedComment ->
             "Comment not closed at end of file"
 
-        Underflow msg p ->
-            "Underflow \n" ++ msg ++ "\n" ++ show p
+        OutOfScope name p ->
+            "Out of scope variable " ++ showP p ++ ": `" ++ name ++
+            "` not available in this scope."
 
         Overflow msg p ->
             "Overflow \n" ++ msg ++ "\n" ++ show p
+
+        RecursiveType msg p -> 
+            "Attempted to declared a recursive field in struct `" ++ msg ++ "` " ++ showP p 
+
+        UndefinedType nameT p ->
+            "Attempted to declare variable of undefined type " ++ showP p ++
+            ", type `" ++ nameT ++ "`"
+
+        UndefinedProcedure  name p ->
+            "Call to undeclared procedure " ++ showP p ++ " named `" ++
+            name ++ "`"
+
+        Underflow msg p ->
+            "Underflow \n" ++ msg ++ "\n" ++ show p
 
         UnclosedStringLit val p ->
             "Unclosed String Literal \n" ++ val ++ "\n" ++ show p

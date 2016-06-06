@@ -2,11 +2,15 @@ integer X is 5.
 integer Y.	
 
 either pedro :-
-	character Y,
-	integer P.
+	pedro I,
+	character U,
+	integer U,
+	integer G, integer H.
 
-record hola :-
-	character Y.
+record r :-
+	character Y,
+	^r Z.
+
 
 procedure main (integer Hola) :-
 	integer G is 5,
