@@ -74,7 +74,7 @@ declStruct (sName :@ p) conts f = do
             list [] l _ e _ = (l, reverse e)
             list (x@(n :@ pos,t):xs) l v e ts =
                 if t == Alias sName
-                    then list xs ((n,t):l) v (RecursiveType sName n pos:e) ts
+                    then list xs ((n,t):l) (x:v) (RecursiveType sName n pos:e) ts
                     else case find (comp x) v of 
                         Just (_ :@ p2, t2) ->  
                             list xs ((n,t):l) (x:v) (DuplicateDeclaration n t2 p2 t pos:e) ts
