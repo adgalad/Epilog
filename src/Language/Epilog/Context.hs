@@ -13,7 +13,9 @@ module Language.Epilog.Context
     , storeProcedure
     , verifyField
     , boolOp
+    , uNumOp
     , numOp
+    , intOp
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Type
@@ -72,6 +74,7 @@ declStruct (sName :@ p) conts f = do
         Nothing -> do 
             l <- list (reverse conts)
             types %= Map.insert sName (f sName (Map.fromList l), p)
+    current .= Nothing
         where 
             list [] = return []
             list (x@(n :@ pos,t):xs) = if t == Alias sName
@@ -140,15 +143,21 @@ storeProcedure t = do
     current .= Nothing
 
 boolOp :: Type -> Type -> Epilog (Type) 
-boolOp None _ = return None
-boolOp _ None = return None
 boolOp t1 t2 = if t1 == t2 && t1 == boolT
     then return t1
     else return None
 
+uNumOp :: Type -> Epilog (Type)
+uNumOp t = if t == intT || t == floatT
+    then return t
+    else return None
+
 numOp :: Type -> Type -> Epilog (Type)
-numOp None _ = return None
-numOp _ None = return None
 numOp t1 t2 = if t1 == t2 && (t1 == intT || t1 == floatT)
+    then return t1
+    else return None
+
+intOp :: Type -> Type -> Epilog (Type)
+intOp t1 t2 = if t1 == t2 && t1 == intT
     then return t1
     else return None
