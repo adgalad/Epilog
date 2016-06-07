@@ -49,6 +49,11 @@ data EpilogError
         { moaName :: Name
         , moaP    :: Position
         }
+    | InvalidAssign
+        { iaFstT :: Type
+        , iaSndT :: Type
+        , iaP    :: Position
+        }
     | InvalidIndex
         { iiP :: Position }
     | NoMain
@@ -84,6 +89,7 @@ instance P EpilogError where
     pos = \case
         DuplicateDefinition      _ _ p -> p
         DuplicateDeclaration _ _ _ _ p -> p
+        InvalidAssign            _ _ p -> p
         InvalidIndex                 p -> p
         InvalidMember              _ p -> p
         LexicalError                 p -> p
@@ -113,6 +119,10 @@ instance Show EpilogError where
             "Duplicate definition " ++ showP sndP ++ ": `" ++ name ++
             "` already defined " ++ showP fstP
         
+        InvalidAssign t1 t2 p->
+            "Attempted to assign an expression of type `" ++ show t2 ++ 
+            "` to a lval of type `" ++ show t1 ++ "` " ++ showP p
+
         InvalidIndex p ->
             "Index of non-array variable " ++ showP p
 
@@ -144,7 +154,7 @@ instance Show EpilogError where
             "Overflow \n" ++ msg ++ "\n" ++ show p
 
         RecursiveType t name p -> 
-            "Attempted to declared a recursive field named `" ++ name ++ 
+            "Attempted to declare a recursive field named `" ++ name ++ 
             "` in struct `" ++ t ++ "` " ++ showP p 
 
         UndefinedType nameT p ->

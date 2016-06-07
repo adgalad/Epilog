@@ -11,6 +11,9 @@ module Language.Epilog.Context
     , buildPointer
     , buildArray
     , storeProcedure
+    , verifyField
+    , boolOp
+    , numOp
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Type
@@ -59,7 +62,7 @@ declVar (t :@ p) (var :@ _) = do
         Left _ ->
             symbols %= insertSymbol var (Entry var t Nothing p)
 
-declStruct :: At String -> Seq (At String, Type)
+declStruct :: At String -> [(At String, Type)]
            -> (String -> Map String Type -> Type)
            ->  Epilog ()
 declStruct (sName :@ p) conts f = do
@@ -67,21 +70,25 @@ declStruct (sName :@ p) conts f = do
     case sName `Map.lookup` ts of
         Just (_,pos)  -> err $ DuplicateDefinition sName pos p
         Nothing -> do 
-            let (l, e) = list (toList conts) [] [] [] ts
+            l <- list (reverse conts)
             types %= Map.insert sName (f sName (Map.fromList l), p)
-            sequence_ $ fmap err e
         where 
-            list [] l _ e _ = (l, reverse e)
-            list (x@(n :@ pos,t):xs) l v e ts =
-                if t == Alias sName
-                    then list xs ((n,t):l) (x:v) (RecursiveType sName n pos:e) ts
-                    else case find (comp x) v of 
-                        Just (_ :@ p2, t2) ->  
-                            list xs ((n,t):l) (x:v) (DuplicateDeclaration n t2 p2 t pos:e) ts
-                        Nothing ->
-                            list xs ((n,t):l) (x:v) e ts
-            comp (n1 :@ _,_) (n2 :@ _,_) = n1 == n2
-                        
+            list [] = return []
+            list (x@(n :@ pos,t):xs) = if t == Alias sName
+                    then err (RecursiveType sName n pos) >>
+                         list xs >>= (\xs' -> return $ (n,t):xs')
+                    else list xs >>= (\xs' -> return $ (n,t):xs')
+            
+
+verifyField :: (At String, Type) -> [(At String, Type)] 
+            -> Epilog ([(At String, Type)])
+verifyField x@(n :@ pos,t) l =
+    case find (comp x) l of 
+        Just (_ :@ p2, t2) -> do 
+            err $ DuplicateDeclaration n t2 p2 t pos
+            return l
+        Nothing -> return (x:l)
+    where comp (n1 :@ _,_) (n2 :@ _,_) = n1 == n2
         
 
 findType :: At String -> Epilog (At Type)
@@ -131,3 +138,17 @@ storeProcedure t = do
     symbols %= (\(Right st) -> st) . goDownLast
 
     current .= Nothing
+
+boolOp :: Type -> Type -> Epilog (Type) 
+boolOp None _ = return None
+boolOp _ None = return None
+boolOp t1 t2 = if t1 == t2 && t1 == boolT
+    then return t1
+    else return None
+
+numOp :: Type -> Type -> Epilog (Type)
+numOp None _ = return None
+numOp _ None = return None
+numOp t1 t2 = if t1 == t2 && (t1 == intT || t1 == floatT)
+    then return t1
+    else return None

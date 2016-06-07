@@ -14,7 +14,9 @@ record r :-
 
 
 procedure main (integer Hola) :-
-	integer G is 5,
+	integer G is 5.0,
+	character C is 'c',
+	C is 5,
 	for integer I 
 		from 1 to 5 -> 
 			integer H is 5,

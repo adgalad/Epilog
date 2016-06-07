@@ -10,7 +10,6 @@ module Language.Epilog.AST.Type
     , floatT
     , stringT
     , voidT
-    , tname
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
@@ -82,17 +81,6 @@ instance Show Type where
             aux k a b = (k ++ " : " ++ show a) : b
             showPs = intercalate " × " . Foldable.toList . fmap show
 
-tname :: Type -> String
-tname = \case
-    Basic   name _     -> name
-    Pointer p          -> "pointer " ++ tname p
-    Array   _ _ _      -> "_array"
-    Record  name _     -> name
-    Either  name _     -> name 
-    (:->)   _ _        -> "procedure"
-    Alias   { name }   -> name
-    Any                -> "any type"
-    None               -> "no type at all"
 
 
 

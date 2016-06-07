@@ -19,7 +19,7 @@ import           Data.Int                       (Int32)
 import           Data.Sequence                  (Seq, ViewL ((:<)), (<|), (><),
                                                  (|>))
 import qualified Data.Sequence                  as Seq (empty, singleton, viewl)
-import           Prelude                        hiding (Either)
+import           Prelude                        hiding (Either, lookup)
 import           Control.Lens                   ((%=), use, (.=))
 --------------------------------------------------------------------------------
 }
@@ -253,8 +253,8 @@ Param
    : Type VarId                     {% do declVar $1 $2}
 
 Conts
-   : Cont                           { Seq.singleton $1}
-   | Conts "," Cont                 { $1 |> $3}
+   : Cont                           { [$1]}
+   | Conts "," Cont                 {% verifyField $3 $1}
 
 Cont
    : Type VarId                     { ($2, item $1) }
@@ -283,7 +283,12 @@ Declaration
     : Type VarId                    { % do declVar $1 $2 }
 
 Initialization
-    : Type VarId is Exp             { % do declVar $1 $2 }
+    : Type VarId is Exp             {% do 
+                                        declVar $1 $2 
+                                        if (item $1) /= $4 
+                                            then err $ InvalidAssign (item $1) $4 (pos $1)
+                                            else return ()
+                                    }
                                     -- ignoring $4 for now
 
 Type
@@ -299,17 +304,32 @@ ArraySize
 
 ------ Assignment ------------------------
 Assign
-    : Lval is Exp                   {} -- {% do
-                                    --     expr <- gets expression
-                                    --     case Seq.viewl expr of
-                                    --         x :< xs ->
-                                    --             inst $ Assign (pos $1) (item $1) x }
+    : Lval is Exp                   {% do 
+                                        symbs <- use symbols
+                                        if item $1 /= $3 
+                                            then err $ InvalidAssign (item $1) $3 (pos $1)
+                                            else return ()
+                                    } 
 
 Lval
-    : VarId                         { %do isSymbol' $1 }
-    | Lval "_" VarId                { %do isSymbol' $3 }
-    | Lval "{" Exp "]"              {}
-    | Lval "[" Exp "}"              {}
+    : VarId                         { %do 
+                                        isSymbol' $1
+                                        symbs <- use symbols
+                                        case item $1 `lookup` symbs of
+                                            Right (Entry _ t _ _) -> return $ (t :@ pos $1)
+                                            Left _ -> return (voidT :@ Position (0,0)) 
+                                    }
+
+
+
+    | Lval "_" VarId                {% do 
+                                        isSymbol' $3 
+
+-- - Not working yet - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+                                        return (voidT :@ Position (0,0)) 
+                                    }
+    | Lval "{" Exp "]"              {% return (voidT :@ Position (0,0)) }
+    | Lval "[" Exp "}"              {% return (voidT :@ Position (0,0)) }
 
 VarId
     : varId                         { unTokenVarId `fmap` $1 }
@@ -379,74 +399,79 @@ While
 
 ---- Expressions -------------------------
 Exp
-    : "(" Exp ")"                   {}
-    | Bool                          {}
-    | Char                          {}
-    | Int                           {}
-    | Float                         {}
-    | String                        {}
-    | otherwise                     {}
+    : "(" Exp ")"                   {% return $2      }
+    | Bool                          {% return boolT   }
+    | Char                          {% return charT   }
+    | Int                           {% return intT    }
+    | Float                         {% return floatT  }
+    | String                        {% return stringT }
+    | otherwise                     {% return voidT   }
 
-    | Lval                          {} -- {% do
-                                    --     let lval = Lval (pos $1) (item $1)
-                                    --     modify (\s -> s {expression = lval <| expression s})}
+    | Lval                          {% return boolT }
 
-   | GenId "(" Args ")"             {} -- { ECall (pos $1) (item $1) $3 }
+    | GenId "(" Args ")"            {% do 
+                                        symbs <- use symbols
+                                        case (item $1 `lookup` symbs) of 
+                                            Right (Entry _ t _ _) -> return $ returns t
+                                            Left _ -> do
+                                                err $ UndefinedProcedure (item $1) (pos $1)
+                                                return None
+                                    } 
 
     -- Operators
     ---- Logical
-    | Exp and     Exp               {}
-    | Exp andalso Exp               {}
-    | Exp or      Exp               {}
-    | Exp orelse  Exp               {}
-    | Exp xor     Exp               {}
-    |     not     Exp %prec NEG     {}
+    | Exp and     Exp               {% boolOp $1 $3}
+    | Exp andalso Exp               {% boolOp $1 $3}
+    | Exp or      Exp               {% boolOp $1 $3}
+    | Exp orelse  Exp               {% boolOp $1 $3}
+    | Exp xor     Exp               {% boolOp $1 $3}
+    |     not     Exp %prec NEG     {% do if $2 == boolT then return boolT else return None }
 
     ---- Bitwise
-    | Exp band Exp                  {}
-    | Exp bor  Exp                  {}
-    | Exp bsl  Exp                  {}
-    | Exp bsr  Exp                  {}
-    | Exp bxor Exp                  {}
-    |     bnot Exp %prec NEG        {}
+    | Exp band Exp                  {% numOp $1 $3}
+    | Exp bor  Exp                  {% numOp $1 $3}
+    | Exp bsl  Exp                  {% numOp $1 $3}
+    | Exp bsr  Exp                  {% numOp $1 $3}
+    | Exp bxor Exp                  {% numOp $1 $3}
+    |     bnot Exp %prec NEG        {% do if $2 == intT && $2 == floatT then return $2 else return None}
 
     ---- Array / Record / Either
-    | length Exp                    {}
+    | length Exp                    {% return intT }
 
     ---- Arithmetic
-    | Exp "+" Exp                   {}
-    | Exp "-" Exp                   {}
-    | Exp "*" Exp                   {}
-    | Exp "/" Exp                   {}
-    | Exp div Exp                   {}
-    | Exp rem Exp                   {}
-    |     "-" Exp %prec NEG         {}
+    | Exp "+" Exp                   {% numOp $1 $3}
+    | Exp "-" Exp                   {% numOp $1 $3}
+    | Exp "*" Exp                   {% numOp $1 $3}
+    | Exp "/" Exp                   {% numOp $1 $3}
+    | Exp div Exp                   {% numOp $1 $3}
+    | Exp rem Exp                   {% numOp $1 $3}
+    |     "-" Exp %prec NEG         {% do if $2 == intT && $2 == floatT then return $2 else return None }
 
     ---- Relational
-    | Exp "<"  Exp                  {}
-    | Exp "=<" Exp                  {}
-    | Exp ">"  Exp                  {}
-    | Exp ">=" Exp                  {}
-    | Exp "="  Exp                  {}
-    | Exp "/=" Exp                  {}
-    | Exp "|"  Exp                  {}
-    | Exp "!|" Exp                  {}
+    | Exp "<"  Exp                  {% numOp $1 $3}
+    | Exp "=<" Exp                  {% numOp $1 $3}
+    | Exp ">"  Exp                  {% numOp $1 $3}
+    | Exp ">=" Exp                  {% numOp $1 $3}
+    | Exp "="  Exp                  {% do if $1 == $3 then return $1 else return None}
+    | Exp "/=" Exp                  {% do if $1 == $3 then return $1 else return None}
+    | Exp "|"  Exp                  {% do if $1 == $3 && $1 == intT then return intT else return None }
+    | Exp "!|" Exp                  {% do if $1 == $3 && $1 == intT then return intT else return None }
 
-    Bool
-        : boolLit                   {} -- { unTokenBoolLit   `fmap` $1 }
+Bool
+    : boolLit                       {} -- { unTokenBoolLit   `fmap` $1 }
 
-    Char
-        : charLit                   {} -- { unTokenCharLit   `fmap` $1 }
+Char
+    : charLit                       {} -- { unTokenCharLit   `fmap` $1 }
 
-    Int
-        : intLit                    { unTokenIntLit `fmap` $1 }
+Int
+    : intLit                        { unTokenIntLit `fmap` $1 }
 
 
-    Float
-        : floatLit                  {} -- { unTokenFloatLit  `fmap` $1 }
+Float
+    : floatLit                      {} -- { unTokenFloatLit  `fmap` $1 }
 
-    String
-        : stringLit                 {% string $1 }
+String
+    : stringLit                     {% string $1 }
 
 { ------------------------------------------------------------------------------
 parseError :: At Token -> Epilog a
