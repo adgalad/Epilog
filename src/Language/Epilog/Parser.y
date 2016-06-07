@@ -413,15 +413,19 @@ Exp
     | Exp or      Exp               {% boolOp $1 $3}
     | Exp orelse  Exp               {% boolOp $1 $3}
     | Exp xor     Exp               {% boolOp $1 $3}
-    |     not     Exp %prec NEG     {% do if $2 == boolT then return boolT else return None }
+    |     not     Exp %prec NEG     {% do if $2 == boolT 
+                                            then return boolT 
+                                            else return None }
 
     ---- Bitwise
-    | Exp band Exp                  {% numOp $1 $3}
-    | Exp bor  Exp                  {% numOp $1 $3}
-    | Exp bsl  Exp                  {% numOp $1 $3}
-    | Exp bsr  Exp                  {% numOp $1 $3}
-    | Exp bxor Exp                  {% numOp $1 $3}
-    |     bnot Exp %prec NEG        {% do if $2 == intT && $2 == floatT then return $2 else return None}
+    | Exp band Exp                  {% intOp $1 $3}
+    | Exp bor  Exp                  {% intOp $1 $3}
+    | Exp bsl  Exp                  {% intOp $1 $3}
+    | Exp bsr  Exp                  {% intOp $1 $3}
+    | Exp bxor Exp                  {% intOp $1 $3}
+    |     bnot Exp %prec NEG        {% do if $2 == intT 
+                                            then return intT 
+                                            else return None }
 
     ---- Array / Record / Either
     | length Exp                    {% return intT }
@@ -433,7 +437,7 @@ Exp
     | Exp "/" Exp                   {% numOp $1 $3}
     | Exp div Exp                   {% numOp $1 $3}
     | Exp rem Exp                   {% numOp $1 $3}
-    |     "-" Exp %prec NEG         {% do if $2 == intT && $2 == floatT then return $2 else return None }
+    |     "-" Exp %prec NEG         {% uNumOp $2}
 
     ---- Relational
     | Exp "<"  Exp                  {% numOp $1 $3}
@@ -442,8 +446,8 @@ Exp
     | Exp ">=" Exp                  {% numOp $1 $3}
     | Exp "="  Exp                  {% do if $1 == $3 then return $1 else return None}
     | Exp "/=" Exp                  {% do if $1 == $3 then return $1 else return None}
-    | Exp "|"  Exp                  {% do if $1 == $3 && $1 == intT then return intT else return None }
-    | Exp "!|" Exp                  {% do if $1 == $3 && $1 == intT then return intT else return None }
+    | Exp "|"  Exp                  {% intOp $1 $3 }
+    | Exp "!|" Exp                  {% intOp $1 $3 }
 
 Bool
     : boolLit                       {} -- { unTokenBoolLit   `fmap` $1 }
