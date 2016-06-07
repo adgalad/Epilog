@@ -18,14 +18,14 @@ module Language.Epilog.Epilog
     , runEpilog
     -- Lenses
     , symbols, strings, pendProcs, types, expression, position, input
-    , prevChar, bytes, scanCode, commentDepth, current
+    , prevChar, bytes, scanCode, commentDepth, current, curfields, curkind
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Type
 import           Language.Epilog.Common
 import           Language.Epilog.Error
-import           Language.Epilog.Position
+import           Language.Epilog.At
 import           Language.Epilog.SymbolTable    hiding (empty)
 --------------------------------------------------------------------------------
 import           Control.Lens                   (makeLenses)
@@ -51,8 +51,8 @@ data ProcSignature = ProcSignature
 err :: a -> RWS r (Seq a) s ()
 err = tell . Seq.singleton
 
--- State Type --------------------------
-type Byte = Word8
+-- State Types -------------------------
+type Byte       = Word8
 
 -- | The state of the compiler monad. Includes the Lexer and Parser states.
 data EpilogState = EpilogState
@@ -61,7 +61,9 @@ data EpilogState = EpilogState
     , _pendProcs    :: Pending
     , _types        :: Types
     , _expression   :: Seq Expression
-    , _current      :: Maybe (Position, String)
+    , _current      :: Maybe (At Name)
+    , _curfields    :: Seq (At Name, Type)
+    , _curkind      :: Maybe StructKind
 
     , _position     :: Position
     , _input        :: String
@@ -105,6 +107,8 @@ initialState inp = EpilogState
     , _types        = basicTypes
     , _expression   = []
     , _current      = Nothing
+    , _curfields    = []
+    , _curkind      = Nothing
 
     , _position     = Position (1, 1)
     , _input        = inp

@@ -4,6 +4,9 @@
 module Language.Epilog.AST.Type
     ( Atom (..)
     , Type (..)
+    , StructKind (..)
+    , toCons
+    -- basic types
     , boolT
     , charT
     , intT
@@ -82,8 +85,6 @@ instance Show Type where
             showPs = intercalate " × " . Foldable.toList . fmap show
 
 
-
-
 instance Treelike Type where
     toTree = \case
         Basic   { name }             -> leaf name
@@ -117,3 +118,14 @@ intT    = Basic "integer"   EpInteger
 floatT  = Basic "float"     EpFloat
 stringT = Basic "string"    EpString
 voidT   = Basic "void"      EpString
+
+data StructKind = EitherK | RecordK
+                deriving (Eq)
+
+instance Show StructKind where
+    show EitherK = "Either"
+    show RecordK = "Record"
+
+toCons :: StructKind -> Name -> Map Name Type -> Type
+toCons EitherK = Either
+toCons RecordK = Record

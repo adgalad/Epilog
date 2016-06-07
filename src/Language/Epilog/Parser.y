@@ -177,35 +177,25 @@ TopDef
 
     | Procedure                     {}
 
-    | Either OPEN( ":-" ) Conts CLOSE( "." )
-            {% do
-                declStruct $1 $3 Either
-            }
-    | Record OPEN( ":-" ) Conts CLOSE( "." )
-            {% do
-                declStruct $1 $3 Record
-            }
+    | Struct ":-" Conts "."
+    {% declStruct }
 
-
-Either 
-    : either GenId                  {% do 
-                                        current .= Just (pos $2, item $2)
-                                        return $2
-                                    }
-Record 
-    : record GenId                  {% do 
-                                        current .= Just (pos $2, item $2)
-                                        return $2
-                                    }
-
-
+Struct
+    : StructKind GenId
+    {% do
+        current .= Just (item $2 :@ pos $1)
+        curkind .= Just (item $1)
+    }
+StructKind
+    : either { EitherK :@ (pos $1) }
+    | record { RecordK :@ (pos $1) }
 
 Procedure
     : Procedure1 Procedure2 Procedure3 {}
 Procedure1
     : proc GenId OPEN( "(" ) Params0 ")"
     {%
-        current .= Just (pos $1, item $2)
+        current .= Just (item $2 :@ pos $1)
     }
 Procedure2
     : {- lambda -}
@@ -219,7 +209,6 @@ Procedure2
 Procedure3
     : OPEN ( ":-" ) Insts CLOSE(CLOSE( "." ))
     {}
-
 
 OPEN(TOKEN)
     : TOKEN
@@ -253,11 +242,11 @@ Param
    : Type VarId                     {% do declVar $1 $2}
 
 Conts
-   : Cont                           { [$1]}
-   | Conts "," Cont                 {% verifyField $3 $1}
+   : Cont                           {}
+   | Conts "," Cont                 {}
 
 Cont
-   : Type VarId                     { ($2, item $1) }
+   : Type VarId                     {% verifyField $2 (item $1) }
 
 
 ---- Instructions ----------------------
@@ -283,13 +272,12 @@ Declaration
     : Type VarId                    { % do declVar $1 $2 }
 
 Initialization
-    : Type VarId is Exp             {% do 
-                                        declVar $1 $2 
-                                        if (item $1) /= $4 
+    : Type VarId is Exp             {% do
+                                        declVar $1 $2
+                                        if (item $1) /= $4
                                             then err $ InvalidAssign (item $1) $4 (pos $1)
                                             else return ()
                                     }
-                                    -- ignoring $4 for now
 
 Type
     : GenId                         {% findType     $1 }
@@ -304,29 +292,29 @@ ArraySize
 
 ------ Assignment ------------------------
 Assign
-    : Lval is Exp                   {% do 
+    : Lval is Exp                   {% do
                                         symbs <- use symbols
-                                        if item $1 /= $3 
+                                        if item $1 /= $3
                                             then err $ InvalidAssign (item $1) $3 (pos $1)
                                             else return ()
-                                    } 
+                                    }
 
 Lval
-    : VarId                         { %do 
+    : VarId                         { %do
                                         isSymbol' $1
                                         symbs <- use symbols
                                         case item $1 `lookup` symbs of
                                             Right (Entry _ t _ _) -> return $ (t :@ pos $1)
-                                            Left _ -> return (voidT :@ Position (0,0)) 
+                                            Left _ -> return (voidT :@ Position (0,0))
                                     }
 
 
 
-    | Lval "_" VarId                {% do 
-                                        isSymbol' $3 
+    | Lval "_" VarId                {% do
+                                        isSymbol' $3
 
 -- - Not working yet - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-                                        return (voidT :@ Position (0,0)) 
+                                        return (voidT :@ Position (0,0))
                                     }
     | Lval "{" Exp "]"              {% return (voidT :@ Position (0,0)) }
     | Lval "[" Exp "}"              {% return (voidT :@ Position (0,0)) }
@@ -409,14 +397,14 @@ Exp
 
     | Lval                          {% return boolT }
 
-    | GenId "(" Args ")"            {% do 
+    | GenId "(" Args ")"            {% do
                                         symbs <- use symbols
-                                        case (item $1 `lookup` symbs) of 
+                                        case (item $1 `lookup` symbs) of
                                             Right (Entry _ t _ _) -> return $ returns t
                                             Left _ -> do
                                                 err $ UndefinedProcedure (item $1) (pos $1)
                                                 return None
-                                    } 
+                                    }
 
     -- Operators
     ---- Logical

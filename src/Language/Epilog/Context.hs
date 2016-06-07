@@ -23,20 +23,15 @@ import           Language.Epilog.Error
 import           Language.Epilog.Lexer
 import           Language.Epilog.SymbolTable
 --------------------------------------------------------------------------------
-import           Control.Lens                (use, (%=), (.=))
-import           Control.Monad               (unless)
-import           Data.Foldable               (toList)
-import           Data.Int                    (Int32)
-import           Data.List                   (sortOn, find)
-import           Data.Maybe                  (fromJust)
-import           Data.Map                    (Map)
-import qualified Data.Map                    as Map (elems, fromList, insert,
-                                                     insertWith, lookup)
-import           Data.Sequence               (Seq, (><))
-import qualified Data.Sequence               as Seq (fromList, singleton)
-import           Prelude                     hiding (Either)
-
-import           Debug.Trace
+import           Control.Lens  (use, (%=), (.=))
+import           Control.Monad (forM_, unless)
+import           Data.Int      (Int32)
+import           Data.List     (find, sortOn)
+import qualified Data.Map      as Map (elems, insert, insertWith, lookup)
+import           Data.Maybe    (fromJust)
+import           Data.Sequence ((><), (|>))
+import qualified Data.Sequence as Seq (fromList, singleton)
+import           Prelude       hiding (Either)
 --------------------------------------------------------------------------------
 
 string :: At Token -> Epilog ()
@@ -62,40 +57,59 @@ declVar (t :@ p) (var :@ _) = do
         Left _ ->
             symbols %= insertSymbol var (Entry var t Nothing p)
 
-declStruct :: At String -> [(At String, Type)]
-           -> (String -> Map String Type -> Type)
-           ->  Epilog ()
-declStruct (sName :@ p) conts f = do
-    ts <- use types
-    case sName `Map.lookup` ts of
-        Just (_,pos)  -> err $ DuplicateDefinition sName pos p
-        Nothing -> do 
-            l <- list (reverse conts)
-            types %= Map.insert sName (f sName (Map.fromList l), p)
-        where 
-            list [] = return []
-            list (x@(n :@ pos,t):xs) = if t == Alias sName
-                    then err (RecursiveType sName n pos) >>
-                         list xs >>= (\xs' -> return $ (n,t):xs')
-                    else list xs >>= (\xs' -> return $ (n,t):xs')
-            
+declStruct :: Epilog ()
+declStruct = do
+    Just (sName :@ p) <- use current
+    ts                <- use types
 
-verifyField :: (At String, Type) -> [(At String, Type)] 
-            -> Epilog ([(At String, Type)])
-verifyField x@(n :@ pos,t) l =
-    case find (comp x) l of 
-        Just (_ :@ p2, t2) -> do 
-            err $ DuplicateDeclaration n t2 p2 t pos
-            return l
-        Nothing -> return (x:l)
-    where comp (n1 :@ _,_) (n2 :@ _,_) = n1 == n2
-        
+    case sName `Map.lookup` ts of
+        Just (_, p0) ->
+            err $ DuplicateDefinition sName p0 p
+        Nothing -> do
+            Just struct' <- use curkind
+            let struct = toCons struct'
+            fs <- use curfields
+            forM_ fs (check sName)
+            types %= Map.insert sName (struct sName (toMap fs), p)
+
+    current   .= Nothing
+    curkind   .= Nothing
+    curfields .= []
+
+    where
+        check sName (name :@ p, t) =
+            case t of
+                Array { inner } -> check sName (name :@ p, inner)
+                Alias { name = n } -> if n == sName
+                    then err $ RecursiveType sName n p
+                    else return ()
+                _ -> return ()
+
+        toMap                      = foldr toMap' []
+        toMap' ((name :@ _), t) fs = Map.insert name t fs
+
+verifyField :: (At String) -> Type -> Epilog ()
+verifyField f@(n :@ p) t = do
+    cf <- use curfields
+
+    case find sameName cf of
+        Just (_ :@ p1, t1) -> do
+            Just (sName :@ sPos) <- use current
+            Just k               <- use curkind
+            err $ DuplicateField sName k sPos n t1 p1 t p
+        Nothing ->
+            curfields %= (|> (f, t))
+
+    where
+        sameName (n1 :@ _,_) = n == n1
+
 
 findType :: At String -> Epilog (At Type)
 findType (tname :@ p) = do
     ts <- use types
     ctype <- use current
-    if not (null ctype) && tname == (snd $ fromJust ctype)
+
+    if not (null ctype) && tname == (item $ fromJust ctype)
         then return (Alias tname :@ p)
     else case tname `Map.lookup` ts of
         Just (t, _) ->
@@ -121,7 +135,7 @@ buildPointer (t :@ p) = do
 
 storeProcedure :: Type -> Epilog ()
 storeProcedure t = do
-    Just (p, n) <- use current
+    Just (n :@ p) <- use current
     (Scope { sEntries }, _) <- use symbols
 
     let params = Seq.fromList . map eType . sortOn ePosition . Map.elems $
@@ -139,7 +153,7 @@ storeProcedure t = do
 
     current .= Nothing
 
-boolOp :: Type -> Type -> Epilog (Type) 
+boolOp :: Type -> Type -> Epilog (Type)
 boolOp None _ = return None
 boolOp _ None = return None
 boolOp t1 t2 = if t1 == t2 && t1 == boolT

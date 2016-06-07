@@ -33,6 +33,16 @@ data EpilogError
         , dDecSndT :: Type
         , dDecSndP :: Position
         }
+    | DuplicateField
+        { dFldStructName :: Name
+        , dFldStructKind :: StructKind
+        , dFldStructPos  :: Position
+        , dFldName       :: Name
+        , dFldFstT       :: Type
+        , dFldFstP       :: Position
+        , dFldSndT       :: Type
+        , dFldSndP       :: Position
+        }
     | UndefinedType
         { utTName :: Name
         , utP     :: Position
@@ -89,6 +99,7 @@ instance P EpilogError where
     pos = \case
         DuplicateDefinition      _ _ p -> p
         DuplicateDeclaration _ _ _ _ p -> p
+        DuplicateField _ _ _ _ _ _ _ p -> p
         InvalidAssign            _ _ p -> p
         InvalidIndex                 p -> p
         InvalidMember              _ p -> p
@@ -112,15 +123,21 @@ instance Show EpilogError where
     show = \case
         DuplicateDeclaration name fstT fstP sndT sndP ->
             "Duplicate declaration " ++ showP sndP ++ ", variable `" ++
-            name ++ "` already defined as `" ++ show fstT ++ "` " ++
+            name ++ "` already declared as `" ++ show fstT ++ "` " ++
             showP fstP ++ " cannot be redeclared as `" ++ show sndT ++ "`"
+
+        DuplicateField sName sKind sPos name fstT fstP sndT sndP ->
+            "Duplicate field " ++ showP sndP ++ ", field `" ++
+            name ++ "` already used as `" ++ show fstT ++ "` " ++
+            showP fstP ++ " in " ++ show sKind ++ " `" ++ sName ++ "` " ++
+            showP sPos ++ " cannot be redeclared as `" ++ show sndT ++ "`"
 
         DuplicateDefinition name fstP sndP ->
             "Duplicate definition " ++ showP sndP ++ ": `" ++ name ++
             "` already defined " ++ showP fstP
-        
+
         InvalidAssign t1 t2 p->
-            "Attempted to assign an expression of type `" ++ show t2 ++ 
+            "Attempted to assign an expression of type `" ++ show t2 ++
             "` to a lval of type `" ++ show t1 ++ "` " ++ showP p
 
         InvalidIndex p ->
@@ -153,9 +170,9 @@ instance Show EpilogError where
         Overflow msg p ->
             "Overflow \n" ++ msg ++ "\n" ++ show p
 
-        RecursiveType t name p -> 
-            "Attempted to declare a recursive field named `" ++ name ++ 
-            "` in struct `" ++ t ++ "` " ++ showP p 
+        RecursiveType t name p ->
+            "Attempted to declare a recursive field named `" ++ name ++
+            "` in struct `" ++ t ++ "` " ++ showP p
 
         UndefinedType nameT p ->
             "Attempted to declare variable of undefined type " ++ showP p ++
