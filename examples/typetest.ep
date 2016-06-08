@@ -1,14 +1,14 @@
-% integer MyInt1.
+integer MyInt1.
 
-% integer[5} MyInt2.
+integer[5} MyInt2.
 
-% integer[0,5} MyInt3.
+integer[0,5} MyInt3.
 
-% integer[0,4] MyInt4.
+integer[0,4] MyInt4.
 
-% integer{1,5} MyInt5.
+integer{1,5} MyInt5.
 
-% integer{2,4} MyInt6.
+integer{2,4} MyInt6.
 
 procedure main() :-
     integer MyInt,

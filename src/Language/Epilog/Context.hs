@@ -12,6 +12,7 @@ module Language.Epilog.Context
     , buildPointers
     , findTypeOfSymbol
     , checkArray
+    , checkFor
     , buildArray
     , storeProcedure
     , verifyField
@@ -30,7 +31,7 @@ import           Language.Epilog.SymbolTable
 import           Language.Epilog.Common
 --------------------------------------------------------------------------------
 import           Control.Lens  (use, (%=), (.=))
-import           Control.Monad (forM_, unless)
+import           Control.Monad (forM_, unless, when)
 import           Data.Int      (Int32)
 import           Data.List     (find, sortOn)
 import qualified Data.Map      as Map (elems, insert, insertWith, lookup)
@@ -86,15 +87,14 @@ declStruct = do
         check sName (name :@ p, t) =
             case t of
                 Array { inner } -> check sName (name :@ p, inner)
-                Alias { name = n } -> if n == sName
-                    then err $ RecursiveType sName n p
-                    else return ()
+                Alias { name = n } ->
+                    when (n == sName) $ err $ RecursiveType sName n p
                 _ -> return ()
 
-        toMap                      = foldr toMap' []
-        toMap' ((name :@ _), t) fs = Map.insert name t fs
+        toMap                 = foldr toMap' []
+        toMap' (name :@ _, t) = Map.insert name t
 
-verifyField :: (At String) -> Type -> Epilog ()
+verifyField :: At Name -> Type -> Epilog ()
 verifyField f@(n :@ p) t = do
     cf <- use curfields
 
@@ -109,7 +109,7 @@ verifyField f@(n :@ p) t = do
     where
         sameName (n1 :@ _,_) = n == n1
 
-getField :: At Type -> At String -> Epilog (At Type)
+getField :: At Type -> At Name -> Epilog (At Type)
 getField (t :@ _) (n :@ p) = case t of
     Record _ f -> checkField f
     Either _ f -> checkField f
@@ -125,11 +125,11 @@ getField (t :@ _) (n :@ p) = case t of
 
 
 
-findTypeOfSymbol :: At String -> Epilog (At Type)
+findTypeOfSymbol :: At Name -> Epilog (At Type)
 findTypeOfSymbol (name :@ p) = do
     symbs <- use symbols
     case name `lookup` symbs of
-        Right (Entry _ t _ _) -> return $ (t :@ p)
+        Right (Entry _ t _ _) -> return (t :@ p)
         Left _ -> return (voidT :@ Position (0,0))
 
 findType :: Name -> Epilog Type
@@ -137,7 +137,7 @@ findType tname = do
     ts <- use types
     ctype <- use current
 
-    if not (null ctype) && tname == (item $ fromJust ctype)
+    if not (null ctype) && tname == item (fromJust ctype)
         then return $ Alias tname
     else case tname `Map.lookup` ts of
         Just (t, _) -> case t of
@@ -157,6 +157,11 @@ checkArray (Array _ _ t :@ p) index =
 checkArray (_ :@ p) _ = do
     err $ InvalidArray p
     return (None :@ p)
+
+checkFor :: At Type -> At Type -> Epilog ()
+checkFor (t1 :@ p) (t2 :@ _) =
+    unless (t1 == t2 && (t1 == intT || t1 == charT)) $
+        err $ InvalidRange (name t1) (name t2) p
 
 buildPointers :: Int -> Type -> Epilog Type
 buildPointers 0 t = return t
@@ -190,25 +195,24 @@ storeProcedure t = do
 
     current .= Nothing
 
-
-checkCall :: At Name -> Seq Type -> Epilog Type
+checkCall :: At Name -> Seq Type -> Epilog (At Type)
 checkCall (pname :@ p) ts = do
     symbs <- use symbols
     case (pname `lookup` symbs) of
         Right (Entry _ (ets :-> ret) _ _) -> do
             if length ts == length ets && and (Seq.zipWith join ets ts)
-                then return ret
+                then return (ret :@ p)
                 else do
                     err $ BadCall pname ts ets p
-                    return None
+                    return (None :@ p)
 
         Right (Entry _ _ _ _) -> do
             err $ UndefinedProcedure pname p
-            return None
+            return (None :@ p)
 
         Left _ -> do
             err $ UndefinedProcedure pname p
-            return None
+            return (None :@ p)
 
     where
         join :: Type -> Type -> Bool
@@ -221,26 +225,26 @@ checkCall (pname :@ p) ts = do
         join t1 t2 = t1 == t2
 
 
-checkBinOp :: (At BinaryOp) -> Type -> Type -> Epilog Type
-checkBinOp (op :@ p) = aux opTypes
+checkBinOp :: BinaryOp -> Position -> Type -> Type -> Epilog (At Type)
+checkBinOp op p = aux opTypes
     where
         aux [] t1 t2 = do
             err $ BadBinaryExpression op (t1, t2) (domain opTypes) p
-            return None
+            return (None :@ p)
         aux ((et1, et2, rt):ts) t1 t2 = if t1 == et1 && t2 == et2
-            then return rt
+            then return (rt :@ p)
             else aux ts t1 t2
         opTypes = typeBinOp op
         domain = map (\(a, b, _) -> (a, b))
 
-checkUnOp :: (At UnaryOp) -> Type -> Epilog Type
-checkUnOp (op :@ p) = aux opTypes
+checkUnOp :: UnaryOp -> Position -> Type -> Epilog (At Type)
+checkUnOp op p = aux opTypes
     where
         aux [] t1 = do
             err $ BadUnaryExpression op t1 (domain opTypes) p
-            return None
+            return (None :@ p)
         aux ((et1, rt):ts) t1 = if t1 == et1
-            then return rt
+            then return (rt :@ p)
             else aux ts t1
         opTypes = typeUnOp op
         domain = map fst

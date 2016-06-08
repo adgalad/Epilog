@@ -10,6 +10,7 @@ either pedro :-
 
 record r :-
 	character Y,
+	boolean L,
 	^r Z.
 
 
@@ -22,11 +23,11 @@ procedure main (integer Hola) :-
 	C is Kilo_Z,
 	integer[4} P,
 	C is P['c'],
-	C is C[1],
+	C is c(),
 	for integer I 
-		from 1 to 5 -> 
+		from "string" to 5 -> 
 			integer H is 5,
-			if H > 6 -> character P is 'c' end
+			if 6 -> character P is 'c' end
 		end,
 	C is C_T,
 	integer U.
