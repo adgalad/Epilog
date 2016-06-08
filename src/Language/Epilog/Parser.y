@@ -90,6 +90,7 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
     proc            { TokenProcedure :@ _ }
     ":-"            { TokenDefine    :@ _ }
     finish          { TokenFinish    :@ _ }
+    answer          { TokenAnswer    :@ _ }
 
     -- Composite Types
     either          { TokenEither :@ _ }
@@ -205,7 +206,7 @@ Procedure2
     }
 Procedure3
     : OPEN ( ":-" ) Insts CLOSE(CLOSE( "." ))
-    {}
+    {% current .= Nothing }
 
 OPEN(TOKEN)
     : TOKEN
@@ -260,8 +261,26 @@ Inst
     | Case                          {}
     | For                           {}
     | While                         {}
-    | write Exp                     {}
-    | finish                        {}
+
+    | finish
+    {% do
+        Just p <- use current
+        ((_ :-> ret) :@ procp) <- findTypeOfSymbol p
+        checkAnswer ret voidT (procp) (pos $1)
+    }
+
+    | answer Exp
+    {% do
+        Just p <- use current
+        ((_ :-> ret) :@ procp) <- findTypeOfSymbol p
+        checkAnswer ret (item $2) (procp) (pos $2)
+    }
+
+    | write Exp
+    {% unless ((item $2) `elem` [boolT, charT, intT, floatT, stringT]) $
+        err $ BadWrite (item $2) (pos $1)
+    }
+
     | read Lval
     {% unless ((item $2) `elem` [boolT, charT, intT, floatT]) $
         err $ BadRead (item $2) (pos $1)
@@ -384,10 +403,9 @@ Guards
 
 Guard
    : Exp OPEN( "->" ) Insts
-                                    {% if item $1 /= boolT
-                                            then err $ InvalidGuard (name $ item $1) (pos $1)
-                                            else return ()
-                                    }
+    {% unless (item $1 == boolT) $
+        err $ InvalidGuard (item $1) (pos $1)
+    }
 
 ---- Case ------------------------------
 Case

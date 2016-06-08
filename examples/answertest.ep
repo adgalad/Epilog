@@ -1,0 +1,8 @@
+procedure cosa() :-
+    answer 2.
+
+procedure otracosa() -> integer :-
+    finish.
+
+procedure otraotracosa() -> character :-
+    answer 3.

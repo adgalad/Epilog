@@ -37,7 +37,7 @@ data Token
     | TokenWhile | TokenCase | TokenOf
 
     -- Procedures
-    | TokenProcedure | TokenDefine | TokenFinish
+    | TokenProcedure | TokenDefine | TokenFinish | TokenAnswer
 
     -- Composite Types
     | TokenEither | TokenRecord
@@ -144,6 +144,7 @@ instance Show Token where
         TokenProcedure -> "procedure"
         TokenDefine    -> ":-"
         TokenFinish    -> "finish"
+        TokenAnswer    -> "answer"
 
     -- Composite Types
         TokenEither -> "either"

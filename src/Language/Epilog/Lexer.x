@@ -129,6 +129,7 @@ epilog :-
     <0> "procedure"             { make TokenProcedure }
     <0> ":-"                    { make TokenDefine    }
     <0> "finish"                { make TokenFinish    }
+    <0> "answer"                { make TokenAnswer    }
 
     -- Composite Types
     <0> "either"                { make TokenEither }
@@ -288,8 +289,11 @@ readToken = do
     inp <- getInput
     code <- use scanCode
     case alexScan inp code of
-        AlexEOF -> return $
-            EOF :@ (inp^._1)
+        AlexEOF -> do
+            cd <- use commentDepth
+            when (cd > 0) $
+                err UnclosedComment
+            return $ EOF :@ (inp^._1)
         AlexError (p,_,_,_) -> do
             err $ LexicalError p
             readToken

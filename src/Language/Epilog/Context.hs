@@ -3,42 +3,46 @@
 {-# LANGUAGE OverloadedLists #-}
 
 module Language.Epilog.Context
-    ( isSymbol'
-    , string
-    , declVar
-    , declStruct
-    , getField
-    , findType
+    ( buildArray
     , buildPointers
-    , findTypeOfSymbol
+    , checkAnswer
     , checkArray
-    , checkFor
-    , buildArray
-    , storeProcedure
-    , verifyField
-    , checkUnOp
     , checkBinOp
     , checkCall
+    , checkFor
+    , checkUnOp
+    , declStruct
+    , declVar
+    , findType
+    , findTypeOfSymbol
+    , getField
+    , isSymbol'
+    , storeProcedure
+    , string
+    , verifyField
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
-import           Language.Epilog.Type
 import           Language.Epilog.At
+import           Language.Epilog.Common
 import           Language.Epilog.Epilog
 import           Language.Epilog.Error
 import           Language.Epilog.Lexer
 import           Language.Epilog.SymbolTable
-import           Language.Epilog.Common
+import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import           Control.Lens  (use, (%=), (.=))
-import           Control.Monad (forM_, unless, when)
-import           Data.Int      (Int32)
-import           Data.List     (find, sortOn)
-import qualified Data.Map      as Map (elems, insert, insertWith, lookup)
-import           Data.Maybe    (fromJust)
-import           Data.Sequence (Seq, (><), (|>), ViewL((:<)))
-import qualified Data.Sequence as Seq (fromList, singleton, zipWith, viewl, ViewL (EmptyL))
-import           Prelude       hiding (Either, lookup)
+import           Control.Lens                   (use, (%=), (.=))
+import           Control.Monad                  (forM_, unless, when)
+import           Data.Int                       (Int32)
+import           Data.List                      (find, sortOn)
+import qualified Data.Map                       as Map (elems, insert,
+                                                        insertWith, lookup)
+import           Data.Maybe                     (fromJust)
+import           Data.Sequence                  (Seq, ViewL ((:<)), (><), (|>))
+import qualified Data.Sequence                  as Seq (ViewL (EmptyL),
+                                                        fromList, singleton,
+                                                        viewl, zipWith)
+import           Prelude                        hiding (Either, lookup)
 --------------------------------------------------------------------------------
 
 string :: At Token -> Epilog ()
@@ -130,7 +134,8 @@ findTypeOfSymbol (name :@ p) = do
     symbs <- use symbols
     case name `lookup` symbs of
         Right (Entry _ t _ _) -> return (t :@ p)
-        Left _ -> return (voidT :@ Position (0,0))
+        Left _ -> return (None :@ Position (0,0))
+
 
 findType :: Name -> Epilog Type
 findType tname = do
@@ -152,7 +157,7 @@ checkArray (Array _ _ t :@ p) index =
      if index == intT
         then return (t :@ p)
         else do
-            err $ InvalidIndex (name index) p
+            err $ InvalidSubindex (name index) p
             return (t :@ p)
 checkArray (_ :@ p) _ = do
     err $ InvalidArray p
@@ -193,8 +198,6 @@ storeProcedure t = do
     symbols %= insertSymbol n (entry')
     symbols %= (\(Right st) -> st) . goDownLast
 
-    current .= Nothing
-
 checkCall :: At Name -> Seq Type -> Epilog (At Type)
 checkCall (pname :@ p) ts = do
     symbs <- use symbols
@@ -223,6 +226,15 @@ checkCall (pname :@ p) ts = do
         join (Array {inner = i1}) (Array {inner = i2}) = join i1 i2
         join (Pointer p1) (Pointer p2) = join p1 p2
         join t1 t2 = t1 == t2
+
+
+checkAnswer :: Type -> Type -> Position -> Position -> Epilog ()
+checkAnswer eret aret procp retp =
+    unless (eret == aret) $
+        if aret == voidT
+            then err $ BadFinish eret      procp retp
+            else err $ BadAnswer eret aret procp retp
+
 
 
 checkBinOp :: BinaryOp -> Position -> Type -> Type -> Epilog (At Type)

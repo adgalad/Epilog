@@ -63,6 +63,21 @@ data EpilogError
         { brType  :: Type
         , brP     :: Position
         }
+    | BadWrite
+        { bwType  :: Type
+        , bwP     :: Position
+        }
+    | BadFinish
+        { bfERet  :: Type
+        , bfProcP :: Position
+        , bfRetP  :: Position
+        }
+    | BadAnswer
+        { baERet  :: Type
+        , baARet  :: Type
+        , baProcP :: Position
+        , baRetP  :: Position
+        }
     | InvalidMember
         { imName :: Name
         , imT    :: String
@@ -78,8 +93,8 @@ data EpilogError
         , iaP    :: Position
         }
     | InvalidGuard
-        { icT :: String
-        , icP :: Position
+        { igT :: Type
+        , igP :: Position
         }
     | InvalidRange
         { irFstT :: String
@@ -88,7 +103,7 @@ data EpilogError
         }
     | InvalidArray
         { iaP :: Position }
-    | InvalidIndex
+    | InvalidSubindex
         { iiT :: String
         , iiP :: Position
         }
@@ -96,24 +111,12 @@ data EpilogError
         { nmP :: Position }
     | LexicalError
         { leP :: Position }
-    | Overflow
-        { oMsg :: String
-        , oP   :: Position
-        }
     | RecursiveType
         { rtType :: String
         , rtName :: String
         , rtP    :: Position
         }
     | UnclosedComment
-    | Underflow
-        { uMsg :: String
-        , uP   :: Position
-        }
-    | UnclosedStringLit
-        { uslVal :: String
-        , uslP   :: Position
-        }
     | UnexpectedToken
         { utT :: Token
         , utP :: Position
@@ -139,7 +142,7 @@ instance P EpilogError where
         DuplicateField _ _ _ _ _ _ _ p -> p
         InvalidAssign            _ _ p -> p
         InvalidArray                 p -> p
-        InvalidIndex               _ p -> p
+        InvalidSubindex            _ p -> p
         InvalidMember            _ _ p -> p
         InvalidGuard               _ p -> p
         InvalidRange             _ _ p -> p
@@ -147,15 +150,15 @@ instance P EpilogError where
         MemberOfArray              _ p -> p
         NoMain                       p -> p
         OutOfScope                 _ p -> p
-        Overflow                   _ p -> p
         RecursiveType            _ _ p -> p
         UnclosedComment                -> Code
-        UnclosedStringLit          _ p -> p
         UndefinedProcedure         _ p -> p
         BadCall                _ _ _ p -> p
         BadRead                    _ p -> p
+        BadWrite                   _ p -> p
+        BadFinish                _ _ p -> p
+        BadAnswer              _ _ _ p -> p
         UndefinedType              _ p -> p
-        Underflow                  _ p -> p
         UnexpectedToken            _ p -> p
         BadBinaryExpression    _ _ _ p -> p
         BadUnaryExpression     _ _ _ p -> p
@@ -177,29 +180,34 @@ instance Show EpilogError where
             showP sPos ++ " cannot be redeclared as `" ++ show sndT ++ "`"
 
         DuplicateDefinition name fstP sndP ->
-            "Duplicate definition " ++ showP sndP ++ ": `" ++ name ++
+            "Duplicate definition " ++ showP sndP ++ ", `" ++ name ++
             "` already defined " ++ showP fstP
 
         InvalidAssign t1 t2 p->
-            "Attempted to assign an expression of type `" ++ show t2 ++
-            "` to an lval of type `" ++ show t1 ++ "` " ++ showP p
+            "Invalid assignment " ++ showP p ++
+            ", attempted to assign an expression of type `" ++ show t2 ++
+            "` to an lval of type `" ++ show t1 ++ "` "
 
         InvalidArray p ->
             "Index of non-array variable " ++ showP p
 
-        InvalidIndex t p ->
-            "Attempted to use an index of type `" ++ t ++ "` " ++ showP p
+        InvalidSubindex t p ->
+            "Invalid index " ++ showP p ++
+            ", attempted to use an expression of type `" ++ t ++
+            "` as a subindex"
 
         InvalidMember member t p ->
             "Not member named `" ++ member ++ "` "++ showP p ++
             " in type `" ++ t ++ "`"
 
         InvalidGuard t p ->
-            "Guards most be of type `boolean`. Actual type is `"++ t ++"` " ++ showP p
+            "Invalid guard " ++ showP p ++
+            ", guards most be of type `boolean` but `" ++ show t ++
+            "` was provided"
 
         InvalidRange t1 t2 p ->
-            "Invalid range at " ++ showP p ++". Lower bound is `" ++ t1 ++
-            "` and higher bound is `" ++ t2 ++"`"
+            "Invalid range " ++ showP p ++", lower bound is `" ++ t1 ++
+            "` and higher bound is `" ++ t2 ++ "`"
 
         MemberOfArray member p ->
             "Expected array index instead of member " ++ showP p ++
@@ -221,9 +229,6 @@ instance Show EpilogError where
             "Out of scope variable " ++ showP p ++ ": `" ++ name ++
             "` not available in this scope."
 
-        Overflow msg p ->
-            "Overflow \n" ++ msg ++ "\n" ++ show p
-
         RecursiveType t name p ->
             "Attempted to declare a recursive field named `" ++ name ++
             "` " ++ showP p ++" in struct `" ++ t ++ "`"
@@ -242,14 +247,26 @@ instance Show EpilogError where
             ", but instead received " ++ show (toList args)
 
         BadRead t p ->
-            "Bad read " ++ showP p ++ " tried to read to variable of type `" ++
-            show t ++ "`"
+            "Bad read " ++ showP p ++
+            " attempted to read to variable of type `" ++ show t ++ "`"
 
-        Underflow msg p ->
-            "Underflow \n" ++ msg ++ "\n" ++ show p
+        BadWrite t p ->
+            "Bad write " ++ showP p ++
+            " attempted to write to variable of type `" ++ show t ++ "`"
 
-        UnclosedStringLit val p ->
-            "Unclosed String Literal \n" ++ val ++ "\n" ++ show p
+        BadFinish eret      procp retp ->
+            "Bad finish " ++ showP retp ++
+            ", used finish in a procedure declared as answering `" ++
+            show eret ++ "` at " ++ showP procp
+
+        BadAnswer eret aret procp retp ->
+            "Bad answer " ++ showP retp ++
+            ", attempted to answer with an expression of type `" ++
+            show aret ++
+            "` in a procedure declared " ++ (if eret == voidT
+                then "without an answer type"
+                else "as answering `" ++ show eret ++ "`"
+            ) ++ " at " ++ showP procp
 
         UnexpectedToken t p ->
             "Unexpected token \n" ++ show t ++ "\n" ++ show p
