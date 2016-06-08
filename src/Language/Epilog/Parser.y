@@ -4,7 +4,6 @@
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
--- import           Language.Epilog.AST.Program
 import           Language.Epilog.Type
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
@@ -15,6 +14,7 @@ import           Language.Epilog.SymbolTable
 --------------------------------------------------------------------------------
 import           Control.Monad.Trans.RWS.Strict (RWS, execRWS, get, gets,
                                                  modify, put, tell)
+import           Control.Monad                  (unless)
 import           Data.Int                       (Int32)
 import           Data.Sequence                  (Seq, ViewL ((:<)), (<|), (><),
                                                  (|>))
@@ -260,9 +260,12 @@ Inst
     | Case                          {}
     | For                           {}
     | While                         {}
-    | read Lval                     {}
     | write Exp                     {}
     | finish                        {}
+    | read Lval
+    {% unless ((item $2) `elem` [boolT, charT, intT, floatT]) $
+        err $ BadRead (item $2) (pos $1)
+    }
 
 ------ Declaration and Initialization ----
 Declaration

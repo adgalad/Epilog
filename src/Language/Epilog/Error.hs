@@ -59,6 +59,10 @@ data EpilogError
         , bcEArgs :: Seq Type
         , bcP     :: Position
         }
+    | BadRead
+        { brType  :: Type
+        , brP     :: Position
+        }
     | InvalidMember
         { imName :: Name
         , imT    :: String
@@ -149,6 +153,7 @@ instance P EpilogError where
         UnclosedStringLit          _ p -> p
         UndefinedProcedure         _ p -> p
         BadCall                _ _ _ p -> p
+        BadRead                    _ p -> p
         UndefinedType              _ p -> p
         Underflow                  _ p -> p
         UnexpectedToken            _ p -> p
@@ -235,6 +240,10 @@ instance Show EpilogError where
             "Bad call to procedure " ++ showP p ++ " named `" ++
             name ++ "`, expected args of types " ++ show (toList expArgs) ++
             ", but instead received " ++ show (toList args)
+
+        BadRead t p ->
+            "Bad read " ++ showP p ++ " tried to read to variable of type `" ++
+            show t ++ "`"
 
         Underflow msg p ->
             "Underflow \n" ++ msg ++ "\n" ++ show p

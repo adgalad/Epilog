@@ -15,6 +15,9 @@ procedure main() :-
     integer Otro,
     Otro is toInteger(MyInt),
 
+    float[10} MyFloats,
+    read MyFloats,
+
     integer[5} MyInts,
     float MyLen,
     MyLen is length(MyInts).
