@@ -22,7 +22,6 @@ module Language.Epilog.Context
     , compOp
     , relOp
     , intOp
-    , basicType
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Type
@@ -234,8 +233,3 @@ intOp (t1 :@ p1) (t2 :@ p2) =
     if t1 == t2 && t1 == intT
         then return (t1   :@ p1)
         else return (None :@ p1)
-
-basicType :: Type -> Epilog (At Type)
-basicType t = do 
-    p <- use position
-    return (t :@ p)
