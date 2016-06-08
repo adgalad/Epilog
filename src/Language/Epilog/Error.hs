@@ -65,6 +65,15 @@ data EpilogError
         , iaSndT :: Type
         , iaP    :: Position
         }
+    | InvalidGuard 
+        { icT :: String
+        , icP :: Position
+        }
+    | InvalidRange 
+        { irFstT :: String
+        , irSndT :: String
+        , irP    :: Position
+        }
     | InvalidArray
         { iaP :: Position }
     | InvalidIndex
@@ -109,6 +118,8 @@ instance P EpilogError where
         InvalidArray                 p -> p
         InvalidIndex               _ p -> p
         InvalidMember            _ _ p -> p
+        InvalidGuard                _ p -> p
+        InvalidRange             _ _ p -> p
         LexicalError                 p -> p
         MemberOfArray              _ p -> p       
         NoMain                       p -> p
@@ -155,6 +166,13 @@ instance Show EpilogError where
         InvalidMember member t p ->
             "Not member named `" ++ member ++ "` "++ showP p ++
             " in type `" ++ t ++ "`"
+        
+        InvalidGuard t p ->
+            "Guards most be of type `boolean`. Actual type is `"++ t ++"` " ++ showP p
+
+        InvalidRange t1 t2 p -> 
+            "Invalid range at " ++ showP p ++". Lower bound is `" ++ t1 ++
+            "` and higher bound is `" ++ t2 ++"`"
 
         MemberOfArray member p ->
             "Expected array index instead of member " ++ showP p ++

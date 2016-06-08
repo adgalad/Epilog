@@ -12,6 +12,7 @@ module Language.Epilog.Context
     , buildPointers
     , findTypeOfSymbol
     , checkArray
+    , checkFor
     , buildArray
     , storeProcedure
     , verifyField
@@ -19,7 +20,9 @@ module Language.Epilog.Context
     , uNumOp
     , numOp
     , compOp
+    , relOp
     , intOp
+    , basicType
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Type
@@ -157,6 +160,14 @@ checkArray (_ :@ p) _ = do
     err $ InvalidArray p
     return (None :@ p)
 
+checkFor :: At Type -> At Type -> Epilog ()
+checkFor (t1 :@ p) (t2 :@ _) =  
+    if t1 == t2 && ( t1 == intT || t1 == charT)
+        then return ()
+        else err $ InvalidRange (name t1) (name t2) (p)
+
+
+
 buildPointers :: Int -> Type -> Epilog Type
 buildPointers 0 t = return t
 buildPointers n t = Pointer <$> buildPointers (n-1) t
@@ -189,28 +200,42 @@ storeProcedure t = do
 
     current .= Nothing
 
-boolOp :: Type -> Type -> Epilog (Type)
-boolOp t1 t2 = if t1 == t2 && t1 == boolT
-    then return t1
-    else return None
+boolOp :: At Type -> At Type -> Epilog (At Type)
+boolOp (t1 :@ p1) (t2 :@ p2) = 
+    if t1 == t2 && t1 == boolT
+        then return (t1   :@ p1)
+        else return (None :@ p1)
 
-uNumOp :: Type -> Epilog (Type)
-uNumOp t = if t == intT || t == floatT
-    then return t
-    else return None
+uNumOp :: At Type -> Epilog (At Type)
+uNumOp (t :@ p) = if t == intT || t == floatT
+    then return (t    :@ p)
+    else return (None :@ p)
 
-numOp :: Type -> Type -> Epilog (Type)
-numOp t1 t2 = if t1 == t2 && (t1 == intT || t1 == floatT)
-    then return t1
-    else return None
+numOp :: At Type -> At Type -> Epilog (At Type)
+numOp (t1 :@ p1) (t2 :@ p2) = 
+    if t1 == t2 && (t1 == intT || t1 == floatT)
+        then return (t1   :@ p1)
+        else return (None :@ p1)
 
-compOp :: Type -> Type -> Epilog (Type)
-compOp t1 t2 = 
+relOp :: At Type -> At Type -> Epilog (At Type)
+relOp (t1 :@ p1) (t2 :@ p2) = 
+    if t1 == t2 
+        then return (boolT :@ p1)
+        else return (None  :@ p1)
+
+compOp :: At Type -> At Type -> Epilog (At Type)
+compOp (t1 :@ p1) (t2 :@ p2) = 
     if t1==t2 && (t1 == intT || t1 == floatT)
-        then return boolT
-        else return None
+        then return (boolT :@ p1)
+        else return (None  :@ p1)
 
-intOp :: Type -> Type -> Epilog (Type)
-intOp t1 t2 = if t1 == t2 && t1 == intT
-    then return t1
-    else return None
+intOp :: At Type -> At Type -> Epilog (At Type)
+intOp (t1 :@ p1) (t2 :@ p2) = 
+    if t1 == t2 && t1 == intT
+        then return (t1   :@ p1)
+        else return (None :@ p1)
+
+basicType :: Type -> Epilog (At Type)
+basicType t = do 
+    p <- use position
+    return (t :@ p)

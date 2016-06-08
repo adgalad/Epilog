@@ -274,8 +274,8 @@ Declaration
 Initialization
     : Type VarId is Exp             {% do
                                         declVar $1 $2
-                                        if (item $1) /= $4
-                                            then err $ InvalidAssign (item $1) $4 (pos $1)
+                                        if (item $1) /= item $4
+                                            then err $ InvalidAssign (item $1) (item $4) (pos $1)
                                             else return ()
                                     }
 
@@ -344,10 +344,10 @@ TSize
 Assign
     : Lval is Exp                   {% do
                                         symbs <- use symbols
-                                        if item $1 /= $3
-                                            then if $3 == None
+                                        if item $1 /= (item $3)
+                                            then if (item $3) == None
                                                 then return () 
-                                                else err $ InvalidAssign (item $1) $3 (pos $1)
+                                                else err $ InvalidAssign (item $1) (item $3) (pos $1)
                                             else return ()
                                     }
 
@@ -356,7 +356,7 @@ Lval
                                         isSymbol' $1
                                         findTypeOfSymbol $1
                                     }
-    | Lval "[" Exp "]"              {% checkArray $1 $3  }
+    | Lval "[" Exp "]"              {% checkArray $1 (item $3)  }
     | Lval "_" VarId                {% $3 `isFieldOf` $1 }
 
 
@@ -385,7 +385,10 @@ Guards
 
 Guard
    : Exp OPEN( "->" ) Insts
-                                    {}
+                                    {% if item $1 /= boolT
+                                            then err $ InvalidGuard (name $ item $1) (pos $1)
+                                            else return ()
+                                    }
 
 ---- Case ------------------------------
 Case
@@ -420,7 +423,8 @@ Ranges
 
 Range
    : from Exp to Exp OPEN( "->" ) Insts
-                                    {}
+                                    {% checkFor $2 $4 }
+
 
 ---- While loops -----------------------
 While
@@ -428,23 +432,27 @@ While
 
 ---- Expressions -------------------------
 Exp
-    : "(" Exp ")"                   {% return $2      }
-    | Bool                          {% return boolT   }
-    | Char                          {% return charT   }
-    | Int                           {% return intT    }
-    | Float                         {% return floatT  }
-    | String                        {% return stringT }
-    | otherwise                     {% return voidT   }
+    : "(" Exp ")"                   {% return $2         }
+    | Bool                          {% return (boolT   :@ pos $1) }
+    | Char                          {% return (charT   :@ pos $1) }
+    | Int                           {% return (intT    :@ pos $1) }
+    | Float                         {% return (floatT  :@ pos $1) }
+    | String                        {% return (stringT :@ pos $1) }
+    | otherwise                     {% do 
+                                        p <- use position
+                                        return (voidT :@ p) 
+                                    }
 
-    | Lval                          {% (\(t :@ _) -> return t) $1 }
+    | Lval                          {% return $1 }
 
     | GenId "(" Args ")"            {% do
                                         symbs <- use symbols
                                         case (item $1 `lookup` symbs) of
-                                            Right (Entry _ t _ _) -> return $ returns t
-                                            Left _ -> do
+                                            Right (Entry _ t _ _) -> 
+                                                return $ (returns t :@ pos $1)
+                                            _ -> do
                                                 err $ UndefinedProcedure (item $1) (pos $1)
-                                                return None
+                                                return (None :@ pos $1)          
                                     }
 
     -- Operators
@@ -454,9 +462,10 @@ Exp
     | Exp or      Exp               {% boolOp $1 $3}
     | Exp orelse  Exp               {% boolOp $1 $3}
     | Exp xor     Exp               {% boolOp $1 $3}
-    |     not     Exp %prec NEG     {% do if $2 == boolT
-                                            then return boolT
-                                            else return None }
+    |     not     Exp %prec NEG     {% do if item $2 == boolT
+                                            then return (boolT :@ pos $2)
+                                            else return (None  :@ pos $2)
+                                    }
 
     ---- Bitwise
     | Exp band Exp                  {% intOp $1 $3}
@@ -464,12 +473,16 @@ Exp
     | Exp bsl  Exp                  {% intOp $1 $3}
     | Exp bsr  Exp                  {% intOp $1 $3}
     | Exp bxor Exp                  {% intOp $1 $3}
-    |     bnot Exp %prec NEG        {% do if $2 == intT
-                                            then return intT
-                                            else return None }
+    |     bnot Exp %prec NEG        {% do if item $2 == intT
+                                            then return (intT :@ pos $2)
+                                            else return (None :@ pos $2)
+                                    }
 
     ---- Array / Record / Either
-    | length Exp                    {% return intT }
+    | length Exp                    {% case item $2 of 
+                                        Array _ _ _ -> return (intT :@ pos $2)
+                                        _           -> return (None :@ pos $2) 
+                                    }
 
     ---- Arithmetic
     | Exp "+" Exp                   {% numOp $1 $3}
@@ -478,33 +491,36 @@ Exp
     | Exp "/" Exp                   {% numOp $1 $3}
     | Exp div Exp                   {% numOp $1 $3}
     | Exp rem Exp                   {% numOp $1 $3}
-    |     "-" Exp %prec NEG         {% uNumOp $2}
+    |     "-" Exp %prec NEG         {% uNumOp   $2}
 
     ---- Relational
     | Exp "<"  Exp                  {% compOp $1 $3}
     | Exp "=<" Exp                  {% compOp $1 $3}
     | Exp ">"  Exp                  {% compOp $1 $3}
     | Exp ">=" Exp                  {% compOp $1 $3}
-    | Exp "="  Exp                  {% do if $1 == $3 then return $1 else return None}
-    | Exp "/=" Exp                  {% do if $1 == $3 then return $1 else return None}
-    | Exp "|"  Exp                  {% intOp $1 $3 }
-    | Exp "!|" Exp                  {% intOp $1 $3 }
+    | Exp "="  Exp                  {% relOp  $1 $3}
+    | Exp "/=" Exp                  {% relOp  $1 $3}
+    | Exp "|"  Exp                  {% intOp  $1 $3}
+    | Exp "!|" Exp                  {% intOp  $1 $3}
 
 Bool
-    : boolLit                       {} -- { unTokenBoolLit   `fmap` $1 }
+    : boolLit                       { unTokenBoolLit `fmap` $1 }
 
 Char
-    : charLit                       {} -- { unTokenCharLit   `fmap` $1 }
+    : charLit                       { unTokenCharLit `fmap` $1 }
 
 Int
-    : intLit                        { unTokenIntLit `fmap` $1 }
+    : intLit                        { unTokenIntLit  `fmap` $1 }
 
 
 Float
-    : floatLit                      {} -- { unTokenFloatLit  `fmap` $1 }
+    : floatLit                      { unTokenFloatLit `fmap` $1 }
 
 String
-    : stringLit                     {% string $1 }
+    : stringLit                     {% do 
+                                        string $1 
+                                        return $ unTokenStringLit  `fmap` $1 
+                                    }
 
 { ------------------------------------------------------------------------------
 parseError :: At Token -> Epilog a
