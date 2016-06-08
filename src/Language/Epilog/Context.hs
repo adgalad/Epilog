@@ -7,7 +7,7 @@ module Language.Epilog.Context
     , string
     , declVar
     , declStruct
-    , isFieldOf
+    , getField
     , findType
     , buildPointers
     , findTypeOfSymbol
@@ -15,13 +15,12 @@ module Language.Epilog.Context
     , buildArray
     , storeProcedure
     , verifyField
-    , boolOp
-    , uNumOp
-    , numOp
-    , compOp
-    , intOp
+    , checkUnOp
+    , checkBinOp
+    , checkCall
     ) where
 --------------------------------------------------------------------------------
+import           Language.Epilog.AST.Expression
 import           Language.Epilog.Type
 import           Language.Epilog.At
 import           Language.Epilog.Epilog
@@ -36,8 +35,8 @@ import           Data.Int      (Int32)
 import           Data.List     (find, sortOn)
 import qualified Data.Map      as Map (elems, insert, insertWith, lookup)
 import           Data.Maybe    (fromJust)
-import           Data.Sequence ((><), (|>))
-import qualified Data.Sequence as Seq (fromList, singleton)
+import           Data.Sequence (Seq, (><), (|>))
+import qualified Data.Sequence as Seq (fromList, singleton, zipWith)
 import           Prelude       hiding (Either, lookup)
 --------------------------------------------------------------------------------
 
@@ -110,25 +109,27 @@ verifyField f@(n :@ p) t = do
     where
         sameName (n1 :@ _,_) = n == n1
 
-isFieldOf :: At String -> At Type -> Epilog (At Type)
-isFieldOf (n :@ pos) (t :@ _) = case t of 
+getField :: At Type -> At String -> Epilog (At Type)
+getField (t :@ _) (n :@ p) = case t of
     Record _ f -> checkField f
     Either _ f -> checkField f
-    _          -> error
+    _          -> error'
 
-    where checkField fields = case n `Map.lookup` fields of 
-                Just t'  -> return (t' :@ pos)
-                Nothing -> error
-          error = do err $ InvalidMember n (name t) pos
-                     return (None :@ pos)
+    where
+        checkField fields = case n `Map.lookup` fields of
+            Just t'  -> return (t' :@ p)
+            Nothing -> error'
+        error' = do
+            err $ InvalidMember n (name t) p
+            return (None :@ p)
 
 
 
 findTypeOfSymbol :: At String -> Epilog (At Type)
-findTypeOfSymbol (name :@ pos) = do 
+findTypeOfSymbol (name :@ p) = do
     symbs <- use symbols
     case name `lookup` symbs of
-        Right (Entry _ t _ _) -> return $ (t :@ pos)
+        Right (Entry _ t _ _) -> return $ (t :@ p)
         Left _ -> return (voidT :@ Position (0,0))
 
 findType :: Name -> Epilog Type
@@ -148,9 +149,9 @@ findType tname = do
 
 checkArray :: At Type -> Type -> Epilog (At Type)
 checkArray (Array _ _ t :@ p) index =
-     if index == intT 
-        then return (t :@ p) 
-        else do 
+     if index == intT
+        then return (t :@ p)
+        else do
             err $ InvalidIndex (name index) p
             return (t :@ p)
 checkArray (_ :@ p) _ = do
@@ -189,28 +190,125 @@ storeProcedure t = do
 
     current .= Nothing
 
-boolOp :: Type -> Type -> Epilog (Type)
-boolOp t1 t2 = if t1 == t2 && t1 == boolT
-    then return t1
-    else return None
 
-uNumOp :: Type -> Epilog (Type)
-uNumOp t = if t == intT || t == floatT
-    then return t
-    else return None
+checkCall :: At Name -> Seq Type -> Epilog Type
+checkCall (pname :@ p) ts = do
+    symbs <- use symbols
+    case (pname `lookup` symbs) of
+        Right (Entry _ (ets :-> ret) _ _) -> do
+            if length ts == length ets && and (Seq.zipWith join ets ts)
+                then return ret
+                else do
+                    err $ BadCall pname ts ets p
+                    return None
 
-numOp :: Type -> Type -> Epilog (Type)
-numOp t1 t2 = if t1 == t2 && (t1 == intT || t1 == floatT)
-    then return t1
-    else return None
+        Right (Entry _ _ _ _) -> do
+            err $ UndefinedProcedure pname p
+            return None
 
-compOp :: Type -> Type -> Epilog (Type)
-compOp t1 t2 = 
-    if t1==t2 && (t1 == intT || t1 == floatT)
-        then return boolT
-        else return None
+        Left _ -> do
+            err $ UndefinedProcedure pname p
+            return None
 
-intOp :: Type -> Type -> Epilog (Type)
-intOp t1 t2 = if t1 == t2 && t1 == intT
-    then return t1
-    else return None
+    where
+        join :: Type -> Type -> Bool
+        join Any  _ = True
+        join None _ = False
+        join (OneOf ts') t  = t `elem` ts'
+        join (Alias t1) (Alias t2) = t1 == t2
+        join (Array {inner = i1}) (Array {inner = i2}) = join i1 i2
+        join (Pointer p1) (Pointer p2) = join p1 p2
+        join t1 t2 = t1 == t2
+
+
+checkBinOp :: (At BinaryOp) -> Type -> Type -> Epilog Type
+checkBinOp (op :@ p) = aux opTypes
+    where
+        aux [] t1 t2 = do
+            err $ BadBinaryExpression op (t1, t2) (domain opTypes) p
+            return None
+        aux ((et1, et2, rt):ts) t1 t2 = if t1 == et1 && t2 == et2
+            then return rt
+            else aux ts t1 t2
+        opTypes = typeBinOp op
+        domain = map (\(a, b, _) -> (a, b))
+
+checkUnOp :: (At UnaryOp) -> Type -> Epilog Type
+checkUnOp (op :@ p) = aux opTypes
+    where
+        aux [] t1 = do
+            err $ BadUnaryExpression op t1 (domain opTypes) p
+            return None
+        aux ((et1, rt):ts) t1 = if t1 == et1
+            then return rt
+            else aux ts t1
+        opTypes = typeUnOp op
+        domain = map fst
+
+
+typeBinOp :: BinaryOp -> [(Type, Type, Type)]
+typeBinOp And      = [ ( boolT,  boolT,  boolT  ) ]
+typeBinOp Andalso  = [ ( boolT,  boolT,  boolT  ) ]
+typeBinOp Or       = [ ( boolT,  boolT,  boolT  ) ]
+typeBinOp Orelse   = [ ( boolT,  boolT,  boolT  ) ]
+typeBinOp Xor      = [ ( boolT,  boolT,  boolT  ) ]
+
+typeBinOp Band     = [ ( intT,   intT,   intT   ) ]
+typeBinOp Bor      = [ ( intT,   intT,   intT   ) ]
+typeBinOp Bsl      = [ ( intT,   intT,   intT   ) ]
+typeBinOp Bsr      = [ ( intT,   intT,   intT   ) ]
+typeBinOp Bxor     = [ ( intT,   intT,   intT   ) ]
+
+typeBinOp Plus     = [ ( intT,   intT,   intT   )
+                     , ( floatT, floatT, floatT )
+                     ]
+typeBinOp Minus    = [ ( intT,   intT,   intT   )
+                     , ( floatT, floatT, floatT )
+                     ]
+typeBinOp Times    = [ ( intT,   intT,   intT   )
+                     , ( floatT, floatT, floatT )
+                     ]
+
+typeBinOp FloatDiv = [ ( floatT, floatT, floatT ) ]
+
+typeBinOp IntDiv   = [ ( intT,   intT,   intT   ) ]
+typeBinOp Rem      = [ ( intT,   intT,   intT   ) ]
+
+typeBinOp LTop     = [ ( intT,   intT,   intT   )
+                     , ( floatT, floatT, floatT )
+                     , ( charT,  charT,  charT  )
+                     ]
+typeBinOp LEop     = [ ( intT,   intT,   intT   )
+                     , ( floatT, floatT, floatT )
+                     , ( charT,  charT,  charT  )
+                     ]
+typeBinOp GTop     = [ ( intT,   intT,   intT   )
+                     , ( floatT, floatT, floatT )
+                     , ( charT,  charT,  charT  )
+                     ]
+typeBinOp GEop     = [ ( intT,   intT,   intT   )
+                     , ( floatT, floatT, floatT )
+                     , ( charT,  charT,  charT  )
+                     ]
+
+typeBinOp EQop     = [ ( intT,   intT,   intT   )
+                     , ( floatT, floatT, floatT )
+                     , ( charT,  charT,  charT  )
+                     , ( boolT,  boolT,  boolT  )
+                     ]
+typeBinOp NEop     = [ ( intT,   intT,   intT   )
+                     , ( floatT, floatT, floatT )
+                     , ( charT,  charT,  charT  )
+                     , ( boolT,  boolT,  boolT  )
+                     ]
+
+typeBinOp FAop     = [ ( intT,   intT,   boolT  ) ]
+typeBinOp NFop     = [ ( intT,   intT,   boolT  ) ]
+
+
+typeUnOp :: UnaryOp -> [(Type, Type)]
+typeUnOp Not         = [ ( boolT,  boolT  ) ]
+typeUnOp Bnot        = [ ( intT,   intT   ) ]
+typeUnOp Uminus      = [ ( intT,   intT   )
+                       , ( floatT, floatT )
+                       ]

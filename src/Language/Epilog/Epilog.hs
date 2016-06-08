@@ -79,11 +79,17 @@ makeLenses ''EpilogState
 
 predefinedProcs :: [Entry]
 predefinedProcs =
-    [ entry "toBoolean"   ([Any] :-> boolT ) Epilog
-    , entry "toCharacter" ([Any] :-> charT ) Epilog
-    , entry "toFloat"     ([Any] :-> floatT) Epilog
-    , entry "toInteger"   ([Any] :-> intT  ) Epilog
-    ] -- Must be ascending
+    [ entry "toBoolean"
+        ([OneOf [        charT, floatT, intT ]] :-> boolT ) Epilog
+    , entry "toCharacter"
+        ([OneOf [ boolT,        floatT, intT ]] :-> charT ) Epilog
+    , entry "toFloat"
+        ([OneOf [ boolT, charT,         intT ]] :-> floatT) Epilog
+    , entry "toInteger"
+        ([OneOf [ boolT, charT, floatT       ]] :-> intT  ) Epilog
+    , entry "length"
+        ([Array 0 0 Any] :-> intT  ) Epilog
+    ]
 
 basicTypes :: Map Name (Type, Position)
 basicTypes =

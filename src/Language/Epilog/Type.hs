@@ -57,7 +57,8 @@ data Type
     | Record  { name    :: String,   fields  :: Map Name Type }
     | Either  { name    :: String,   fields  :: Map Name Type }
     | (:->)   { params  :: Seq Type, returns :: Type }
-    | Alias   { name :: Name }
+    | Alias   { name    :: Name }
+    | OneOf   { options :: [Type] }
     | Any
     | None
     | Undef   { name :: Name}
@@ -77,6 +78,7 @@ instance Show Type where
         (:->)   { params, returns }  ->
             "procedure (" ++ showPs params ++ ") → " ++ show returns
         Alias   { name }             -> name
+        OneOf   { options }          -> "one of " ++ show options
         Any                          -> "any type"
         None                         -> "no type at all"
         Undef   { name }             -> "undefined type `" ++ name ++ "`"
@@ -104,6 +106,7 @@ instance Treelike Type where
                 , Node "returns" [toTree returns]
                 ]
         Alias   { name }             -> leaf name
+        OneOf   { options }          -> Node "One of" (toForest options)
         Any                          -> leaf "any type"
         None                         -> leaf "no type at all"
         Undef   { name }             ->

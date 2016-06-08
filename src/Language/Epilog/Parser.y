@@ -50,7 +50,6 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
     bxor            { TokenBxor :@ _ }
 
     ---- Array / Record / Either
-    length          { TokenLength       :@ _ }
     "["             { TokenLeftBracket  :@ _ }
     "]"             { TokenRightBracket :@ _ }
     "{"             { TokenLeftBrace    :@ _ }
@@ -143,8 +142,6 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
 %left     "*" "/" div rem
 
 %right    NEG
-
-%nonassoc length
 
 %% -----------------------------------------------------------------------------
 -- Program -----------------------------
@@ -272,12 +269,13 @@ Declaration
     : Type VarId                    { % do declVar $1 $2 }
 
 Initialization
-    : Type VarId is Exp             {% do
-                                        declVar $1 $2
-                                        if (item $1) /= $4
-                                            then err $ InvalidAssign (item $1) $4 (pos $1)
-                                            else return ()
-                                    }
+    : Type VarId is Exp
+    {% do
+        declVar $1 $2
+        if item $1 /= $4
+            then err $ InvalidAssign (item $1) $4 (pos $1)
+            else return ()
+    }
 
 Type
     : Type1
@@ -342,22 +340,26 @@ TSize
 
 ------ Assignment ------------------------
 Assign
-    : Lval is Exp                   {% do
-                                        symbs <- use symbols
-                                        if item $1 /= $3
-                                            then if $3 == None
-                                                then return () 
-                                                else err $ InvalidAssign (item $1) $3 (pos $1)
-                                            else return ()
-                                    }
+    : Lval is Exp
+    {% do
+        symbs <- use symbols
+        if item $1 /= $3
+            then err $ InvalidAssign (item $1) $3 (pos $1)
+            else return ()
+    }
 
 Lval
-    : VarId                         { %do
-                                        isSymbol' $1
-                                        findTypeOfSymbol $1
-                                    }
-    | Lval "[" Exp "]"              {% checkArray $1 $3  }
-    | Lval "_" VarId                {% $3 `isFieldOf` $1 }
+    : VarId
+    { %do
+        isSymbol' $1
+        findTypeOfSymbol $1
+    }
+
+    | Lval "[" Exp "]"
+    {% checkArray $1 $3  }
+
+    | Lval "_" VarId
+    {% $1 `getField` $3 }
 
 
 VarId
@@ -365,15 +367,15 @@ VarId
 
 ------ Call ------------------------------
 Call
-   : GenId "(" Args ")"             {}
+   : GenId "(" Args ")"             { checkCall $1 $3 }
 
 Args
-   : {- lambda -}                   {}
-   | Args1                          {}
+   : {- lambda -}                   { Seq.empty }
+   | Args1                          { $1 }
 
 Args1
-   : Exp                            {}
-   | Args1 "," Exp                  {}
+   : Exp                            { Seq.singleton $1 }
+   | Args1 "," Exp                  { $1 |> $3 }
 
 ---- If --------------------------------
 If
@@ -428,67 +430,53 @@ While
 
 ---- Expressions -------------------------
 Exp
-    : "(" Exp ")"                   {% return $2      }
-    | Bool                          {% return boolT   }
-    | Char                          {% return charT   }
-    | Int                           {% return intT    }
-    | Float                         {% return floatT  }
-    | String                        {% return stringT }
-    | otherwise                     {% return voidT   }
+    : "(" Exp ")"                   { $2      }
+    | Bool                          { boolT   }
+    | Char                          { charT   }
+    | Int                           { intT    }
+    | Float                         { floatT  }
+    | String                        { stringT }
+    -- | otherwise                     { voidT   }
 
-    | Lval                          {% (\(t :@ _) -> return t) $1 }
+    | Lval                          { item $1 }
 
-    | GenId "(" Args ")"            {% do
-                                        symbs <- use symbols
-                                        case (item $1 `lookup` symbs) of
-                                            Right (Entry _ t _ _) -> return $ returns t
-                                            Left _ -> do
-                                                err $ UndefinedProcedure (item $1) (pos $1)
-                                                return None
-                                    }
+    | GenId "(" Args ")"            {% checkCall $1 $3 }
 
     -- Operators
     ---- Logical
-    | Exp and     Exp               {% boolOp $1 $3}
-    | Exp andalso Exp               {% boolOp $1 $3}
-    | Exp or      Exp               {% boolOp $1 $3}
-    | Exp orelse  Exp               {% boolOp $1 $3}
-    | Exp xor     Exp               {% boolOp $1 $3}
-    |     not     Exp %prec NEG     {% do if $2 == boolT
-                                            then return boolT
-                                            else return None }
+    | Exp and     Exp               {% checkBinOp (And      :@ pos $2) $1 $3 }
+    | Exp andalso Exp               {% checkBinOp (Andalso  :@ pos $2) $1 $3 }
+    | Exp or      Exp               {% checkBinOp (Or       :@ pos $2) $1 $3 }
+    | Exp orelse  Exp               {% checkBinOp (Orelse   :@ pos $2) $1 $3 }
+    | Exp xor     Exp               {% checkBinOp (Xor      :@ pos $2) $1 $3 }
+    |     not     Exp %prec NEG     {% checkUnOp  (Not      :@ pos $1) $2 }
 
     ---- Bitwise
-    | Exp band Exp                  {% intOp $1 $3}
-    | Exp bor  Exp                  {% intOp $1 $3}
-    | Exp bsl  Exp                  {% intOp $1 $3}
-    | Exp bsr  Exp                  {% intOp $1 $3}
-    | Exp bxor Exp                  {% intOp $1 $3}
-    |     bnot Exp %prec NEG        {% do if $2 == intT
-                                            then return intT
-                                            else return None }
-
-    ---- Array / Record / Either
-    | length Exp                    {% return intT }
+    | Exp band Exp                  {% checkBinOp (Band     :@ pos $2) $1 $3 }
+    | Exp bor  Exp                  {% checkBinOp (Bor      :@ pos $2) $1 $3 }
+    | Exp bsl  Exp                  {% checkBinOp (Bsl      :@ pos $2) $1 $3 }
+    | Exp bsr  Exp                  {% checkBinOp (Bsr      :@ pos $2) $1 $3 }
+    | Exp bxor Exp                  {% checkBinOp (Bxor     :@ pos $2) $1 $3 }
+    |     bnot Exp %prec NEG        {% checkUnOp  (Bnot     :@ pos $1) $2 }
 
     ---- Arithmetic
-    | Exp "+" Exp                   {% numOp $1 $3}
-    | Exp "-" Exp                   {% numOp $1 $3}
-    | Exp "*" Exp                   {% numOp $1 $3}
-    | Exp "/" Exp                   {% numOp $1 $3}
-    | Exp div Exp                   {% numOp $1 $3}
-    | Exp rem Exp                   {% numOp $1 $3}
-    |     "-" Exp %prec NEG         {% uNumOp $2}
+    | Exp "+" Exp                   {% checkBinOp (Plus     :@ pos $2) $1 $3 }
+    | Exp "-" Exp                   {% checkBinOp (Minus    :@ pos $2) $1 $3 }
+    | Exp "*" Exp                   {% checkBinOp (Times    :@ pos $2) $1 $3 }
+    | Exp "/" Exp                   {% checkBinOp (FloatDiv :@ pos $2) $1 $3 }
+    | Exp div Exp                   {% checkBinOp (IntDiv   :@ pos $2) $1 $3 }
+    | Exp rem Exp                   {% checkBinOp (Rem      :@ pos $2) $1 $3 }
+    |     "-" Exp %prec NEG         {% checkUnOp  (Uminus   :@ pos $1) $2 }
 
     ---- Relational
-    | Exp "<"  Exp                  {% compOp $1 $3}
-    | Exp "=<" Exp                  {% compOp $1 $3}
-    | Exp ">"  Exp                  {% compOp $1 $3}
-    | Exp ">=" Exp                  {% compOp $1 $3}
-    | Exp "="  Exp                  {% do if $1 == $3 then return $1 else return None}
-    | Exp "/=" Exp                  {% do if $1 == $3 then return $1 else return None}
-    | Exp "|"  Exp                  {% intOp $1 $3 }
-    | Exp "!|" Exp                  {% intOp $1 $3 }
+    | Exp "<"  Exp                  {% checkBinOp (LTop     :@ pos $2) $1 $3 }
+    | Exp "=<" Exp                  {% checkBinOp (LEop     :@ pos $2) $1 $3 }
+    | Exp ">"  Exp                  {% checkBinOp (GTop     :@ pos $2) $1 $3 }
+    | Exp ">=" Exp                  {% checkBinOp (GEop     :@ pos $2) $1 $3 }
+    | Exp "="  Exp                  {% checkBinOp (EQop     :@ pos $2) $1 $3 }
+    | Exp "/=" Exp                  {% checkBinOp (NEop     :@ pos $2) $1 $3 }
+    | Exp "|"  Exp                  {% checkBinOp (FAop     :@ pos $2) $1 $3 }
+    | Exp "!|" Exp                  {% checkBinOp (NFop     :@ pos $2) $1 $3 }
 
 Bool
     : boolLit                       {} -- { unTokenBoolLit   `fmap` $1 }
@@ -498,7 +486,6 @@ Char
 
 Int
     : intLit                        { unTokenIntLit `fmap` $1 }
-
 
 Float
     : floatLit                      {} -- { unTokenFloatLit  `fmap` $1 }

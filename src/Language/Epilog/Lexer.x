@@ -89,7 +89,6 @@ epilog :-
     <0> "bxor"                  { make TokenBxor }
 
     ---- Array / Record / Either / Pointer
-    <0> "length"                { make TokenLength       }
     <0> "_"                     { make TokenUnderscore   }
     <0> "["                     { make TokenLeftBracket  }
     <0> "]"                     { make TokenRightBracket }

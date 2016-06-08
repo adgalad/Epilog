@@ -18,7 +18,7 @@ data Token
     | TokenBand | TokenBor | TokenBnot | TokenBsl  | TokenBsr  | TokenBxor
 
     ---- Array / Record / Either / Pointer
-    | TokenLength      | TokenUnderscore
+    | TokenUnderscore
     | TokenLeftBracket | TokenRightBracket
     | TokenLeftBrace   | TokenRightBrace
     | TokenCaret
@@ -104,7 +104,6 @@ instance Show Token where
         TokenBxor -> "bxor"
 
     ---- Array / Record / Either / Pointer
-        TokenLength       -> "length"
         TokenUnderscore   -> "_"
         TokenLeftBracket  -> "["
         TokenRightBracket -> "]"

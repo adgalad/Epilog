@@ -9,9 +9,11 @@ import           Language.Epilog.Type hiding (name)
 import           Language.Epilog.Common
 import           Language.Epilog.Position
 import           Language.Epilog.Token
+import           Language.Epilog.AST.Expression
 --------------------------------------------------------------------------------
 import           Data.Function            (on)
 import           Data.Sequence            (Seq)
+import           Data.Foldable            (toList)
 --------------------------------------------------------------------------------
 type Errors = Seq EpilogError
 
@@ -50,6 +52,12 @@ data EpilogError
     | UndefinedProcedure
         { upName :: Name
         , upP    :: Position
+        }
+    | BadCall
+        { bcName  :: Name
+        , bcArgs  :: Seq Type
+        , bcEArgs :: Seq Type
+        , bcP     :: Position
         }
     | InvalidMember
         { imName :: Name
@@ -98,6 +106,18 @@ data EpilogError
         { utT :: Token
         , utP :: Position
         }
+    | BadBinaryExpression
+        { bbeOp  :: BinaryOp
+        , bbeTS  ::  (Type, Type)
+        , bbeETS :: [(Type, Type)]
+        , bbeP   :: Position
+        }
+    | BadUnaryExpression
+        { bueOp  :: UnaryOp
+        , bueT   ::  Type
+        , bueETS :: [Type]
+        , bueP   :: Position
+        }
     deriving (Eq)
 
 instance P EpilogError where
@@ -110,7 +130,7 @@ instance P EpilogError where
         InvalidIndex               _ p -> p
         InvalidMember            _ _ p -> p
         LexicalError                 p -> p
-        MemberOfArray              _ p -> p       
+        MemberOfArray              _ p -> p
         NoMain                       p -> p
         OutOfScope                 _ p -> p
         Overflow                   _ p -> p
@@ -118,9 +138,12 @@ instance P EpilogError where
         UnclosedComment                -> Code
         UnclosedStringLit          _ p -> p
         UndefinedProcedure         _ p -> p
+        BadCall                _ _ _ p -> p
         UndefinedType              _ p -> p
         Underflow                  _ p -> p
         UnexpectedToken            _ p -> p
+        BadBinaryExpression    _ _ _ p -> p
+        BadUnaryExpression     _ _ _ p -> p
 
 instance Ord EpilogError where
     compare = compare `on` pos
@@ -144,7 +167,7 @@ instance Show EpilogError where
 
         InvalidAssign t1 t2 p->
             "Attempted to assign an expression of type `" ++ show t2 ++
-            "` to a lval of type `" ++ show t1 ++ "` " ++ showP p
+            "` to an lval of type `" ++ show t1 ++ "` " ++ showP p
 
         InvalidArray p ->
             "Index of non-array variable " ++ showP p
@@ -187,9 +210,14 @@ instance Show EpilogError where
             "Attempted to declare variable of undefined type " ++ showP p ++
             ", type `" ++ nameT ++ "`"
 
-        UndefinedProcedure  name p ->
+        UndefinedProcedure name p ->
             "Call to undeclared procedure " ++ showP p ++ " named `" ++
             name ++ "`"
+
+        BadCall name args expArgs p ->
+            "Bad call to procedure " ++ showP p ++ " named `" ++
+            name ++ "`, expected args of types " ++ show (toList expArgs) ++
+            ", but instead received " ++ show (toList args)
 
         Underflow msg p ->
             "Underflow \n" ++ msg ++ "\n" ++ show p
@@ -199,3 +227,13 @@ instance Show EpilogError where
 
         UnexpectedToken t p ->
             "Unexpected token \n" ++ show t ++ "\n" ++ show p
+
+        BadBinaryExpression op ts ets p ->
+            "Bad binary expression " ++ showP p ++ ", operator `" ++
+            show op ++ "` expected one pair of " ++ show ets ++
+            ", but received " ++ show ts
+
+        BadBinaryExpression op t ets p ->
+            "Bad unary expression " ++ showP p ++ ", operator `" ++
+            show op ++ "` expected one of " ++ show ets ++
+            ", but received `" ++ show t ++ "`"

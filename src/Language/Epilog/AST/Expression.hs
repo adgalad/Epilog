@@ -87,7 +87,6 @@ instance Treelike Expression where
 data BinaryOp
     = And | Andalso | Or | Orelse | Xor
     | Band | Bor | Bsl | Bsr | Bxor
-    | Colon | Underscore
     | Plus | Minus | Times | FloatDiv | IntDiv | Rem
     | LTop | LEop | GTop | GEop | EQop | NEop | FAop | NFop
     deriving Eq
@@ -104,8 +103,6 @@ instance Show BinaryOp where
         Bsl        -> "bsl"
         Bsr        -> "bsr"
         Bxor       -> "bxor"
-        Colon      -> "(:)"
-        Underscore -> "(_)"
         Plus       -> "(+)"
         Minus      -> "(-)"
         Times      -> "(*)"
@@ -124,24 +121,14 @@ instance Show BinaryOp where
 data UnaryOp
     = Not
     | Bnot
-    | Length
     | Uminus
-    | ToBoolean
-    | ToCharacter
-    | ToFloat
-    | ToInteger
     deriving Eq
 
 instance Show UnaryOp where
     show = \case
         Not         -> "not"
         Bnot        -> "bnot"
-        Length      -> "length"
         Uminus      -> "(-)"
-        ToBoolean   -> "toBoolean"
-        ToCharacter -> "toCharacter"
-        ToFloat     -> "toFloat"
-        ToInteger   -> "toInteger"
 
 -- Lval ------------------------------------------------------------------------
 

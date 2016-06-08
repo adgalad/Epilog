@@ -161,7 +161,7 @@ between booleans and return booleans.
 The operators `bnot`, `div`, `rem`, `bsl`, `bsr`, `band`, `bxor` and `bor`
 only work between integers, and return integers.
 
-The operator `|` only works between integers and returns a boolean.
+The operators `|` and `!|` only work between integers and return booleans.
 
 The operators `<`, `=<`, `>`, and `>=` work on chars, floats and integers,
 taking two values of the same type and returning a boolean.
