@@ -13,13 +13,20 @@ record r :-
 	^r Z.
 
 
+
 procedure main (integer Hola) :-
 	integer G is ((5)),
 	character C is 'c',
-	C is 5,
+	r Kilo,
+
+	C is Kilo_Z,
+	integer[4} P,
+	C is P['c'],
+	C is C[1],
 	for integer I 
 		from 1 to 5 -> 
 			integer H is 5,
 			if H > 6 -> character P is 'c' end
 		end,
+	C is C_T,
 	integer U.

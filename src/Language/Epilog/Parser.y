@@ -345,28 +345,20 @@ Assign
     : Lval is Exp                   {% do
                                         symbs <- use symbols
                                         if item $1 /= $3
-                                            then err $ InvalidAssign (item $1) $3 (pos $1)
+                                            then if $3 == None
+                                                then return () 
+                                                else err $ InvalidAssign (item $1) $3 (pos $1)
                                             else return ()
                                     }
 
 Lval
     : VarId                         { %do
                                         isSymbol' $1
-                                        symbs <- use symbols
-                                        case item $1 `lookup` symbs of
-                                            Right (Entry _ t _ _) -> return $ (t :@ pos $1)
-                                            Left _ -> return (voidT :@ Position (0,0))
+                                        findTypeOfSymbol $1
                                     }
+    | Lval "[" Exp "]"              {% checkArray $1 $3  }
+    | Lval "_" VarId                {% $3 `isFieldOf` $1 }
 
-
-
-    | Lval "_" VarId                {% do
-                                        isSymbol' $3
-
--- - Not working yet - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-                                        return (voidT :@ Position (0,0))
-                                    }
-    | Lval "[" Exp "]"              {% return (voidT :@ Position (0,0)) }
 
 VarId
     : varId                         { unTokenVarId `fmap` $1 }
@@ -444,7 +436,7 @@ Exp
     | String                        {% return stringT }
     | otherwise                     {% return voidT   }
 
-    | Lval                          {% return boolT }
+    | Lval                          {% (\(t :@ _) -> return t) $1 }
 
     | GenId "(" Args ")"            {% do
                                         symbs <- use symbols
@@ -489,10 +481,10 @@ Exp
     |     "-" Exp %prec NEG         {% uNumOp $2}
 
     ---- Relational
-    | Exp "<"  Exp                  {% numOp $1 $3}
-    | Exp "=<" Exp                  {% numOp $1 $3}
-    | Exp ">"  Exp                  {% numOp $1 $3}
-    | Exp ">=" Exp                  {% numOp $1 $3}
+    | Exp "<"  Exp                  {% compOp $1 $3}
+    | Exp "=<" Exp                  {% compOp $1 $3}
+    | Exp ">"  Exp                  {% compOp $1 $3}
+    | Exp ">=" Exp                  {% compOp $1 $3}
     | Exp "="  Exp                  {% do if $1 == $3 then return $1 else return None}
     | Exp "/=" Exp                  {% do if $1 == $3 then return $1 else return None}
     | Exp "|"  Exp                  {% intOp $1 $3 }

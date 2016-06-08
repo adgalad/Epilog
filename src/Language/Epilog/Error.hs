@@ -53,6 +53,7 @@ data EpilogError
         }
     | InvalidMember
         { imName :: Name
+        , imT    :: String
         , imP    :: Position
         }
     | MemberOfArray
@@ -64,8 +65,12 @@ data EpilogError
         , iaSndT :: Type
         , iaP    :: Position
         }
+    | InvalidArray
+        { iaP :: Position }
     | InvalidIndex
-        { iiP :: Position }
+        { iiT :: String
+        , iiP :: Position
+        }
     | NoMain
         { nmP :: Position }
     | LexicalError
@@ -101,10 +106,11 @@ instance P EpilogError where
         DuplicateDeclaration _ _ _ _ p -> p
         DuplicateField _ _ _ _ _ _ _ p -> p
         InvalidAssign            _ _ p -> p
-        InvalidIndex                 p -> p
-        InvalidMember              _ p -> p
+        InvalidArray                 p -> p
+        InvalidIndex               _ p -> p
+        InvalidMember            _ _ p -> p
         LexicalError                 p -> p
-        MemberOfArray              _ p -> p
+        MemberOfArray              _ p -> p       
         NoMain                       p -> p
         OutOfScope                 _ p -> p
         Overflow                   _ p -> p
@@ -140,12 +146,15 @@ instance Show EpilogError where
             "Attempted to assign an expression of type `" ++ show t2 ++
             "` to a lval of type `" ++ show t1 ++ "` " ++ showP p
 
-        InvalidIndex p ->
+        InvalidArray p ->
             "Index of non-array variable " ++ showP p
 
-        InvalidMember member p ->
-            "Invalid member requested " ++ showP p ++ " named `" ++
-            member ++ "`"
+        InvalidIndex t p ->
+            "Attempted to use an index of type `" ++ t ++ "` " ++ showP p
+
+        InvalidMember member t p ->
+            "Not member named `" ++ member ++ "` "++ showP p ++
+            " in type `" ++ t ++ "`"
 
         MemberOfArray member p ->
             "Expected array index instead of member " ++ showP p ++
@@ -172,7 +181,7 @@ instance Show EpilogError where
 
         RecursiveType t name p ->
             "Attempted to declare a recursive field named `" ++ name ++
-            "` in struct `" ++ t ++ "` " ++ showP p
+            "` " ++ showP p ++" in struct `" ++ t ++ "`"
 
         UndefinedType nameT p ->
             "Attempted to declare variable of undefined type " ++ showP p ++

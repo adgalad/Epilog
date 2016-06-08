@@ -7,14 +7,18 @@ module Language.Epilog.Context
     , string
     , declVar
     , declStruct
+    , isFieldOf
     , findType
     , buildPointers
+    , findTypeOfSymbol
+    , checkArray
     , buildArray
     , storeProcedure
     , verifyField
     , boolOp
     , uNumOp
     , numOp
+    , compOp
     , intOp
     ) where
 --------------------------------------------------------------------------------
@@ -34,7 +38,7 @@ import qualified Data.Map      as Map (elems, insert, insertWith, lookup)
 import           Data.Maybe    (fromJust)
 import           Data.Sequence ((><), (|>))
 import qualified Data.Sequence as Seq (fromList, singleton)
-import           Prelude       hiding (Either)
+import           Prelude       hiding (Either, lookup)
 --------------------------------------------------------------------------------
 
 string :: At Token -> Epilog ()
@@ -106,6 +110,26 @@ verifyField f@(n :@ p) t = do
     where
         sameName (n1 :@ _,_) = n == n1
 
+isFieldOf :: At String -> At Type -> Epilog (At Type)
+isFieldOf (n :@ pos) (t :@ _) = case t of 
+    Record _ f -> checkField f
+    Either _ f -> checkField f
+    _          -> error
+
+    where checkField fields = case n `Map.lookup` fields of 
+                Just t'  -> return (t' :@ pos)
+                Nothing -> error
+          error = do err $ InvalidMember n (name t) pos
+                     return (None :@ pos)
+
+
+
+findTypeOfSymbol :: At String -> Epilog (At Type)
+findTypeOfSymbol (name :@ pos) = do 
+    symbs <- use symbols
+    case name `lookup` symbs of
+        Right (Entry _ t _ _) -> return $ (t :@ pos)
+        Left _ -> return (voidT :@ Position (0,0))
 
 findType :: Name -> Epilog Type
 findType tname = do
@@ -122,6 +146,16 @@ findType tname = do
         Nothing ->
             return $ Undef tname
 
+checkArray :: At Type -> Type -> Epilog (At Type)
+checkArray (Array _ _ t :@ p) index =
+     if index == intT 
+        then return (t :@ p) 
+        else do 
+            err $ InvalidIndex (name index) p
+            return (t :@ p)
+checkArray (_ :@ p) _ = do
+    err $ InvalidArray p
+    return (None :@ p)
 
 buildPointers :: Int -> Type -> Epilog Type
 buildPointers 0 t = return t
@@ -169,6 +203,12 @@ numOp :: Type -> Type -> Epilog (Type)
 numOp t1 t2 = if t1 == t2 && (t1 == intT || t1 == floatT)
     then return t1
     else return None
+
+compOp :: Type -> Type -> Epilog (Type)
+compOp t1 t2 = 
+    if t1==t2 && (t1 == intT || t1 == floatT)
+        then return boolT
+        else return None
 
 intOp :: Type -> Type -> Epilog (Type)
 intOp t1 t2 = if t1 == t2 && t1 == intT

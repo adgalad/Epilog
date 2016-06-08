@@ -23,7 +23,7 @@ either intchar :-
   character C.
 
 %% Functions for complex numbers
-function complex(integer X, integer Y) -> complex :-
+procedure complex(integer X, integer Y) -> complex :-
   %% How in sweet hell are we going to return struct types? is it even possible
   %% in the general case?
   complex C,
@@ -31,26 +31,26 @@ function complex(integer X, integer Y) -> complex :-
   C_Imaginary is Y,
   return C.
 
-function sum(complex A, complex B) -> complex :-
+procedure sum(complex A, complex B) -> complex :-
   complex C,
   C_Real      is A_Real      + B_Real,
   C_Imaginary is A_Imaginary + B_Imaginary,
   return C.
 
-function negate(complex A) -> complex :-
+procedure negate(complex A) -> complex :-
   complex C,
   C_Real      is -A_Real,
   C_Imaginary is -A_Imaginary,
   return C.
 
-%% Other functions
-function prod(complex A, complex B) -> complex :-
+%% Other procedures
+procedure prod(complex A, complex B) -> complex :-
   complex C,
   C_Real      is (A_Real * B_Real)      - (A_Imaginary * B_Imaginary),
   C_Imaginary is (A_Real * B_Imaginary) + (A_Imaginary * B_Real),
   return C.
 
-function power(integer Base, integer Exponent) -> integer :-
+procedure power(integer Base, integer Exponent) -> integer :-
   integer Result,
 
   %% The operator `|`, as in `A|B` returns true if A divides B with
@@ -68,20 +68,20 @@ function power(integer Base, integer Exponent) -> integer :-
 
   return(Result).
 
-function max(integer A, integer B) -> integer :-
-  %% How in hell are we going to make sure a function always returns (!?)
+procedure max(integer A, integer B) -> integer :-
+  %% How in hell are we going to make sure a procedure always returns (!?)
   if
     A =< B -> return B;
     A >  B -> return A
   end.
 
-function min(integer A, integer B) -> integer :-
+procedure min(integer A, integer B) -> integer :-
   if
     A =< B -> return A;
     A >  B -> return B
   end.
 
-function f(integer X) -> integer :-
+procedure f(integer X) -> integer :-
   %% stuffs
   bool B is X < 10 and ((((True)))) and (True or (False) or (False and True)),
 
