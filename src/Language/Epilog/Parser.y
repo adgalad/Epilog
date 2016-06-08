@@ -345,9 +345,7 @@ Assign
     : Lval is Exp                   {% do
                                         symbs <- use symbols
                                         if item $1 /= (item $3)
-                                            then if (item $3) == None
-                                                then return () 
-                                                else err $ InvalidAssign (item $1) (item $3) (pos $1)
+                                            then err $ InvalidAssign (item $1) (item $3) (pos $1)
                                             else return ()
                                     }
 
@@ -432,18 +430,18 @@ While
 
 ---- Expressions -------------------------
 Exp
-    : "(" Exp ")"                   {% return $2         }
-    | Bool                          {% return (boolT   :@ pos $1) }
-    | Char                          {% return (charT   :@ pos $1) }
-    | Int                           {% return (intT    :@ pos $1) }
-    | Float                         {% return (floatT  :@ pos $1) }
-    | String                        {% return (stringT :@ pos $1) }
+    : "(" Exp ")"                   { $2 }
+    | Bool                          { (boolT   :@ pos $1) }
+    | Char                          { (charT   :@ pos $1) }
+    | Int                           { (intT    :@ pos $1) }
+    | Float                         { (floatT  :@ pos $1) }
+    | String                        { (stringT :@ pos $1) }
     | otherwise                     {% do 
                                         p <- use position
                                         return (voidT :@ p) 
                                     }
 
-    | Lval                          {% return $1 }
+    | Lval                          { $1 }
 
     | GenId "(" Args ")"            {% do
                                         symbs <- use symbols

@@ -165,8 +165,6 @@ checkFor (t1 :@ p) (t2 :@ _) =
         then return ()
         else err $ InvalidRange (name t1) (name t2) (p)
 
-
-
 buildPointers :: Int -> Type -> Epilog Type
 buildPointers 0 t = return t
 buildPointers n t = Pointer <$> buildPointers (n-1) t
