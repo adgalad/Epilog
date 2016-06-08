@@ -19,7 +19,7 @@ import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction hiding (Set)
 import qualified Language.Epilog.AST.Instruction as Inst (Set)
 import           Language.Epilog.AST.Program
-import           Language.Epilog.AST.Type
+import           Language.Epilog.Type
 import           Language.Epilog.Position
 import           Language.Epilog.SymbolTable     hiding (empty)
 import qualified Language.Epilog.SymbolTable     as ST (lookup)

@@ -5,7 +5,7 @@ module Language.Epilog.Error
     , Errors
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.AST.Type hiding (name)
+import           Language.Epilog.Type hiding (name)
 import           Language.Epilog.Common
 import           Language.Epilog.Position
 import           Language.Epilog.Token

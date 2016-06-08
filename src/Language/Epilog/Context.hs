@@ -8,7 +8,7 @@ module Language.Epilog.Context
     , declVar
     , declStruct
     , findType
-    , buildPointer
+    , buildPointers
     , buildArray
     , storeProcedure
     , verifyField
@@ -18,12 +18,13 @@ module Language.Epilog.Context
     , intOp
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.AST.Type
+import           Language.Epilog.Type
 import           Language.Epilog.At
 import           Language.Epilog.Epilog
 import           Language.Epilog.Error
 import           Language.Epilog.Lexer
 import           Language.Epilog.SymbolTable
+import           Language.Epilog.Common
 --------------------------------------------------------------------------------
 import           Control.Lens  (use, (%=), (.=))
 import           Control.Monad (forM_, unless)
@@ -106,33 +107,32 @@ verifyField f@(n :@ p) t = do
         sameName (n1 :@ _,_) = n == n1
 
 
-findType :: At String -> Epilog (At Type)
-findType (tname :@ p) = do
+findType :: Name -> Epilog Type
+findType tname = do
     ts <- use types
     ctype <- use current
 
     if not (null ctype) && tname == (item $ fromJust ctype)
-        then return (Alias tname :@ p)
+        then return $ Alias tname
     else case tname `Map.lookup` ts of
-        Just (t, _) ->
-            return $ t :@ p
-        Nothing -> do
-            err $ UndefinedType tname p
-            return $ None :@ p
+        Just (t, _) -> case t of
+            Record _ _ -> return $ Alias tname
+            Either _ _ -> return $ Alias tname
+            _          -> return t
+        Nothing ->
+            return $ Undef tname
 
 
-buildArray :: At Type -> Int32 -> Epilog (At Type)
-buildArray (t :@ p) i =
-    return $ (aux 0 (i-1) t) :@ p
-    where
-        aux _ _ None = None
-        aux l h (Array l0 h0 i0) = Array l0 h0 (aux l h i0)
-        aux l h o = Array l h o
+buildPointers :: Int -> Type -> Epilog Type
+buildPointers 0 t = return t
+buildPointers n t = Pointer <$> buildPointers (n-1) t
 
 
-buildPointer :: At Type -> Epilog (At Type)
-buildPointer (t :@ p) = do
-    return (Pointer t :@ p)
+buildArray :: Type -> (Int32, Int32) -> Epilog Type
+buildArray x@(Undef _) _ =
+    return x
+buildArray t (low, high) =
+    return $ Array low high t
 
 
 storeProcedure :: Type -> Epilog ()

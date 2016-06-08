@@ -14,7 +14,7 @@ module Language.Epilog.AST.Instruction
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
-import           Language.Epilog.AST.Type
+import           Language.Epilog.Type
 import           Language.Epilog.Position
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------

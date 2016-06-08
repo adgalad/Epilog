@@ -18,11 +18,12 @@ module Language.Epilog.Epilog
     , runEpilog
     -- Lenses
     , symbols, strings, pendProcs, types, expression, position, input
-    , prevChar, bytes, scanCode, commentDepth, current, curfields, curkind
+    , prevChar, bytes, scanCode, commentDepth, current, curfields
+    , curkind, curtype
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
-import           Language.Epilog.AST.Type
+import           Language.Epilog.Type
 import           Language.Epilog.Common
 import           Language.Epilog.Error
 import           Language.Epilog.At
@@ -64,6 +65,7 @@ data EpilogState = EpilogState
     , _current      :: Maybe (At Name)
     , _curfields    :: Seq (At Name, Type)
     , _curkind      :: Maybe StructKind
+    , _curtype      :: Type
 
     , _position     :: Position
     , _input        :: String
@@ -109,6 +111,7 @@ initialState inp = EpilogState
     , _current      = Nothing
     , _curfields    = []
     , _curkind      = Nothing
+    , _curtype      = None
 
     , _position     = Position (1, 1)
     , _input        = inp

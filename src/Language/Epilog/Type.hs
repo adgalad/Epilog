@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Language.Epilog.AST.Type
+module Language.Epilog.Type
     ( Atom (..)
     , Type (..)
     , StructKind (..)
@@ -51,15 +51,16 @@ instance Treelike Atom where
 
 
 data Type
-    = Basic    { name    :: String,   atom    :: Atom }
-    | Pointer  { pointed :: Type }
-    | Array    { low     :: Int32,    high    :: Int32, inner :: Type }
-    | Record   { name    :: String,   fields  :: Map Name Type }
-    | Either   { name    :: String,   fields  :: Map Name Type }
-    | (:->)    { params  :: Seq Type, returns :: Type }
-    | Alias    { name :: Name }
+    = Basic   { name    :: String,   atom    :: Atom }
+    | Pointer { pointed :: Type }
+    | Array   { low     :: Int32,    high    :: Int32, inner :: Type }
+    | Record  { name    :: String,   fields  :: Map Name Type }
+    | Either  { name    :: String,   fields  :: Map Name Type }
+    | (:->)   { params  :: Seq Type, returns :: Type }
+    | Alias   { name :: Name }
     | Any
     | None
+    | Undef   { name :: Name}
     deriving (Eq)
 
 
@@ -68,7 +69,7 @@ instance Show Type where
         Basic   { name }             -> name
         Pointer { pointed }          -> "pointer to " ++ show pointed
         Array   { low, high, inner } ->
-            "array [" ++ show low ++ "," ++ show high ++ ") of " ++ show inner
+            "array [" ++ show low ++ "," ++ show high ++ "] of " ++ show inner
         Record  { name, fields }     ->
             name ++ " ~ record {" ++ showFs fields ++ "}"
         Either  { name, fields }     ->
@@ -78,6 +79,7 @@ instance Show Type where
         Alias   { name }             -> name
         Any                          -> "any type"
         None                         -> "no type at all"
+        Undef   { name }             -> "undefined type `" ++ name ++ "`"
 
         where
             showFs = intercalate ", " . Map.foldrWithKey aux []
@@ -90,7 +92,7 @@ instance Treelike Type where
         Basic   { name }             -> leaf name
         Pointer { pointed }          -> Node "pointer to" [ toTree pointed ]
         Array   { low, high, inner } ->
-            Node ("array [" ++ show low ++ "," ++ show high ++ ") of")
+            Node ("array [" ++ show low ++ "," ++ show high ++ "] of")
                 [ toTree inner ]
         Record  { name, fields }     ->
             Node (name ++ " ~ record") (toTreeFs fields)
@@ -104,6 +106,8 @@ instance Treelike Type where
         Alias   { name }             -> leaf name
         Any                          -> leaf "any type"
         None                         -> leaf "no type at all"
+        Undef   { name }             ->
+            leaf $ "undefined type `" ++ name ++ "`"
 
         where
             toTreeFs = Map.foldrWithKey aux []

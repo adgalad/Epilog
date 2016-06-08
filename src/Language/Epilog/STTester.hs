@@ -2,7 +2,7 @@ module Language.Epilog.STTester
     ( tester
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.AST.Type    hiding (name)
+import           Language.Epilog.Type    hiding (name)
 import           Language.Epilog.Position
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike

@@ -5,7 +5,7 @@
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
 -- import           Language.Epilog.AST.Program
-import           Language.Epilog.AST.Type
+import           Language.Epilog.Type
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
 import           Language.Epilog.Context
@@ -20,7 +20,7 @@ import           Data.Sequence                  (Seq, ViewL ((:<)), (<|), (><),
                                                  (|>))
 import qualified Data.Sequence                  as Seq (empty, singleton, viewl)
 import           Prelude                        hiding (Either, lookup)
-import           Control.Lens                   ((%=), use, (.=))
+import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
 --------------------------------------------------------------------------------
 }
 
@@ -280,15 +280,65 @@ Initialization
                                     }
 
 Type
-    : GenId                         {% findType     $1 }
-    | Type ArraySize                {% buildArray   $1 $2 }
-    | "^" Type                      {% buildPointer $2 }
-    | "(" Type ")"                  { $2 }
+    : Type1
+    {% case $1 of
+        (Undef tname :@ p) -> do
+            err $ UndefinedType tname p
+            return (None :@ p)
+        _ -> return $1
+    }
 
+Type1
+    : TBase TSizes
+    { $2 :@ $1 }
 
-ArraySize
-    : "{" Int "]"                   { item $2 }
-    | "[" Int "}"                   { item $2 }
+TBase
+    : TCore
+    {% do
+        curtype .= item $1
+        return (pos $1)
+    }
+
+    | TPointers TCore
+    {% do
+        curtype <~ buildPointers (item $1) (item $2)
+        return (pos $1)
+    }
+
+TCore
+    : GenId
+    {% do
+        t <- findType (item $1)
+        return (t :@ pos $1)
+    }
+
+    | "(" Type1 ")"
+    { (item $2) :@ (pos $1) }
+
+TPointers
+    : "^"
+    { 1 :@ (pos $1) }
+
+    | TPointers "^"
+    { (+1) `fmap` $1 }
+
+TSizes
+    : {- lambda -}
+    {% do
+        t <- use curtype
+        curtype .= None
+        return t
+    }
+
+    | TSizes TSize
+    {% buildArray $1 $2 }
+
+TSize
+    : "[" Int "}"                      { (      0    , item $2 - 1) }
+    | "[" Int "," Int "]"              { (item $2    , item $4    ) }
+    | "[" Int "," Int "}"              { (item $2    , item $4 - 1) }
+    | "{" Int "," Int "]"              { (item $2 + 1, item $4    ) }
+    | "{" Int "," Int "}"              { (item $2 + 1, item $4 - 1) }
 
 ------ Assignment ------------------------
 Assign
@@ -316,8 +366,7 @@ Lval
 -- - Not working yet - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
                                         return (voidT :@ Position (0,0))
                                     }
-    | Lval "{" Exp "]"              {% return (voidT :@ Position (0,0)) }
-    | Lval "[" Exp "}"              {% return (voidT :@ Position (0,0)) }
+    | Lval "[" Exp "]"              {% return (voidT :@ Position (0,0)) }
 
 VarId
     : varId                         { unTokenVarId `fmap` $1 }
@@ -413,8 +462,8 @@ Exp
     | Exp or      Exp               {% boolOp $1 $3}
     | Exp orelse  Exp               {% boolOp $1 $3}
     | Exp xor     Exp               {% boolOp $1 $3}
-    |     not     Exp %prec NEG     {% do if $2 == boolT 
-                                            then return boolT 
+    |     not     Exp %prec NEG     {% do if $2 == boolT
+                                            then return boolT
                                             else return None }
 
     ---- Bitwise
@@ -423,8 +472,8 @@ Exp
     | Exp bsl  Exp                  {% intOp $1 $3}
     | Exp bsr  Exp                  {% intOp $1 $3}
     | Exp bxor Exp                  {% intOp $1 $3}
-    |     bnot Exp %prec NEG        {% do if $2 == intT 
-                                            then return intT 
+    |     bnot Exp %prec NEG        {% do if $2 == intT
+                                            then return intT
                                             else return None }
 
     ---- Array / Record / Either

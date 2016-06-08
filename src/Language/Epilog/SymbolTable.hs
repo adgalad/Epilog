@@ -28,7 +28,7 @@ module Language.Epilog.SymbolTable
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
-import           Language.Epilog.AST.Type
+import           Language.Epilog.Type
 import           Language.Epilog.Treelike
 import           Language.Epilog.Position
 --------------------------------------------------------------------------------
