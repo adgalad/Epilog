@@ -229,22 +229,22 @@ GenId
     : genId                         { unTokenGenId `fmap` $1 }
 
 Params0
-   : {- lambda -}                   {}
-   | Params                         {}
+    : {- lambda -}                   {}
+    | Params                         {}
 
 Params
-   : Param                          {}
-   | Params "," Param               {}
+    : Param                          {}
+    | Params "," Param               {}
 
 Param
-   : Type VarId                     {% do declVar $1 $2}
+    : Type VarId                     {% do declVar $1 $2}
 
 Conts
-   : Cont                           {}
-   | Conts "," Cont                 {}
+    : Cont                           {}
+    | Conts "," Cont                 {}
 
 Cont
-   : Type VarId                     {% verifyField $2 (item $1) }
+    : Type VarId                     {% verifyField $2 (item $1) }
 
 
 ---- Instructions ----------------------
@@ -380,29 +380,29 @@ VarId
 
 ------ Call ------------------------------
 Call
-   : GenId "(" Args ")"             { checkCall $1 $3 }
+    : GenId "(" Args ")"             { checkCall $1 $3 }
 
 Args
-   : {- lambda -}                   { Seq.empty }
-   | Args1                          { $1 }
+    : {- lambda -}                   { Seq.empty }
+    | Args1                          { $1 }
 
 Args1
-   : Arg                            { Seq.singleton $1 }
-   | Args1 "," Arg                  { $1 |> $3 }
+    : Arg                            { Seq.singleton $1 }
+    | Args1 "," Arg                  { $1 |> $3 }
 
 Arg
     : Exp                           { item $1 }
 
 ---- If --------------------------------
 If
-   : if Guards CLOSE( end )         {}
+    : if Guards CLOSE( end )         {}
 
 Guards
-   : Guard                          {}
-   | Guards CLOSE( ";" ) Guard      {}
+    : Guard                          {}
+    | Guards CLOSE( ";" ) Guard      {}
 
 Guard
-   : GuardCond OPEN( "->" ) Insts   {}
+    : GuardCond OPEN( "->" ) Insts   {}
 
 GuardCond
     : Exp
@@ -412,36 +412,63 @@ GuardCond
 
 ---- Case ------------------------------
 Case
-   : case Exp of Sets CLOSE( end )  {}
+    : case CaseExp of Sets CLOSE( end )
+    {% caseTypes %= tail }
+
+CaseExp
+    : Exp
+    {% do
+        if (item $1) `elem` [intT, charT]
+            then caseTypes %= ($1 :)
+            else do
+                caseTypes %= ((None :@ pos $1) :)
+                err $ BadCaseExp (item $1) (pos $1)
+    }
 
 Sets
-   : Set                            {}
-   | Sets CLOSE( ";" ) Set          {}
-
-Elems
-   : Exp                            {}
-   | Elems "," Exp                  {}
+    : Set                            {}
+    | Sets CLOSE( ";" ) Set          {}
 
 Set
-   : Elems OPEN( "->" ) Insts       {}
+    : Elems OPEN( "->" ) Insts       {}
+
+Elems
+    : Elem                            {}
+    | Elems "," Elem                  {}
+
+Elem
+    : Int
+    {% do
+        ((ct :@ p):_) <- use caseTypes
+        unless (ct == intT) $
+            err $ BadCaseCharElem p (item $1) (pos $1)
+    }
+    | Char
+    {% do
+        ((ct :@ p):_) <- use caseTypes
+        unless (ct == charT) $
+            err $ BadCaseIntElem p (item $1) (pos $1)
+    }
 
 ---- For loops -------------------------
 For
     :       for   ForV Ranges CLOSE( end )
-    {% blockVars %= tail }
+    {% forVars %= tail }
 
     | OPEN( for ) ForD Ranges CLOSE( CLOSE( end ) )
-    {% blockVars %= tail }
+    {% forVars %= tail }
 
 ForD -- It could be Declaration
     : Type VarId
     {% do
         if (item $1) `elem` [intT, charT]
-            then declVar $1 $2
+            then do
+                declVar $1 $2
+                forVars %= (($2, item $1):)
             else do
                 declVar (None :@ (pos $1)) $2
                 err $ BadForVar (item $2) (item $1) (pos $1) (pos $1)
-        blockVars %= (($2, item $1):)
+                forVars %= (($2, None):)
     }
 
 ForV -- Or a var
@@ -450,7 +477,7 @@ ForV -- Or a var
         (t :@ p) <- findTypeOfSymbol $1
         unless (t `elem` [intT, charT]) $
             err $ BadForVar (item $1) t p (pos $1)
-        blockVars %= (($1, t):)
+        forVars %= (($1, t):)
     }
 
 Ranges
@@ -467,7 +494,7 @@ Range1
 
 ---- While loops -----------------------
 While
-   : while Guards CLOSE( end )      {}
+    : while Guards CLOSE( end )      {}
 
 ---- Expressions -------------------------
 Exp

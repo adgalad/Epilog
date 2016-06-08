@@ -113,20 +113,30 @@ verifyField f@(n :@ p) t = do
     where
         sameName (n1 :@ _,_) = n == n1
 
+
 getField :: At Type -> At Name -> Epilog (At Type)
-getField (t :@ _) (n :@ p) = case t of
-    Record _ f -> checkField f
-    Either _ f -> checkField f
-    _          -> error'
+getField (t :@ _) (fieldname :@ p) = case t of
+    Alias tname -> do
+        ts <- use types
+        case tname `Map.lookup` ts of
+            Just (struct, _) -> case struct of
+                Record _ fs -> checkField fs
+                Either _ fs -> checkMember fs
+                _          -> error' InvalidAccess
+            Nothing ->
+                error' InvalidAccess
+    _  -> error' InvalidAccess
 
     where
-        checkField fields = case n `Map.lookup` fields of
+        checkField fields = case fieldname `Map.lookup` fields of
             Just t'  -> return (t' :@ p)
-            Nothing -> error'
-        error' = do
-            err $ InvalidMember n (name t) p
+            Nothing -> error' InvalidField
+        checkMember fields = case fieldname `Map.lookup` fields of
+            Just t'  -> return (t' :@ p)
+            Nothing -> error' InvalidMember
+        error' cons = do
+            err $ cons fieldname (name t) p
             return (None :@ p)
-
 
 
 findTypeOfSymbol :: At Name -> Epilog (At Type)
@@ -165,7 +175,7 @@ checkArray (_ :@ p) _ = do
 
 checkFor :: At Type -> At Type -> Epilog ()
 checkFor (t1 :@ rangep) (t2 :@ _) = do
-    ((n :@ vp, t):_) <- use blockVars
+    ((n :@ vp, t):_) <- use forVars
     unless (t1 == t2 && t1 == t) $
         err $ InvalidRange n t vp t1 t2 rangep
 
@@ -241,6 +251,8 @@ checkAnswer eret aret procp retp =
 checkBinOp :: BinaryOp -> Position -> Type -> Type -> Epilog (At Type)
 checkBinOp op p = aux opTypes
     where
+        aux _ None _ = return (None :@ p)
+        aux _ _ None = return (None :@ p)
         aux [] t1 t2 = do
             err $ BadBinaryExpression op (t1, t2) (domain opTypes) p
             return (None :@ p)
@@ -253,6 +265,7 @@ checkBinOp op p = aux opTypes
 checkUnOp :: UnaryOp -> Position -> Type -> Epilog (At Type)
 checkUnOp op p = aux opTypes
     where
+        aux _ None = return (None :@ p)
         aux [] t1 = do
             err $ BadUnaryExpression op t1 (domain opTypes) p
             return (None :@ p)

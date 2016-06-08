@@ -1,0 +1,12 @@
+procedure main () :-
+
+    integer H is 3 + 4 * True,
+
+    for integer K from -2  to 100 -> write "hola"
+                ; from 42  to 69  ->
+                    for character W from 'b' to 'p' ->
+                        integer WW is toInteger(W),
+                        write W
+                    end
+                ; from 'a' to 'z' -> write "hola"
+    end.

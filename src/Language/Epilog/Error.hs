@@ -14,6 +14,7 @@ import           Language.Epilog.AST.Expression
 import           Data.Function            (on)
 import           Data.Sequence            (Seq)
 import           Data.Foldable            (toList)
+import           Data.Int                 (Int32)
 --------------------------------------------------------------------------------
 type Errors = Seq EpilogError
 
@@ -78,10 +79,20 @@ data EpilogError
         , baProcP :: Position
         , baRetP  :: Position
         }
+    | InvalidField
+        { ifName :: Name
+        , ifT    :: Name
+        , ifP    :: Position
+        }
     | InvalidMember
         { imName :: Name
         , imT    :: Name
         , imP    :: Position
+        }
+    | InvalidAccess
+        { iaName :: Name
+        , iaT    :: Name
+        , iaP    :: Position
         }
     | MemberOfArray
         { moaName :: Name
@@ -142,6 +153,20 @@ data EpilogError
         , bfvDP :: Position
         , bfvUP :: Position
         }
+    | BadCaseExp
+        { bceT :: Type
+        , bceP :: Position
+        }
+    | BadCaseIntElem
+        { bcieEP :: Position
+        , bciVal :: Char
+        , bciVP  :: Position
+        }
+    | BadCaseCharElem
+        { bcceEP :: Position
+        , bccVal :: Int32
+        , bccVP  :: Position
+        }
     deriving (Eq)
 
 instance P EpilogError where
@@ -152,7 +177,9 @@ instance P EpilogError where
         InvalidAssign            _ _ p -> p
         InvalidArray                 p -> p
         InvalidSubindex            _ p -> p
+        InvalidField             _ _ p -> p
         InvalidMember            _ _ p -> p
+        InvalidAccess            _ _ p -> p
         InvalidGuard               _ p -> p
         InvalidRange       _ _ _ _ _ p -> p
         LexicalError                 p -> p
@@ -172,6 +199,9 @@ instance P EpilogError where
         BadBinaryExpression    _ _ _ p -> p
         BadUnaryExpression     _ _ _ p -> p
         BadForVar              _ _ _ p -> p
+        BadCaseExp                 _ p -> p
+        BadCaseIntElem           _ _ p -> p
+        BadCaseCharElem          _ _ p -> p
 
 instance Ord EpilogError where
     compare = compare `on` pos
@@ -206,9 +236,17 @@ instance Show EpilogError where
             ", attempted to use an expression of type `" ++ show t ++
             "` as a subindex"
 
+        InvalidField field t p ->
+            "No field named `" ++ field ++ "` "++ showP p ++
+            " in record `" ++ t ++ "`"
+
         InvalidMember member t p ->
             "No member named `" ++ member ++ "` "++ showP p ++
-            " in type `" ++ t ++ "`"
+            " in either `" ++ t ++ "`"
+
+        InvalidAccess access t p ->
+            "Invalid access `" ++ access ++ "` "++ showP p ++
+            " in type `" ++ t ++ "`, only records and eithers can be accessed"
 
         InvalidGuard t p ->
             "Invalid guard " ++ showP p ++
@@ -296,3 +334,20 @@ instance Show EpilogError where
             "Bad for variable, " ++ showP up ++ ", `" ++ n ++
             "`, declared as `" ++ show t ++ "` at " ++ showP dp ++
             "; expected `character` or `integer`"
+
+        BadCaseExp t p ->
+            "Bad case expression " ++ showP p ++
+            ", expected expression of type `character` or `integer`, but `" ++
+            show t ++ "` was given"
+
+        BadCaseIntElem ep v vp ->
+            "Bad element in case expression " ++
+            showP vp ++ ", element `" ++ show v ++
+            "` has type `character` but expression at " ++
+            showP ep ++ " has type `integer`"
+
+        BadCaseCharElem ep v vp ->
+            "Bad element in case expression " ++
+            showP vp ++ ", element `" ++ show v ++
+            "` has type `integer` but expression at " ++
+            showP ep ++ " has type `character`"

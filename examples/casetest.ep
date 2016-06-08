@@ -1,0 +1,19 @@
+procedure main () :-
+    integer A,
+    integer B,
+
+    read A,
+    read B,
+
+    case A * B + B div A
+        of 1, 2, 3, 4 ->
+            character Blah is 's'
+        ;  5, 6       ->
+            character Bleh is 'L',
+            case Bleh
+                of 'L' -> write "Lo he asignado correctamente."
+                ;  'P' -> write "Aun no se asignar"
+            end
+        ;  'a'        ->
+            write "wut?"
+    end.
