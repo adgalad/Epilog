@@ -19,7 +19,7 @@ module Language.Epilog.Epilog
     -- Lenses
     , symbols, strings, pendProcs, types, expression, position, input
     , prevChar, bytes, scanCode, commentDepth, current, curfields
-    , curkind
+    , curkind, blockVars
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
@@ -65,6 +65,7 @@ data EpilogState = EpilogState
     , _current      :: Maybe (At Name)
     , _curfields    :: Seq (At Name, Type)
     , _curkind      :: Maybe StructKind
+    , _blockVars    :: [(At Name, Type)]
 
     , _position     :: Position
     , _input        :: String
@@ -116,6 +117,7 @@ initialState inp = EpilogState
     , _current      = Nothing
     , _curfields    = []
     , _curkind      = Nothing
+    , _blockVars    = []
 
     , _position     = Position (1, 1)
     , _input        = inp

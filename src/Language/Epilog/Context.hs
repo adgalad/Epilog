@@ -157,16 +157,17 @@ checkArray (Array _ _ t :@ p) index =
      if index == intT
         then return (t :@ p)
         else do
-            err $ InvalidSubindex (name index) p
+            err $ InvalidSubindex index p
             return (t :@ p)
 checkArray (_ :@ p) _ = do
     err $ InvalidArray p
     return (None :@ p)
 
 checkFor :: At Type -> At Type -> Epilog ()
-checkFor (t1 :@ p) (t2 :@ _) =
-    unless (t1 == t2 && (t1 == intT || t1 == charT)) $
-        err $ InvalidRange (name t1) (name t2) p
+checkFor (t1 :@ rangep) (t2 :@ _) = do
+    ((n :@ vp, t):_) <- use blockVars
+    unless (t1 == t2 && t1 == t) $
+        err $ InvalidRange n t vp t1 t2 rangep
 
 buildPointers :: Int -> Type -> Type
 buildPointers 0 t = t

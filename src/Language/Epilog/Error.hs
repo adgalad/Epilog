@@ -80,7 +80,7 @@ data EpilogError
         }
     | InvalidMember
         { imName :: Name
-        , imT    :: String
+        , imT    :: Name
         , imP    :: Position
         }
     | MemberOfArray
@@ -97,14 +97,17 @@ data EpilogError
         , igP :: Position
         }
     | InvalidRange
-        { irFstT :: String
-        , irSndT :: String
-        , irP    :: Position
+        { irVName :: Name
+        , irVType :: Type
+        , irVPos  :: Position
+        , irFstT  :: Type
+        , irSndT  :: Type
+        , irP     :: Position
         }
     | InvalidArray
         { iaP :: Position }
     | InvalidSubindex
-        { iiT :: String
+        { iiT :: Type
         , iiP :: Position
         }
     | NoMain
@@ -133,6 +136,12 @@ data EpilogError
         , bueETS :: [Type]
         , bueP   :: Position
         }
+    | BadForVar
+        { bfvN  :: Name
+        , bfvT  :: Type
+        , bfvDP :: Position
+        , bfvUP :: Position
+        }
     deriving (Eq)
 
 instance P EpilogError where
@@ -145,7 +154,7 @@ instance P EpilogError where
         InvalidSubindex            _ p -> p
         InvalidMember            _ _ p -> p
         InvalidGuard               _ p -> p
-        InvalidRange             _ _ p -> p
+        InvalidRange       _ _ _ _ _ p -> p
         LexicalError                 p -> p
         MemberOfArray              _ p -> p
         NoMain                       p -> p
@@ -162,6 +171,7 @@ instance P EpilogError where
         UnexpectedToken            _ p -> p
         BadBinaryExpression    _ _ _ p -> p
         BadUnaryExpression     _ _ _ p -> p
+        BadForVar              _ _ _ p -> p
 
 instance Ord EpilogError where
     compare = compare `on` pos
@@ -193,11 +203,11 @@ instance Show EpilogError where
 
         InvalidSubindex t p ->
             "Invalid index " ++ showP p ++
-            ", attempted to use an expression of type `" ++ t ++
+            ", attempted to use an expression of type `" ++ show t ++
             "` as a subindex"
 
         InvalidMember member t p ->
-            "Not member named `" ++ member ++ "` "++ showP p ++
+            "No member named `" ++ member ++ "` "++ showP p ++
             " in type `" ++ t ++ "`"
 
         InvalidGuard t p ->
@@ -205,9 +215,10 @@ instance Show EpilogError where
             ", guards most be of type `boolean` but `" ++ show t ++
             "` was provided"
 
-        InvalidRange t1 t2 p ->
-            "Invalid range " ++ showP p ++", lower bound is `" ++ t1 ++
-            "` and higher bound is `" ++ t2 ++ "`"
+        InvalidRange vname vt vp t1 t2 p ->
+            "Invalid range " ++ showP p ++", lower bound is `" ++ show t1 ++
+            "` and higher bound is `" ++ show t2 ++ "`, but for variable `"
+            ++ vname ++ "` was declared as `" ++ show vt ++ "` at " ++ showP vp
 
         MemberOfArray member p ->
             "Expected array index instead of member " ++ showP p ++
@@ -280,3 +291,8 @@ instance Show EpilogError where
             "Bad unary expression " ++ showP p ++ ", operator `" ++
             show op ++ "` expected one of " ++ show ets ++
             ", but received `" ++ show t ++ "`"
+
+        BadForVar n t dp up ->
+            "Bad for variable, " ++ showP up ++ ", `" ++ n ++
+            "`, declared as `" ++ show t ++ "` at " ++ showP dp ++
+            "; expected `character` or `integer`"

@@ -402,7 +402,10 @@ Guards
    | Guards CLOSE( ";" ) Guard      {}
 
 Guard
-   : Exp OPEN( "->" ) Insts
+   : GuardCond OPEN( "->" ) Insts   {}
+
+GuardCond
+    : Exp
     {% unless (item $1 == boolT) $
         err $ InvalidGuard (item $1) (pos $1)
     }
@@ -423,25 +426,43 @@ Set
    : Elems OPEN( "->" ) Insts       {}
 
 ---- For loops -------------------------
+For
+    :       for   ForV Ranges CLOSE( end )
+    {% blockVars %= tail }
+
+    | OPEN( for ) ForD Ranges CLOSE( CLOSE( end ) )
+    {% blockVars %= tail }
 
 ForD -- It could be Declaration
     : Type VarId
-    {% do declVar $1 $2}
+    {% do
+        if (item $1) `elem` [intT, charT]
+            then declVar $1 $2
+            else do
+                declVar (None :@ (pos $1)) $2
+                err $ BadForVar (item $2) (item $1) (pos $1) (pos $1)
+        blockVars %= (($2, item $1):)
+    }
 
-For
-   : for      VarId Ranges CLOSE( end )
-   { % do isSymbol' $2 }
-
-   | OPEN( for ) ForD Ranges CLOSE( CLOSE( end ) )
-   { }
+ForV -- Or a var
+    : VarId
+    {% do
+        (t :@ p) <- findTypeOfSymbol $1
+        unless (t `elem` [intT, charT]) $
+            err $ BadForVar (item $1) t p (pos $1)
+        blockVars %= (($1, t):)
+    }
 
 Ranges
-   : Range                          {}
-   | Ranges CLOSE( ";" ) Range      {}
+    : Range                         {}
+    | Ranges CLOSE( ";" ) Range     {}
 
 Range
-   : from Exp to Exp OPEN( "->" ) Insts
-   {% checkFor $2 $4 }
+    : Range1 OPEN( "->" ) Insts     {}
+
+Range1
+    : from Exp to Exp
+    {% checkFor $2 $4 }
 
 
 ---- While loops -----------------------
