@@ -36,8 +36,8 @@ import           Data.Int      (Int32)
 import           Data.List     (find, sortOn)
 import qualified Data.Map      as Map (elems, insert, insertWith, lookup)
 import           Data.Maybe    (fromJust)
-import           Data.Sequence (Seq, (><), (|>))
-import qualified Data.Sequence as Seq (fromList, singleton, zipWith)
+import           Data.Sequence (Seq, (><), (|>), ViewL((:<)))
+import qualified Data.Sequence as Seq (fromList, singleton, zipWith, viewl, ViewL (EmptyL))
 import           Prelude       hiding (Either, lookup)
 --------------------------------------------------------------------------------
 
@@ -163,16 +163,16 @@ checkFor (t1 :@ p) (t2 :@ _) =
     unless (t1 == t2 && (t1 == intT || t1 == charT)) $
         err $ InvalidRange (name t1) (name t2) p
 
-buildPointers :: Int -> Type -> Epilog Type
-buildPointers 0 t = return t
-buildPointers n t = Pointer <$> buildPointers (n-1) t
+buildPointers :: Int -> Type -> Type
+buildPointers 0 t = t
+buildPointers n t = Pointer $ buildPointers (n-1) t
 
 
-buildArray :: Type -> (Int32, Int32) -> Epilog Type
-buildArray x@(Undef _) _ =
-    return x
-buildArray t (low, high) =
-    return $ Array low high t
+buildArray :: Seq (Int32, Int32) -> Type  -> Type
+buildArray _ x@(Undef _) = x
+buildArray sizes t = case Seq.viewl sizes of
+    Seq.EmptyL         -> t
+    (low, high) :< lhs -> Array low high (buildArray lhs t)
 
 
 storeProcedure :: Type -> Epilog ()

@@ -291,20 +291,14 @@ Type
 
 Type1
     : TBase TSizes
-    { $2 :@ $1 }
+    { buildArray $2 `fmap` $1 }
 
 TBase
     : TCore
-    {% do
-        curtype .= item $1
-        return (pos $1)
-    }
+    { $1 }
 
     | TPointers TCore
-    {% do
-        curtype <~ buildPointers (item $1) (item $2)
-        return (pos $1)
-    }
+    { buildPointers (item $1) (item $2) :@ (pos $1) }
 
 TCore
     : GenId
@@ -325,14 +319,10 @@ TPointers
 
 TSizes
     : {- lambda -}
-    {% do
-        t <- use curtype
-        curtype .= None
-        return t
-    }
+    { Seq.empty }
 
     | TSizes TSize
-    {% buildArray $1 $2 }
+    { $1 |> $2 }
 
 TSize
     : "[" Int "}"                      { (      0    , item $2 - 1) }
