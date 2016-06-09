@@ -51,7 +51,7 @@ instance Treelike Atom where
 
 
 data Type
-    = Basic   { name    :: String,   atom    :: Atom }
+    = Basic   { atom    :: Atom }
     | Pointer { pointed :: Type }
     | Array   { low     :: Int32,    high    :: Int32, inner :: Type }
     | Record  { name    :: String,   fields  :: Map Name Type }
@@ -67,7 +67,7 @@ data Type
 
 instance Show Type where
     show = \case
-        Basic   { name }             -> name
+        Basic   { atom }             -> show atom
         Pointer { pointed }          -> "pointer to " ++ show pointed
         Array   { low, high, inner } ->
             "array [" ++ show low ++ "," ++ show high ++ "] of " ++ show inner
@@ -91,7 +91,7 @@ instance Show Type where
 
 instance Treelike Type where
     toTree = \case
-        Basic   { name }             -> leaf name
+        Basic   { atom }             -> leaf (show atom)
         Pointer { pointed }          -> Node "pointer to" [ toTree pointed ]
         Array   { low, high, inner } ->
             Node ("array [" ++ show low ++ "," ++ show high ++ "] of")
@@ -119,12 +119,12 @@ instance Treelike Type where
 
 
 boolT, charT, intT, floatT, stringT, voidT :: Type
-boolT   = Basic "boolean"   EpBoolean
-charT   = Basic "character" EpCharacter
-intT    = Basic "integer"   EpInteger
-floatT  = Basic "float"     EpFloat
-stringT = Basic "string"    EpString
-voidT   = Basic "void"      EpString
+boolT   = Basic EpBoolean
+charT   = Basic EpCharacter
+intT    = Basic EpInteger
+floatT  = Basic EpFloat
+stringT = Basic EpString
+voidT   = Basic EpVoid
 
 data StructKind = EitherK | RecordK
                 deriving (Eq)

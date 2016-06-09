@@ -253,51 +253,35 @@ Insts
     | Insts "," Inst                {}
 
 Inst
-    : Declaration                   {}
-    | Initialization                {}
-    | Assign                        {}
-    | Call                          {}
-    | If                            {}
-    | Case                          {}
-    | For                           {}
-    | While                         {}
+    : Declaration                   { $1 }     -- returns At Type
+    | Initialization                { $1 }     -- returns At Type
+    | Assign                        { $1 }     -- returns At Type
+    | Call                          { $1 }     -- returns At Type
+    | If                            { $1 }     -- returns At Type
+    | Case                          { $1 }     -- returns At Type
+    | For                           { $1 }     -- Does not return At Type
+    | While                         { $1 }     -- Does not return At Type
 
     | finish
-    {% do
-        Just p <- use current
-        ((_ :-> ret) :@ procp) <- findTypeOfSymbol p
-        checkAnswer ret voidT (procp) (pos $1)
-    }
+    {% checkAnswer voidT (pos $1) }        -- returns At Type
 
     | answer Exp
-    {% do
-        Just p <- use current
-        ((_ :-> ret) :@ procp) <- findTypeOfSymbol p
-        checkAnswer ret (item $2) (procp) (pos $2)
-    }
+    {% checkAnswer (item $2) (pos $1) }    -- returns At Type
 
     | write Exp
-    {% unless ((item $2) `elem` [boolT, charT, intT, floatT, stringT]) $
-        err $ BadWrite (item $2) (pos $1)
-    }
+    {% checkWrite (item $2) (pos $1) }     -- returns At Type
 
     | read Lval
-    {% unless ((item $2) `elem` [boolT, charT, intT, floatT]) $
-        err $ BadRead (item $2) (pos $1)
-    }
+    {% checkRead (item $2) (pos $1) }      -- returns At Type
 
 ------ Declaration and Initialization ----
 Declaration
-    : Type VarId                    { % do declVar $1 $2 }
+    : Type VarId
+    {% checkDeclVar $1 $2 }
 
 Initialization
     : Type VarId is Exp
-    {% do
-        declVar $1 $2
-        if item $1 /= item $4
-            then err $ InvalidAssign (item $1) (item $4) (pos $1)
-            else return ()
-    }
+    {% checkInit $1 $2 $4 }
 
 Type
     : Type1
@@ -353,12 +337,7 @@ TSize
 ------ Assignment ------------------------
 Assign
     : Lval is Exp
-    {% do
-        symbs <- use symbols
-        if item $1 /= item $3
-            then err $ InvalidAssign (item $1) (item $3) (pos $1)
-            else return ()
-    }
+    {% checkAssign $1 $3 }
 
 
 Lval
@@ -373,6 +352,9 @@ Lval
 
     | Lval "_" VarId
     {% $1 `getField` $3 }
+
+    | Lval "^"
+    {% deref $1 }
 
 
 VarId
@@ -395,59 +377,110 @@ Arg
 
 ---- If --------------------------------
 If
-    : if Guards CLOSE( end )         {}
+    : if Guards CLOSE( end )
+    { item $2 :@ pos $1 }
 
 Guards
-    : Guard                          {}
-    | Guards CLOSE( ";" ) Guard      {}
+    : Guard
+    { $1 }
+
+    | Guards CLOSE( ";" ) Guard
+    {   ( if (item $1 == None) || (item $3 == None)
+            then None
+            else voidT
+        ) :@ pos $1
+    }
 
 Guard
-    : GuardCond OPEN( "->" ) Insts   {}
+    : GuardCond OPEN( "->" ) Insts
+    {   ( if (item $1 == None) || (item $3 == None)
+            then None
+            else voidT
+        ) :@ pos $1
+    }
 
 GuardCond
     : Exp
-    {% unless (item $1 == boolT) $
-        err $ InvalidGuard (item $1) (pos $1)
+    {% do
+        if item $1 == boolT
+            then return $ voidT :@ pos $1
+            else do
+                err $ InvalidGuard (item $1) (pos $1)
+                return $ None :@ pos $1
     }
 
 ---- Case ------------------------------
 Case
     : case CaseExp of Sets CLOSE( end )
-    {% caseTypes %= tail }
+    {% do
+        caseTypes %= tail
+        return $
+            ( if (item $2 == None) || (item $4 == None)
+                then None
+                else voidT
+            ) :@ pos $1
+    }
 
 CaseExp
     : Exp
-    {% do
-        if (item $1) `elem` [intT, charT]
-            then caseTypes %= ($1 :)
-            else do
-                caseTypes %= ((None :@ pos $1) :)
-                err $ BadCaseExp (item $1) (pos $1)
+    {% if (item $1) `elem` [intT, charT]
+        then do
+            caseTypes %= ($1 :)
+            return $1
+        else do
+            caseTypes %= ((None :@ pos $1) :)
+            err $ BadCaseExp (item $1) (pos $1)
+            return $ None :@ pos $1
     }
 
 Sets
-    : Set                            {}
-    | Sets CLOSE( ";" ) Set          {}
+    : Set
+    { $1 }
+    | Sets CLOSE( ";" ) Set
+    {   ( if (item $1 == None) || (item $3 == None)
+            then None
+            else voidT
+        ) :@ pos $1
+    }
 
 Set
-    : Elems OPEN( "->" ) Insts       {}
+    : Elems OPEN( "->" ) Insts
+    {   ( if (item $1 == None) || (item $3 == None)
+            then None
+            else voidT
+        ) :@ pos $1
+    }
 
 Elems
-    : Elem                            {}
-    | Elems "," Elem                  {}
+    : Elem
+    { $1 }
+
+    | Elems "," Elem
+    {   ( if (item $1 == None) || (item $3 == None)
+            then None
+            else voidT
+        ) :@ pos $1
+    }
 
 Elem
     : Int
     {% do
         ((ct :@ p):_) <- use caseTypes
-        unless (ct == intT) $
-            err $ BadCaseCharElem p (item $1) (pos $1)
+        if (ct == intT)
+            then return $ intT :@ pos $1
+            else do
+                err $ BadCaseCharElem p (item $1) (pos $1)
+                return $ None :@ (pos $1)
     }
+
     | Char
     {% do
         ((ct :@ p):_) <- use caseTypes
-        unless (ct == charT) $
-            err $ BadCaseIntElem p (item $1) (pos $1)
+        if (ct == charT)
+            then return $ charT :@ pos $1
+            else do
+                err $ BadCaseCharElem p (item $1) (pos $1)
+                return $ None :@ (pos $1)
     }
 
 ---- For loops -------------------------
@@ -508,43 +541,43 @@ Exp
 
     | Lval                          { $1 }
 
-    | GenId "(" Args ")"            {% checkCall $1 $3 }
+    | Call                          { $1 }
 
     -- Operators
     ---- Logical
-    | Exp and     Exp               {% checkBinOp And      (pos $1) (item $1) (item $3) }
-    | Exp andalso Exp               {% checkBinOp Andalso  (pos $1) (item $1) (item $3) }
-    | Exp or      Exp               {% checkBinOp Or       (pos $1) (item $1) (item $3) }
-    | Exp orelse  Exp               {% checkBinOp Orelse   (pos $1) (item $1) (item $3) }
-    | Exp xor     Exp               {% checkBinOp Xor      (pos $1) (item $1) (item $3) }
-    |     not     Exp %prec NEG     {% checkUnOp  Not      (pos $1) (item $2) }
+    | Exp and     Exp               {% checkBinOp And      $1 $3 }
+    | Exp andalso Exp               {% checkBinOp Andalso  $1 $3 }
+    | Exp or      Exp               {% checkBinOp Or       $1 $3 }
+    | Exp orelse  Exp               {% checkBinOp Orelse   $1 $3 }
+    | Exp xor     Exp               {% checkBinOp Xor      $1 $3 }
+    |     not     Exp %prec NEG     {% checkUnOp  Not      (pos $1) $2 }
 
     ---- Bitwise
-    | Exp band Exp                  {% checkBinOp Band     (pos $1) (item $1) (item $3) }
-    | Exp bor  Exp                  {% checkBinOp Bor      (pos $1) (item $1) (item $3) }
-    | Exp bsl  Exp                  {% checkBinOp Bsl      (pos $1) (item $1) (item $3) }
-    | Exp bsr  Exp                  {% checkBinOp Bsr      (pos $1) (item $1) (item $3) }
-    | Exp bxor Exp                  {% checkBinOp Bxor     (pos $1) (item $1) (item $3) }
-    |     bnot Exp %prec NEG        {% checkUnOp  Bnot     (pos $1) (item $2) }
+    | Exp band Exp                  {% checkBinOp Band     $1 $3 }
+    | Exp bor  Exp                  {% checkBinOp Bor      $1 $3 }
+    | Exp bsl  Exp                  {% checkBinOp Bsl      $1 $3 }
+    | Exp bsr  Exp                  {% checkBinOp Bsr      $1 $3 }
+    | Exp bxor Exp                  {% checkBinOp Bxor     $1 $3 }
+    |     bnot Exp %prec NEG        {% checkUnOp  Bnot     (pos $1) $2 }
 
     ---- Arithmetic
-    | Exp "+" Exp                   {% checkBinOp Plus     (pos $1) (item $1) (item $3) }
-    | Exp "-" Exp                   {% checkBinOp Minus    (pos $1) (item $1) (item $3) }
-    | Exp "*" Exp                   {% checkBinOp Times    (pos $1) (item $1) (item $3) }
-    | Exp "/" Exp                   {% checkBinOp FloatDiv (pos $1) (item $1) (item $3) }
-    | Exp div Exp                   {% checkBinOp IntDiv   (pos $1) (item $1) (item $3) }
-    | Exp rem Exp                   {% checkBinOp Rem      (pos $1) (item $1) (item $3) }
-    |     "-" Exp %prec NEG         {% checkUnOp  Uminus   (pos $1) (item $2) }
+    | Exp "+" Exp                   {% checkBinOp Plus     $1 $3 }
+    | Exp "-" Exp                   {% checkBinOp Minus    $1 $3 }
+    | Exp "*" Exp                   {% checkBinOp Times    $1 $3 }
+    | Exp "/" Exp                   {% checkBinOp FloatDiv $1 $3 }
+    | Exp div Exp                   {% checkBinOp IntDiv   $1 $3 }
+    | Exp rem Exp                   {% checkBinOp Rem      $1 $3 }
+    |     "-" Exp %prec NEG         {% checkUnOp  Uminus   (pos $1) $2 }
 
     ---- Relational
-    | Exp "<"  Exp                  {% checkBinOp LTop     (pos $1) (item $1) (item $3) }
-    | Exp "=<" Exp                  {% checkBinOp LEop     (pos $1) (item $1) (item $3) }
-    | Exp ">"  Exp                  {% checkBinOp GTop     (pos $1) (item $1) (item $3) }
-    | Exp ">=" Exp                  {% checkBinOp GEop     (pos $1) (item $1) (item $3) }
-    | Exp "="  Exp                  {% checkBinOp EQop     (pos $1) (item $1) (item $3) }
-    | Exp "/=" Exp                  {% checkBinOp NEop     (pos $1) (item $1) (item $3) }
-    | Exp "|"  Exp                  {% checkBinOp FAop     (pos $1) (item $1) (item $3) }
-    | Exp "!|" Exp                  {% checkBinOp NFop     (pos $1) (item $1) (item $3) }
+    | Exp "<"  Exp                  {% checkBinOp LTop     $1 $3 }
+    | Exp "=<" Exp                  {% checkBinOp LEop     $1 $3 }
+    | Exp ">"  Exp                  {% checkBinOp GTop     $1 $3 }
+    | Exp ">=" Exp                  {% checkBinOp GEop     $1 $3 }
+    | Exp "="  Exp                  {% checkBinOp EQop     $1 $3 }
+    | Exp "/=" Exp                  {% checkBinOp NEop     $1 $3 }
+    | Exp "|"  Exp                  {% checkBinOp FAop     $1 $3 }
+    | Exp "!|" Exp                  {% checkBinOp NFop     $1 $3 }
 
 Bool
     : boolLit                       { unTokenBoolLit `fmap` $1 }

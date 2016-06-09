@@ -167,6 +167,10 @@ data EpilogError
         , bccVal :: Int32
         , bccVP  :: Position
         }
+    | BadDeref
+        { bdT    :: Type
+        , bdP    :: Position
+        }
     deriving (Eq)
 
 instance P EpilogError where
@@ -202,6 +206,7 @@ instance P EpilogError where
         BadCaseExp                 _ p -> p
         BadCaseIntElem           _ _ p -> p
         BadCaseCharElem          _ _ p -> p
+        BadDeref                   _ p -> p
 
 instance Ord EpilogError where
     compare = compare `on` pos
@@ -351,3 +356,9 @@ instance Show EpilogError where
             showP vp ++ ", element `" ++ show v ++
             "` has type `integer` but expression at " ++
             showP ep ++ " has type `character`"
+
+        BadDeref t p ->
+            "Bad dereference " ++ showP p ++
+            ", attempted to dereference lval of type `" ++ show t ++
+            "`, but only Pointer types can be dereferenced"
+

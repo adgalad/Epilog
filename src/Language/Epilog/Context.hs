@@ -12,7 +12,8 @@ module Language.Epilog.Context
     , checkFor
     , checkUnOp
     , declStruct
-    , declVar
+    , checkDeclVar
+    , deref
     , findType
     , findTypeOfSymbol
     , getField
@@ -51,22 +52,38 @@ string (TokenStringLit s :@ p) =
 string _ = undefined
 
 
-isSymbol' :: At String -> Epilog ()
+isSymbol' :: At Name -> Epilog ()
 isSymbol' (name :@ p) = do
     symbs <- use symbols
     unless (name `isSymbol` symbs) $
         err $ OutOfScope name p
 
 
-declVar :: At Type -> At String -> Epilog ()
-declVar (None :@ _) (_ :@ _) = return ()
-declVar (t :@ p) (var :@ _) = do
+checkDeclVar :: At Type -> At Name -> Epilog (At Type)
+checkDeclVar (None :@ p) (_ :@ _) = return $ None :@ p
+checkDeclVar (t :@ p) (var :@ _) = do
     symbs <- use symbols
     case var `local` symbs of
-        Right Entry { eType, ePosition } ->
+        Right Entry { eType, ePosition } -> do
             err $ DuplicateDeclaration var eType ePosition t p
+            return $ None :@ p
         Left _ ->
             symbols %= insertSymbol var (Entry var t Nothing p)
+            return $ voidT :@ p
+
+
+checkInit :: At Type -> At Name -> At Type -> Epilog (At Type)
+checkInit att atn (e :@ p) =
+    case checkDeclVar att atn of
+        Basic EpVoid :@ p ->
+            if item att == item atn
+                then return $ voidT :@ p
+                else do
+                    err $ InvalidAssign (item att) e p
+                    return $ None :@ p
+
+        _ :@ p -> return $ None :@ p
+
 
 declStruct :: Epilog ()
 declStruct = do
@@ -164,20 +181,31 @@ findType tname = do
 
 checkArray :: At Type -> Type -> Epilog (At Type)
 checkArray (Array _ _ t :@ p) index =
-     if index == intT
+    if index == intT
         then return (t :@ p)
         else do
             err $ InvalidSubindex index p
             return (t :@ p)
+checkArray (None :@ p) _ =
+    return $ None :@ p
 checkArray (_ :@ p) _ = do
     err $ InvalidArray p
-    return (None :@ p)
+    return $ None :@ p
 
 checkFor :: At Type -> At Type -> Epilog ()
 checkFor (t1 :@ rangep) (t2 :@ _) = do
     ((n :@ vp, t):_) <- use forVars
     unless (t1 == t2 && t1 == t) $
         err $ InvalidRange n t vp t1 t2 rangep
+
+deref :: At Type -> Epilog (At Type)
+deref (Pointer t :@ p) =
+    return $ t :@ p
+deref (None :@ p) =
+    return $ None :@ p
+deref (t :@ p) = do
+    err $ BadDeref t p
+    return $ None :@ p
 
 buildPointers :: Int -> Type -> Type
 buildPointers 0 t = t
@@ -209,6 +237,7 @@ storeProcedure t = do
     symbols %= insertSymbol n (entry')
     symbols %= (\(Right st) -> st) . goDownLast
 
+
 checkCall :: At Name -> Seq Type -> Epilog (At Type)
 checkCall (pname :@ p) ts = do
     symbs <- use symbols
@@ -239,39 +268,77 @@ checkCall (pname :@ p) ts = do
         join t1 t2 = t1 == t2
 
 
-checkAnswer :: Type -> Type -> Position -> Position -> Epilog ()
-checkAnswer eret aret procp retp =
-    unless (eret == aret) $
-        if aret == voidT
-            then err $ BadFinish eret      procp retp
-            else err $ BadAnswer eret aret procp retp
+checkAssign :: At Type -> At Type -> Epilog (At Type)
+checkAssign (lval :@ p) (e :@ _) = do
+    if item lval == e
+        then return $ voidT :@ p
+        else do
+            err $ InvalidAssign lval e p
+            return $ None :@ p
 
 
+checkAnswer :: Type -> Position -> Epilog (At Type)
+checkAnswer None retp = return $ None :@ retp
+checkAnswer aret retp = do
+    Just proc <- use current
+    (_ :-> eret) :@ procp <- findTypeOfSymbol proc
 
-checkBinOp :: BinaryOp -> Position -> Type -> Type -> Epilog (At Type)
-checkBinOp op p = aux opTypes
+    if (eret == aret)
+        then return $ voidT :@ retP
+        else do
+            if aret == voidT
+                then err $ BadFinish eret      procp retp
+                else err $ BadAnswer eret aret procp retp
+            return $ None :@ retp
+
+
+checkWrite :: Type -> Position -> Epilog (At Type)
+checkWrite None p = return $ None :@ p
+checkWrite t p =
+    if t `elem` [boolT, charT, intT, floatT, stringT]
+        then return $ voidT :@ p
+        else do
+            err $ BadWrite t p
+            return $ None :@ p
+
+
+checkRead :: Type -> Position -> Epilog (At Type)
+checkRead None p = return $ None :@ p
+checkRead t p =
+    if t `elem` [boolT, charT, intT, floatT, stringT]
+        then return $ voidT :@ p
+        else do
+            err $ BadRead t p
+            return $ None :@ p
+
+
+checkBinOp :: BinaryOp -> At Type -> At Type -> Epilog (At Type)
+checkBinOp op = aux opTypes
     where
-        aux _ None _ = return (None :@ p)
-        aux _ _ None = return (None :@ p)
-        aux [] t1 t2 = do
+        aux _ (None :@ p) _        = return (None :@ p)
+        aux _ (_ :@ p) (None :@ _) = return (None :@ p)
+        aux [] (t1 :@ p) (t2 :@ _) = do
             err $ BadBinaryExpression op (t1, t2) (domain opTypes) p
             return (None :@ p)
-        aux ((et1, et2, rt):ts) t1 t2 = if t1 == et1 && t2 == et2
-            then return (rt :@ p)
-            else aux ts t1 t2
+        aux ((et1, et2, rt):ts) (t1 :@ p) (t2 :@ p') =
+            if t1 == et1 && t2 == et2
+                then return (rt :@ p)
+                else aux ts (t1 :@ p) (t2 :@ p')
         opTypes = typeBinOp op
         domain = map (\(a, b, _) -> (a, b))
 
-checkUnOp :: UnaryOp -> Position -> Type -> Epilog (At Type)
+
+checkUnOp :: UnaryOp -> Position -> At Type -> Epilog (At Type)
 checkUnOp op p = aux opTypes
     where
-        aux _ None = return (None :@ p)
-        aux [] t1 = do
+        aux _ (None :@ _) = return (None :@ p)
+        aux [] (t1 :@ _) = do
             err $ BadUnaryExpression op t1 (domain opTypes) p
             return (None :@ p)
-        aux ((et1, rt):ts) t1 = if t1 == et1
-            then return (rt :@ p)
-            else aux ts t1
+        aux ((et1, rt):ts) (t1 :@ p') =
+            if t1 == et1
+                then return (rt :@ p)
+                else aux ts (t1 :@ p')
         opTypes = typeUnOp op
         domain = map fst
 
