@@ -1,6 +1,3 @@
-integer X is 5.
-integer Y.
-
 record p :-
 	character P.
 
@@ -10,25 +7,8 @@ record r :-
 	^r Z,
 	p MyP.
 
-procedure g (integer K) -> float :-
-	answer toFloat(K).
-
-procedure f (integer P) -> integer :-
-	answer f(g(P)).
 
 
-procedure main (integer Hola) :-
-	integer Q is f(3),
-
-	integer Q is 2 + 3 * true,
-
-	integer G is ((5)),
-	character C is 'c',
-	r Kilo,
-
-	C is Kilo_A,
-	integer[4} P,
-	C is P['c'],
-	C is c(),
-	C is C_T,
-	integer U.
+procedure main (integer Hola, integer Chao) :-
+	character[6} K
+	.

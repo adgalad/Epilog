@@ -51,12 +51,32 @@ instance Treelike Atom where
 
 
 data Type
-    = Basic   { atom    :: Atom }
+    = Basic   
+        { name :: String
+        , atom :: Atom
+        , size :: Int 
+        }
+    | Array   
+        { low   :: Int32
+        , high  :: Int32
+        , inner :: Type 
+        , size  :: Int
+        }
+    | Record  
+        { name   :: String
+        , fields :: Map Name Type 
+        , size   :: Int
+        }
+    | Either  
+        { name   :: String
+        , fields :: Map Name Type 
+        , size   :: Int
+        }
+    | (:->)   
+        { params  :: Seq Type
+        , returns :: Type 
+        }
     | Pointer { pointed :: Type }
-    | Array   { low     :: Int32,    high    :: Int32, inner :: Type }
-    | Record  { name    :: String,   fields  :: Map Name Type }
-    | Either  { name    :: String,   fields  :: Map Name Type }
-    | (:->)   { params  :: Seq Type, returns :: Type }
     | Alias   { name    :: Name }
     | OneOf   { options :: [Type] }
     | Any
@@ -67,7 +87,7 @@ data Type
 
 instance Show Type where
     show = \case
-        Basic   { atom }             -> show atom
+        Basic   { name }             -> name
         Pointer { pointed }          -> "pointer to " ++ show pointed
         Array   { low, high, inner } ->
             "array [" ++ show low ++ "," ++ show high ++ "] of " ++ show inner
@@ -89,10 +109,11 @@ instance Show Type where
             showPs = intercalate " × " . Foldable.toList . fmap show
 
 
+
 instance Treelike Type where
     toTree = \case
-        Basic   { atom }             -> leaf (show atom)
-        Pointer { pointed }          -> Node "pointer to" [ toTree pointed ]
+        Basic   { name}             -> leaf $ name 
+        Pointer { pointed }          -> Node "pointer to" [ toTree pointed ] 
         Array   { low, high, inner } ->
             Node ("array [" ++ show low ++ "," ++ show high ++ "] of")
                 [ toTree inner ]
@@ -119,12 +140,12 @@ instance Treelike Type where
 
 
 boolT, charT, intT, floatT, stringT, voidT :: Type
-boolT   = Basic EpBoolean
-charT   = Basic EpCharacter
-intT    = Basic EpInteger
-floatT  = Basic EpFloat
-stringT = Basic EpString
-voidT   = Basic EpVoid
+boolT   = Basic "boolean"   EpBoolean   1
+charT   = Basic "character" EpCharacter 1
+intT    = Basic "integer"   EpInteger   4
+floatT  = Basic "float"     EpFloat     4
+stringT = Basic "string"    EpString    4
+voidT   = Basic "void"      EpString    0
 
 data StructKind = EitherK | RecordK
                 deriving (Eq)
@@ -133,6 +154,6 @@ instance Show StructKind where
     show EitherK = "Either"
     show RecordK = "Record"
 
-toCons :: StructKind -> Name -> Map Name Type -> Type
+toCons :: StructKind -> Name -> Map Name Type -> Int -> Type
 toCons EitherK = Either
 toCons RecordK = Record

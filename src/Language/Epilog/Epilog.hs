@@ -19,7 +19,7 @@ module Language.Epilog.Epilog
     -- Lenses
     , symbols, strings, pendProcs, types, expression, position, input
     , prevChar, bytes, scanCode, commentDepth, current, curfields
-    , curkind, forVars, caseTypes
+    , curkind, forVars, caseTypes, offset
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
@@ -67,6 +67,7 @@ data EpilogState = EpilogState
     , _curkind      :: Maybe StructKind
     , _forVars      :: [(At Name, Type)]
     , _caseTypes    :: [At Type]
+    , _offset       :: [Int]
 
     , _position     :: Position
     , _input        :: String
@@ -81,15 +82,15 @@ makeLenses ''EpilogState
 predefinedProcs :: [Entry]
 predefinedProcs =
     [ entry "toBoolean"
-        ([OneOf [        charT, floatT, intT ]] :-> boolT ) Epilog
+        ([OneOf [        charT, floatT, intT ]] :-> boolT ) Epilog 0 4
     , entry "toCharacter"
-        ([OneOf [ boolT,        floatT, intT ]] :-> charT ) Epilog
+        ([OneOf [ boolT,        floatT, intT ]] :-> charT ) Epilog 0 4
     , entry "toFloat"
-        ([OneOf [ boolT, charT,         intT ]] :-> floatT) Epilog
+        ([OneOf [ boolT, charT,         intT ]] :-> floatT) Epilog 0 4
     , entry "toInteger"
-        ([OneOf [ boolT, charT, floatT       ]] :-> intT  ) Epilog
+        ([OneOf [ boolT, charT, floatT       ]] :-> intT  ) Epilog 0 4
     , entry "length"
-        ([Array 0 0 Any] :-> intT  ) Epilog
+        ([Array 0 0 Any 4] :-> intT  ) Epilog 0 4
     ]
 
 basicTypes :: Map Name (Type, Position)
@@ -120,6 +121,7 @@ initialState inp = EpilogState
     , _curkind      = Nothing
     , _forVars      = []
     , _caseTypes    = []
+    , _offset       = [0]
 
     , _position     = Position (1, 1)
     , _input        = inp
@@ -128,6 +130,7 @@ initialState inp = EpilogState
     , _scanCode     = 0
     , _commentDepth = 0
     }
+
 
 -- The Monad ---------------------------
 type Epilog = RWS () Errors EpilogState
