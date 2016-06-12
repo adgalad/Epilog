@@ -14,6 +14,7 @@ module Language.Epilog.Context
     , declStruct
     , declVar
     , findType
+    , padding
     , findTypeOfSymbol
     , getField
     , isSymbol'
@@ -32,7 +33,7 @@ import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                   (use, (%=), (.=))
-import           Control.Monad                  (forM_, unless, when, foldM)
+import           Control.Monad                  (forM_, unless, when)
 import           Data.Int                       (Int32)
 import           Data.List                      (find, sortOn)
 import qualified Data.Map                       as Map (elems, insert,
@@ -198,7 +199,7 @@ buildArray _ x@(Undef _) = x
 buildArray sizes t = case Seq.viewl sizes of
     Seq.EmptyL         -> t
     (low, high) :< lhs -> Array low high type' size'
-        where size' = padding $ (typeSize type')*(fromIntegral $ high - low + 1)
+        where size' = (typeSize type')*(fromIntegral $ high - low + 1)
               type' = (buildArray lhs t)
 
 

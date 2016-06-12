@@ -1,16 +1,22 @@
-either p :-
+record eitherT :-
 	character P,
 	boolean   H,
 	integer   T.
 
-record r :-	character Y, character X.
+record recordT :-	
+	character[7} K,
+	eitherT Y.
 	
 
 
 
 procedure main (integer Hola, integer Chao) :-
-	p K,
+	character[10}[10}[11} Str,
 	if (true) -> character K end,
-	integer G,
-	for integer I from 1 to 6 -> character K end.
-	integer L.
+	recordT[5} G,
+	for integer I 
+		from 1 to 6 -> character Char1;
+		from 1 to 6 -> character Char2 
+	end.
+
+integer L.

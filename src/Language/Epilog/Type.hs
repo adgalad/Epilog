@@ -150,7 +150,7 @@ typeSize t = case t of
     Either  _ _ s -> s
     Alias     n s -> s
     Pointer     _ -> 4
-    (:->)     _ _ -> 4
+--  (:->)     _ _ ->  -- (?)
     _             -> 0
 
 boolT, charT, intT, floatT, stringT, voidT :: Type

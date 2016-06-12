@@ -330,7 +330,11 @@ Type
 
 Type1
     : TBase TSizes
-    { buildArray $2 `fmap` $1 }
+    { case buildArray $2 `fmap` $1  of 
+            array@(Array _ _ _ _) :@ p -> 
+                array {sizeT = padding $ sizeT array} :@ p
+            x -> x
+    }
 
 TBase
     : TCore
