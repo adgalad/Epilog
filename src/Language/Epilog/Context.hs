@@ -87,8 +87,13 @@ declStruct = do
             let  struct  =  toCons struct'
             fs <- use curfields
             forM_ fs (check sName)
-            let size = foldr ((+).(\(_,t) -> typeSize t)) 0 fs
-            types %= Map.insert sName (struct sName (toMap fs) (padding size), p)
+            case struct' of 
+                (EitherK) -> do
+                    let size = foldr (max.padding.(\(_,t) -> typeSize t)) 0 fs
+                    types %= Map.insert sName (struct sName (toMap fs) size, p)
+                (RecordK) -> do
+                    let size = foldr ((+).padding.(\(_,t) -> typeSize t)) 0 fs
+                    types %= Map.insert sName (struct sName (toMap fs) size, p)
 
     current   .= Nothing
     curkind   .= Nothing
