@@ -71,10 +71,8 @@ declVar (t :@ p) (var :@ _) = do
         Right Entry { eType, ePosition } ->
             err $ DuplicateDeclaration var eType ePosition t p
         Left _ -> do
-            s <- (getSizeOfType t)
-
-            symbols %= insertSymbol var (Entry var t Nothing p s (head offs))
-            offset  %= (\(x:xs) -> (x + s):xs)
+            symbols %= insertSymbol var (Entry var t Nothing p (head offs))
+            offset  %= (\(x:xs) -> (x + typeSize t):xs)
 
 declStruct :: Epilog ()
 declStruct = do
@@ -89,7 +87,7 @@ declStruct = do
             let  struct  =  toCons struct'
             fs <- use curfields
             forM_ fs (check sName)
-            size <- foldM (\c (_,t) -> getSizeOfType t >>= (\s -> return (c+s))) 0 fs
+            let size = foldr ((+).(\(_,t) -> typeSize t)) 0 fs
             types %= Map.insert sName (struct sName (toMap fs) (padding size), p)
 
     current   .= Nothing
@@ -125,7 +123,7 @@ verifyField f@(n :@ p) t = do
 
 getField :: At Type -> At Name -> Epilog (At Type)
 getField (t :@ _) (fieldname :@ p) = case t of
-    Alias tname -> do
+    Alias tname _ -> do
         ts <- use types
         case tname `Map.lookup` ts of
             Just (Record _ fs _, _) -> checkField  fs
@@ -144,26 +142,12 @@ getField (t :@ _) (fieldname :@ p) = case t of
             err $ cons fieldname (name t) p
             return (None :@ p)
 
-getSizeOfType :: Type -> Epilog (Int)
-getSizeOfType t = case t of 
-    Basic   _ _ s -> return s
-    Array _ _ _ s -> return s
-    Record  _ _ s -> return s
-    Either  _ _ s -> return s
-    Alias       n -> do 
-                        ts <- use types 
-                        case n `Map.lookup` ts of 
-                            Just (t',_) -> getSizeOfType t'
-                            Nothing    -> return 0
-    Pointer     _ -> return 4
-    _             -> return 0
-
 
 findTypeOfSymbol :: At Name -> Epilog (At Type)
 findTypeOfSymbol (name :@ p) = do
     symbs <- use symbols
     case name `lookup` symbs of
-        Right (Entry _ t _ _ _ _) -> return (t :@ p)
+        Right (Entry _ t _ _ _) -> return (t :@ p)
         Left _ -> return (None :@ Position (0,0))
 
 
@@ -173,11 +157,11 @@ findType tname = do
     ctype <- use current
 
     if not (null ctype) && tname == item (fromJust ctype)
-        then return $ Alias tname
+        then return $ Alias tname 0
     else case tname `Map.lookup` ts of
         Just (t, _) -> case t of
-            Record _ _ _ -> return $ Alias tname
-            Either _ _ _ -> return $ Alias tname
+            Record _ _ s -> return $ Alias tname s
+            Either _ _ s -> return $ Alias tname s
             _            -> return t
         Nothing ->
             return $ Undef tname
@@ -209,7 +193,7 @@ buildArray _ x@(Undef _) = x
 buildArray sizes t = case Seq.viewl sizes of
     Seq.EmptyL         -> t
     (low, high) :< lhs -> Array low high type' size'
-        where size' = padding $ (size type')*(fromIntegral $ high - low + 1)
+        where size' = padding $ (typeSize type')*(fromIntegral $ high - low + 1)
               type' = (buildArray lhs t)
 
 
@@ -225,7 +209,6 @@ storeProcedure t = do
                        , eType         = params :-> t
                        , eInitialValue = Nothing
                        , ePosition     = p
-                       , eSize         = 4
                        , eOffset       = 0
                        }
 
@@ -237,14 +220,14 @@ checkCall :: At Name -> Seq Type -> Epilog (At Type)
 checkCall (pname :@ p) ts = do
     symbs <- use symbols
     case (pname `lookup` symbs) of
-        Right (Entry _ (ets :-> ret) _ _ _ _) -> do
+        Right (Entry _ (ets :-> ret) _ _ _) -> do
             if length ts == length ets && and (Seq.zipWith join ets ts)
                 then return (ret :@ p)
                 else do
                     err $ BadCall pname ts ets p
                     return (None :@ p)
 
-        Right (Entry _ _ _ _ _ _) -> do
+        Right (Entry _ _ _ _ _) -> do
             err $ UndefinedProcedure pname p
             return (None :@ p)
 
@@ -257,7 +240,7 @@ checkCall (pname :@ p) ts = do
         join Any  _ = True
         join None _ = False
         join (OneOf ts') t  = t `elem` ts'
-        join (Alias t1) (Alias t2) = t1 == t2
+        join (Alias t1 _) (Alias t2 _) = t1 == t2
         join (Array {inner = i1}) (Array {inner = i2}) = join i1 i2
         join (Pointer p1) (Pointer p2) = join p1 p2
         join t1 t2 = t1 == t2

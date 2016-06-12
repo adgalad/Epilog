@@ -10,5 +10,9 @@ record r :-
 
 
 procedure main (integer Hola, integer Chao) :-
-	character[6} K
+	character[10} K,
+	if (K[1] = 'c') -> character K end,
+	integer G,
+	for integer I from 1 to 6 -> character K end.
+	integer L
 	.

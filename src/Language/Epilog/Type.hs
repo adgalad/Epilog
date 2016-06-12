@@ -12,6 +12,7 @@ module Language.Epilog.Type
     , intT
     , floatT
     , stringT
+    , typeSize
     , voidT
     ) where
 --------------------------------------------------------------------------------
@@ -52,32 +53,35 @@ instance Treelike Atom where
 
 data Type
     = Basic   
-        { name :: String
-        , atom :: Atom
-        , size :: Int 
+        { name  :: String
+        , atom  :: Atom
+        , sizeT :: Int 
         }
     | Array   
         { low   :: Int32
         , high  :: Int32
         , inner :: Type 
-        , size  :: Int
+        , sizeT :: Int
         }
     | Record  
         { name   :: String
         , fields :: Map Name Type 
-        , size   :: Int
+        , sizeT  :: Int
         }
     | Either  
         { name   :: String
         , fields :: Map Name Type 
-        , size   :: Int
+        , sizeT  :: Int
         }
     | (:->)   
         { params  :: Seq Type
         , returns :: Type 
         }
+    | Alias
+        { name  :: Name 
+        , sizeT :: Int
+        }
     | Pointer { pointed :: Type }
-    | Alias   { name    :: Name }
     | OneOf   { options :: [Type] }
     | Any
     | None
@@ -138,6 +142,16 @@ instance Treelike Type where
             aux k a b = Node k [toTree a] : b
             toTreePs = Foldable.toList . fmap toTree
 
+typeSize :: Type -> Int
+typeSize t = case t of 
+    Basic   _ _ s -> s
+    Array _ _ _ s -> s
+    Record  _ _ s -> s
+    Either  _ _ s -> s
+    Alias     n s -> s
+    Pointer     _ -> 4
+    (:->)     _ _ -> 4
+    _             -> 0
 
 boolT, charT, intT, floatT, stringT, voidT :: Type
 boolT   = Basic "boolean"   EpBoolean   1

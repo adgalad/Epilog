@@ -46,31 +46,29 @@ data Entry = Entry
     , eType         :: Type
     , eInitialValue :: Maybe Expression
     , ePosition     :: Position
-    , eSize         :: Int
     , eOffset       :: Int
     } deriving (Eq)
 
 instance Ord Entry where
-    (Entry n1 t1 v1 p1 s1 o1) `compare` (Entry n2 t2 v2 p2 s2 o2)
+    (Entry _ _ _ p1 _) `compare` (Entry _ _ _ p2 _)
         = p1 `compare` p2
 
 instance Treelike Entry where
-    toTree Entry { eName, eType = t@( (:->) _ _), eInitialValue, ePosition, eSize, eOffset } =
+    toTree Entry { eName, eType = t@( (:->) _ _), eInitialValue, ePosition, eOffset } =
         Node ("`" ++ eName ++ "`") $
             leaf ("Declared " ++ show ePosition) :
             [leaf ("Type: " ++ show t)]
-    toTree Entry { eName, eType, eInitialValue, ePosition, eSize, eOffset } =
+    toTree Entry { eName, eType, eInitialValue, ePosition, eOffset } =
         Node ("`" ++ eName ++ "`") $
             leaf ("Declared " ++ show ePosition) :
-            leaf ("Type: " ++ show eType ++" ( " ++ show eSize ++ " bytes )") :
+            leaf ("Type: " ++ show eType ++" ( " ++ show  (typeSize eType) ++ " bytes )") :
             leaf ("Offset: "++ show eOffset) :
             case eInitialValue of
                 Nothing -> []
                 Just e  -> [Node "Initialized with value" [toTree e]]
 
-entry :: String -> Type -> Position -> Int -> Int -> Entry
-entry name t p offs size = 
-    Entry name t Nothing p offs size 
+entry :: String -> Type -> Position -> Int -> Entry
+entry name t p offs = Entry name t Nothing p offs 
 
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry
