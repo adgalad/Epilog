@@ -7,12 +7,17 @@ module Language.Epilog.Context
     , buildPointers
     , checkAnswer
     , checkArray
+    , checkAssign
     , checkBinOp
+    , checkBoth
     , checkCall
-    , checkFor
-    , checkUnOp
-    , declStruct
     , checkDeclVar
+    , checkFor
+    , checkInit
+    , checkRead
+    , checkUnOp
+    , checkWrite
+    , declStruct
     , deref
     , findType
     , findTypeOfSymbol
@@ -59,6 +64,14 @@ isSymbol' (name :@ p) = do
         err $ OutOfScope name p
 
 
+checkBoth :: At Type -> At Type -> At Type
+checkBoth (t1 :@ p1) (t2 :@ _t2) =
+    ( if (t1 == None) || (t2 == None)
+        then None
+        else voidT
+    ) :@ p1
+
+
 checkDeclVar :: At Type -> At Name -> Epilog (At Type)
 checkDeclVar (None :@ p) (_ :@ _) = return $ None :@ p
 checkDeclVar (t :@ p) (var :@ _) = do
@@ -67,22 +80,26 @@ checkDeclVar (t :@ p) (var :@ _) = do
         Right Entry { eType, ePosition } -> do
             err $ DuplicateDeclaration var eType ePosition t p
             return $ None :@ p
-        Left _ ->
+        Left _ -> do
             symbols %= insertSymbol var (Entry var t Nothing p)
             return $ voidT :@ p
 
 
 checkInit :: At Type -> At Name -> At Type -> Epilog (At Type)
-checkInit att atn (e :@ p) =
-    case checkDeclVar att atn of
-        Basic EpVoid :@ p ->
-            if item att == item atn
+checkInit att atn (e :@ p) = do
+    t :@ p <- checkDeclVar att atn
+    case t of
+        Basic EpVoid ->
+            if item att == e
                 then return $ voidT :@ p
                 else do
-                    err $ InvalidAssign (item att) e p
-                    return $ None :@ p
+                    case e of
+                        None -> return $ None :@ p
+                        _ -> do
+                            err $ InvalidAssign (item att) e p
+                            return $ None :@ p
 
-        _ :@ p -> return $ None :@ p
+        _ -> return $ None :@ p
 
 
 declStruct :: Epilog ()
@@ -192,11 +209,14 @@ checkArray (_ :@ p) _ = do
     err $ InvalidArray p
     return $ None :@ p
 
-checkFor :: At Type -> At Type -> Epilog ()
+checkFor :: At Type -> At Type -> Epilog (At Type)
 checkFor (t1 :@ rangep) (t2 :@ _) = do
     ((n :@ vp, t):_) <- use forVars
-    unless (t1 == t2 && t1 == t) $
-        err $ InvalidRange n t vp t1 t2 rangep
+    if (t1 == t2 && t1 == t)
+        then return $ voidT :@ rangep
+        else do
+            err $ InvalidRange n t vp t1 t2 rangep
+            return $ None :@ rangep
 
 deref :: At Type -> Epilog (At Type)
 deref (Pointer t :@ p) =
@@ -270,11 +290,14 @@ checkCall (pname :@ p) ts = do
 
 checkAssign :: At Type -> At Type -> Epilog (At Type)
 checkAssign (lval :@ p) (e :@ _) = do
-    if item lval == e
+    if lval == e
         then return $ voidT :@ p
         else do
-            err $ InvalidAssign lval e p
-            return $ None :@ p
+            case e of
+                None -> return $ None :@ p
+                _    -> do
+                    err $ InvalidAssign lval e p
+                    return $ None :@ p
 
 
 checkAnswer :: Type -> Position -> Epilog (At Type)
@@ -284,7 +307,7 @@ checkAnswer aret retp = do
     (_ :-> eret) :@ procp <- findTypeOfSymbol proc
 
     if (eret == aret)
-        then return $ voidT :@ retP
+        then return $ voidT :@ retp
         else do
             if aret == voidT
                 then err $ BadFinish eret      procp retp
@@ -295,7 +318,7 @@ checkAnswer aret retp = do
 checkWrite :: Type -> Position -> Epilog (At Type)
 checkWrite None p = return $ None :@ p
 checkWrite t p =
-    if t `elem` [boolT, charT, intT, floatT, stringT]
+    if t `elem` ([boolT, charT, intT, floatT, stringT] :: [Type])
         then return $ voidT :@ p
         else do
             err $ BadWrite t p
@@ -305,7 +328,7 @@ checkWrite t p =
 checkRead :: Type -> Position -> Epilog (At Type)
 checkRead None p = return $ None :@ p
 checkRead t p =
-    if t `elem` [boolT, charT, intT, floatT, stringT]
+    if t `elem` ([boolT, charT, intT, floatT] :: [Type])
         then return $ voidT :@ p
         else do
             err $ BadRead t p

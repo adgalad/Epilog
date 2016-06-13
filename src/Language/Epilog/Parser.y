@@ -237,7 +237,7 @@ Params
     | Params "," Param               {}
 
 Param
-    : Type VarId                     {% do declVar $1 $2}
+    : Type VarId                     {% do checkDeclVar $1 $2}
 
 Conts
     : Cont                           {}
@@ -249,8 +249,10 @@ Cont
 
 ---- Instructions ----------------------
 Insts
-    : Inst                          {}
-    | Insts "," Inst                {}
+    : Inst
+    { $1 }
+    | Insts "," Inst
+    { checkBoth $1 $3 }
 
 Inst
     : Declaration                   { $1 }     -- returns At Type
@@ -358,22 +360,29 @@ Lval
 
 
 VarId
-    : varId                         { unTokenVarId `fmap` $1 }
+    : varId
+    { unTokenVarId `fmap` $1 }
 
 ------ Call ------------------------------
 Call
-    : GenId "(" Args ")"             { checkCall $1 $3 }
+    : GenId "(" Args ")"
+    {% checkCall $1 $3 }
 
 Args
-    : {- lambda -}                   { Seq.empty }
-    | Args1                          { $1 }
+    : {- lambda -}
+    { Seq.empty }
+    | Args1
+    { $1 }
 
 Args1
-    : Arg                            { Seq.singleton $1 }
-    | Args1 "," Arg                  { $1 |> $3 }
+    : Arg
+    { Seq.singleton $1 }
+    | Args1 "," Arg
+    { $1 |> $3 }
 
 Arg
-    : Exp                           { item $1 }
+    : Exp
+    { item $1 }
 
 ---- If --------------------------------
 If
@@ -383,21 +392,12 @@ If
 Guards
     : Guard
     { $1 }
-
     | Guards CLOSE( ";" ) Guard
-    {   ( if (item $1 == None) || (item $3 == None)
-            then None
-            else voidT
-        ) :@ pos $1
-    }
+    { checkBoth $1 $3 }
 
 Guard
     : GuardCond OPEN( "->" ) Insts
-    {   ( if (item $1 == None) || (item $3 == None)
-            then None
-            else voidT
-        ) :@ pos $1
-    }
+    { checkBoth $1 $3 }
 
 GuardCond
     : Exp
@@ -414,11 +414,7 @@ Case
     : case CaseExp of Sets CLOSE( end )
     {% do
         caseTypes %= tail
-        return $
-            ( if (item $2 == None) || (item $4 == None)
-                then None
-                else voidT
-            ) :@ pos $1
+        return $ checkBoth $2 $4
     }
 
 CaseExp
@@ -437,30 +433,17 @@ Sets
     : Set
     { $1 }
     | Sets CLOSE( ";" ) Set
-    {   ( if (item $1 == None) || (item $3 == None)
-            then None
-            else voidT
-        ) :@ pos $1
-    }
+    { checkBoth $1 $3 }
 
 Set
     : Elems OPEN( "->" ) Insts
-    {   ( if (item $1 == None) || (item $3 == None)
-            then None
-            else voidT
-        ) :@ pos $1
-    }
+    { checkBoth $1 $3 }
 
 Elems
     : Elem
     { $1 }
-
     | Elems "," Elem
-    {   ( if (item $1 == None) || (item $3 == None)
-            then None
-            else voidT
-        ) :@ pos $1
-    }
+    { checkBoth $1 $3 }
 
 Elem
     : Int
@@ -479,46 +462,67 @@ Elem
         if (ct == charT)
             then return $ charT :@ pos $1
             else do
-                err $ BadCaseCharElem p (item $1) (pos $1)
+                err $ BadCaseIntElem p (item $1) (pos $1)
                 return $ None :@ (pos $1)
     }
 
 ---- For loops -------------------------
 For
     :       for   ForV Ranges CLOSE( end )
-    {% forVars %= tail }
+    {% do
+        forVars %= tail
+        return $ checkBoth $2 $3
+    }
 
     | OPEN( for ) ForD Ranges CLOSE( CLOSE( end ) )
-    {% forVars %= tail }
+    {% do
+        forVars %= tail
+        return $ checkBoth $2 $3
+    }
 
 ForD -- It could be Declaration
     : Type VarId
     {% do
         if (item $1) `elem` [intT, charT]
             then do
-                declVar $1 $2
-                forVars %= (($2, item $1):)
+                t :@ p <- checkDeclVar $1 $2
+                case t of
+                    None -> do
+                        forVars %= (($2, None):)
+                        return $ None :@ p
+                    _    -> do
+                        forVars %= (($2, item $1):)
+                        return $ voidT :@ p
             else do
-                declVar (None :@ (pos $1)) $2
+                checkDeclVar (None :@ (pos $1)) $2
                 err $ BadForVar (item $2) (item $1) (pos $1) (pos $1)
                 forVars %= (($2, None):)
+                return $ None :@ (pos $1)
     }
 
 ForV -- Or a var
     : VarId
     {% do
         (t :@ p) <- findTypeOfSymbol $1
-        unless (t `elem` [intT, charT]) $
-            err $ BadForVar (item $1) t p (pos $1)
-        forVars %= (($1, t):)
+        if (t `elem` [intT, charT])
+            then do
+                forVars %= (($1, t):)
+                return $ voidT :@ p
+            else do
+                err $ BadForVar (item $1) t p (pos $1)
+                forVars %= (($1, None):)
+                return $ None :@ p
     }
 
 Ranges
-    : Range                         {}
-    | Ranges CLOSE( ";" ) Range     {}
+    : Range
+    { $1 }
+    | Ranges CLOSE( ";" ) Range
+    { checkBoth $1 $3 }
 
 Range
-    : Range1 OPEN( "->" ) Insts     {}
+    : Range1 OPEN( "->" ) Insts
+    { checkBoth $1 $3 }
 
 Range1
     : from Exp to Exp
@@ -527,7 +531,8 @@ Range1
 
 ---- While loops -----------------------
 While
-    : while Guards CLOSE( end )      {}
+    : while Guards CLOSE( end )
+    { item $2 :@ pos $1 }
 
 ---- Expressions -------------------------
 Exp
