@@ -302,11 +302,14 @@ instance Show EpilogError where
 
         BadRead t p ->
             "Bad read " ++ showP p ++
-            " attempted to read to variable of type `" ++ show t ++ "`"
+            " attempted to read into variable of type `" ++ show t ++
+            "`; only booleans, chars, floats and integers can be read"
 
         BadWrite t p ->
             "Bad write " ++ showP p ++
-            " attempted to write to variable of type `" ++ show t ++ "`"
+            " attempted to write variable of type `" ++ show t ++
+            "`; only booleans, chars, floats, integers and strings " ++
+            "can be written"
 
         BadFinish eret      procp retp ->
             "Bad finish " ++ showP retp ++

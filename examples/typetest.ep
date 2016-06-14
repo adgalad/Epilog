@@ -10,8 +10,8 @@ integer{1,5} MyInt5.
 
 integer{2,4} MyInt6.
 
-^Float MyF.
-^Float MyOtherF.
+^float MyF.
+^float MyOtherF.
 
 float{0,10}[0,1]   Special.    %% Big array of small arrays
 (float{0,10})[0,1] SpecialToo. %% Small array of big arrays

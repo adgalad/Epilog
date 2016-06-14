@@ -52,33 +52,32 @@ instance Treelike Atom where
 
 
 data Type
-    = Basic   
-        { name  :: String
-        , atom  :: Atom
-        , sizeT :: Int 
-        }
-    | Array   
-        { low   :: Int32
-        , high  :: Int32
-        , inner :: Type 
+    = Basic
+        { atom  :: Atom
         , sizeT :: Int
         }
-    | Record  
+    | Array
+        { low   :: Int32
+        , high  :: Int32
+        , inner :: Type
+        , sizeT :: Int
+        }
+    | Record
         { name   :: String
-        , fields :: Map Name Type 
+        , fields :: Map Name Type
         , sizeT  :: Int
         }
-    | Either  
+    | Either
         { name   :: String
-        , fields :: Map Name Type 
+        , fields :: Map Name Type
         , sizeT  :: Int
         }
-    | (:->)   
+    | (:->)
         { params  :: Seq Type
-        , returns :: Type 
+        , returns :: Type
         }
     | Alias
-        { name  :: Name 
+        { name  :: Name
         , sizeT :: Int
         }
     | Pointer { pointed :: Type }
@@ -91,7 +90,7 @@ data Type
 
 instance Show Type where
     show = \case
-        Basic   { name }             -> name
+        Basic   { atom }             -> show atom
         Pointer { pointed }          -> "pointer to " ++ show pointed
         Array   { low, high, inner } ->
             "array [" ++ show low ++ "," ++ show high ++ "] of " ++ show inner
@@ -116,8 +115,8 @@ instance Show Type where
 
 instance Treelike Type where
     toTree = \case
-        Basic   { name}             -> leaf $ name 
-        Pointer { pointed }          -> Node "pointer to" [ toTree pointed ] 
+        Basic   { atom }             -> leaf . show $ atom
+        Pointer { pointed }          -> Node "pointer to" [ toTree pointed ]
         Array   { low, high, inner } ->
             Node ("array [" ++ show low ++ "," ++ show high ++ "] of")
                 [ toTree inner ]
@@ -143,23 +142,22 @@ instance Treelike Type where
             toTreePs = Foldable.toList . fmap toTree
 
 typeSize :: Type -> Int
-typeSize t = case t of 
-    Basic   _ _ s -> s
+typeSize t = case t of
+    Basic     _ s -> s
     Array _ _ _ s -> s
     Record  _ _ s -> s
     Either  _ _ s -> s
-    Alias     n s -> s
+    Alias     _ s -> s
     Pointer     _ -> 4
---  (:->)     _ _ ->  -- (?)
-    _             -> 0
+    _             -> undefined
 
 boolT, charT, intT, floatT, stringT, voidT :: Type
-boolT   = Basic "boolean"   EpBoolean   1
-charT   = Basic "character" EpCharacter 1
-intT    = Basic "integer"   EpInteger   4
-floatT  = Basic "float"     EpFloat     4
-stringT = Basic "string"    EpString    4
-voidT   = Basic "void"      EpString    0
+boolT   = Basic EpBoolean   1
+charT   = Basic EpCharacter 1
+intT    = Basic EpInteger   4
+floatT  = Basic EpFloat     4
+stringT = Basic EpString    4
+voidT   = Basic EpString    0
 
 data StructKind = EitherK | RecordK
                 deriving (Eq)
