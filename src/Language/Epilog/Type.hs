@@ -70,9 +70,9 @@ data Type
         , sizeT  :: Int
         }
     | Either
-        { name   :: String
-        , fields :: Map Name (Type, Int)
-        , sizeT  :: Int
+        { name    :: String
+        , members :: Map Name (Type, Int)
+        , sizeT   :: Int
         }
     | (:->)
         { params  :: Seq Type
@@ -96,10 +96,12 @@ instance Show Type where
         Pointer { pointed }          -> "pointer to " ++ show pointed
         Array   { low, high, inner } ->
             "array [" ++ show low ++ "," ++ show high ++ "] of " ++ show inner
-        Record  { name, fields }     ->
-            name ++ " ~ record {" ++ showFs fields ++ "}"
-        Either  { name, fields }     ->
-            name ++ " ~ either {" ++ showFs fields ++ "}"
+        Record  { name, fields, sizeT } ->
+            name ++ " as record {" ++ showFs fields ++
+            "} (" ++ showS sizeT ++ ")"
+        Either  { name, members, sizeT } ->
+            name ++ " as either {" ++ showFs members ++
+            "} (" ++ showS sizeT ++ ")"
         (:->)   { params, returns }  ->
             "procedure (" ++ showPs params ++ ") → " ++ show returns
         Alias   { name }             -> name
@@ -109,7 +111,7 @@ instance Show Type where
         Undef   { name }             -> "undefined type `" ++ name ++ "`"
 
         where
-            showFs = intercalate ", " . Map.foldrWithKey aux [] 
+            showFs = intercalate ", " . Map.foldrWithKey aux []
             aux k (t,_) b = (k ++ " : " ++ show t) : b
             showPs = intercalate " × " . Foldable.toList . fmap show
 
@@ -122,10 +124,16 @@ instance Treelike Type where
         Array   { low, high, inner } ->
             Node ("array [" ++ show low ++ "," ++ show high ++ "] of")
                 [ toTree inner ]
-        Record  { name, fields }     ->
-            Node (name ++ " ~ record") (toTreeFs fields)
-        Either  { name, fields }     ->
-            Node (name ++ " ~ either") (toTreeFs fields)
+        Record  { fields, sizeT }     ->
+            Node "record"
+                [ Node "size" [leaf . showS $ sizeT]
+                , Node "fields" (toTreeFs fields)
+                ]
+        Either  { members, sizeT }     ->
+            Node "either"
+                [ Node "size" [leaf . showS $ sizeT]
+                , Node "members" (toTreeFs members)
+                ]
         (:->)   { params, returns }  ->
             Node "procedure"
                 [ Node "parameters" (toTreePs params)
@@ -141,8 +149,8 @@ instance Treelike Type where
         where
             toTreeFs = Map.foldrWithKey aux []
             aux k (t,offs) b = Node k [toTree t
-                                      , leaf ("Size: "   ++ showS t)
-                                      , leaf ("Offset: " ++ show offs) 
+                                      , leaf ("Size: "   ++ showS (typeSize t))
+                                      , leaf ("Offset: " ++ show offs)
                                       ] : b
             toTreePs = Foldable.toList . fmap toTree
 
@@ -156,13 +164,14 @@ typeSize t = case t of
     Pointer     _ -> 4
     _             -> undefined
 
-showS :: Type -> String
-showS t = show (typeSize t) ++ " bytes"
+showS :: (Eq a, Num a, Show a) => a -> String
+showS t = show t ++ case t of
+    1 -> " byte"
+    _ -> " bytes"
 
 padding :: Int -> Int
-padding size = size + if (size `mod` 4 /= 0)
-    then 4 - (size `mod` 4)
-    else 0
+padding size = size + ((4 - size `mod` 4) `mod` 4)
+
 
 boolT, charT, intT, floatT, stringT, voidT :: Type
 boolT   = Basic EpBoolean   1

@@ -33,7 +33,7 @@ import           Language.Epilog.Treelike
 import           Language.Epilog.Position
 --------------------------------------------------------------------------------
 import           Data.Map.Strict                (Map)
-import           Data.List                      (sort)
+import           Data.List                      (sortOn)
 import qualified Data.Map.Strict                as Map hiding (Map)
 import           Data.Sequence                  (Seq, ViewL ((:<)),
                                                  ViewR ((:>)), (<|), (><), (|>))
@@ -49,12 +49,9 @@ data Entry = Entry
     , eOffset       :: Int
     } deriving (Eq)
 
-instance Ord Entry where
-    (Entry _ _ _ p1 _) `compare` (Entry _ _ _ p2 _)
-        = p1 `compare` p2
 
 instance Treelike Entry where
-    toTree Entry { eName, eType = t@( (:->) _ _), eInitialValue, ePosition, eOffset } =
+    toTree Entry { eName, eType = t@( (:->) _ _), ePosition } =
         Node ("`" ++ eName ++ "`") $
             leaf ("Declared " ++ show ePosition) :
             [leaf ("Type: " ++ show t)]
@@ -62,14 +59,14 @@ instance Treelike Entry where
         Node ("`" ++ eName ++ "`") $
             leaf ("Declared " ++ show ePosition) :
             leaf ("Type: " ++ show eType) :
-            leaf ("Size: " ++ showS eType) :
+            leaf ("Size: " ++ showS (typeSize eType)) :
             leaf ("Offset: "++ show eOffset) :
             case eInitialValue of
                 Nothing -> []
                 Just e  -> [Node "Initialized with value" [toTree e]]
 
 entry :: String -> Type -> Position -> Int -> Entry
-entry name t p offs = Entry name t Nothing p offs 
+entry name t = Entry name t Nothing
 
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry
@@ -88,7 +85,7 @@ instance Treelike Scope where
         Node ("Scope " ++ showP sFrom ++ " -> " ++ showP sTo) $
             if Map.null sEntries
                 then toForest sChildren
-                else Node "Symbols" (toForest . sort . Map.elems $ sEntries) :
+                else Node "Symbols" (toForest . sortOn ePosition . Map.elems $ sEntries) :
                         toForest sChildren
 
 lookup' :: String -> Scope -> Either String Entry
