@@ -6,6 +6,8 @@ module Language.Epilog.Type
     , Type (..)
     , StructKind (..)
     , toCons
+    , showS
+    , padding
     -- basic types
     , boolT
     , charT
@@ -64,12 +66,12 @@ data Type
         }
     | Record
         { name   :: String
-        , fields :: Map Name Type
+        , fields :: Map Name (Type, Int)
         , sizeT  :: Int
         }
     | Either
         { name   :: String
-        , fields :: Map Name Type
+        , fields :: Map Name (Type, Int)
         , sizeT  :: Int
         }
     | (:->)
@@ -107,8 +109,8 @@ instance Show Type where
         Undef   { name }             -> "undefined type `" ++ name ++ "`"
 
         where
-            showFs = intercalate ", " . Map.foldrWithKey aux []
-            aux k a b = (k ++ " : " ++ show a) : b
+            showFs = intercalate ", " . Map.foldrWithKey aux [] 
+            aux k (t,_) b = (k ++ " : " ++ show t) : b
             showPs = intercalate " × " . Foldable.toList . fmap show
 
 
@@ -138,7 +140,10 @@ instance Treelike Type where
 
         where
             toTreeFs = Map.foldrWithKey aux []
-            aux k a b = Node k [toTree a] : b
+            aux k (t,offs) b = Node k [toTree t
+                                      , leaf ("Size: "   ++ showS t)
+                                      , leaf ("Offset: " ++ show offs) 
+                                      ] : b
             toTreePs = Foldable.toList . fmap toTree
 
 typeSize :: Type -> Int
@@ -150,6 +155,14 @@ typeSize t = case t of
     Alias     _ s -> s
     Pointer     _ -> 4
     _             -> undefined
+
+showS :: Type -> String
+showS t = show (typeSize t) ++ " bytes"
+
+padding :: Int -> Int
+padding size = size + if (size `mod` 4 /= 0)
+    then 4 - (size `mod` 4)
+    else 0
 
 boolT, charT, intT, floatT, stringT, voidT :: Type
 boolT   = Basic EpBoolean   1
@@ -166,6 +179,6 @@ instance Show StructKind where
     show EitherK = "Either"
     show RecordK = "Record"
 
-toCons :: StructKind -> Name -> Map Name Type -> Int -> Type
+toCons :: StructKind -> Name -> Map Name (Type, Int) -> Int -> Type
 toCons EitherK = Either
 toCons RecordK = Record

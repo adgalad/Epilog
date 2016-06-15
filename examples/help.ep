@@ -1,22 +1,27 @@
-record eitherT :-
+either eitherT :-
 	character P,
 	boolean   H,
 	integer   T.
 
 record recordT :-	
-	character[7} K,
-	eitherT Y.
+	integer [2}[5,15} Array,
+	eitherT Y,
+	character H,
+	integer I.
 	
 
 
 
 procedure main (integer Hola, integer Chao) :-
-	character[10}[10}[11} Str,
-	if (true) -> character K end,
-	recordT[5} G,
+	character[9}[9}[9} Str,
 	for integer I 
-		from 1 to 6 -> character Char1;
-		from 1 to 6 -> character Char2 
-	end.
+		from 1 to 6 -> if (true) -> character K end;
+		from 1 to 6 -> if (true) -> character K end
+	end,	
+	integer H is 5,
+	^^integer P,
+	P^^ is 5,
+	integer J is H + P^^,
+	recordT[5} G.
 
-integer L.
+

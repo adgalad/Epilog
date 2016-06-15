@@ -61,7 +61,8 @@ instance Treelike Entry where
     toTree Entry { eName, eType, eInitialValue, ePosition, eOffset } =
         Node ("`" ++ eName ++ "`") $
             leaf ("Declared " ++ show ePosition) :
-            leaf ("Type: " ++ show eType ++" ( " ++ show  (typeSize eType) ++ " bytes )") :
+            leaf ("Type: " ++ show eType) :
+            leaf ("Size: " ++ showS eType) :
             leaf ("Offset: "++ show eOffset) :
             case eInitialValue of
                 Nothing -> []

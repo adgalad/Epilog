@@ -3,7 +3,8 @@
 {-# LANGUAGE OverloadedLists #-}
 
 module Language.Epilog.Context
-    ( buildArray
+    ( arrayPadding
+    , buildArray
     , buildPointers
     , checkAnswer
     , checkArray
@@ -20,7 +21,6 @@ module Language.Epilog.Context
     , declStruct
     , deref
     , findType
-    , padding
     , findTypeOfSymbol
     , getField
     , isSymbol'
@@ -45,10 +45,10 @@ import           Data.List                      (find, sortOn)
 import qualified Data.Map                       as Map (elems, insert,
                                                         insertWith, lookup)
 import           Data.Maybe                     (fromJust)
-import           Data.Sequence                  (Seq, ViewL ((:<)), (><), (|>))
+import           Data.Sequence                  (Seq, ViewL ((:<)), (><), (|>), (<|))
 import qualified Data.Sequence                  as Seq (ViewL (EmptyL),
                                                         fromList, singleton,
-                                                        viewl, zipWith)
+                                                        viewl, zipWith, empty)
 import           Prelude                        hiding (Either, lookup)
 --------------------------------------------------------------------------------
 
@@ -71,13 +71,6 @@ checkBoth (t1 :@ p1) (t2 :@ _t2) =
         then None
         else voidT
     ) :@ p1
-
-
-padding :: Int -> Int
-padding size = size + if (size `mod` 4 /= 0)
-    then 4 - (size `mod` 4)
-    else 0
-
 
 checkDeclVar :: At Type -> At Name -> Epilog (At Type)
 checkDeclVar (None :@ p) (_ :@ _) = return $ None :@ p
@@ -125,11 +118,12 @@ declStruct = do
             forM_ fs (check sName)
             case struct' of
                 (EitherK) -> do
-                    let size = foldr (max.padding.(\(_,t) -> typeSize t)) 0 fs
-                    types %= Map.insert sName (struct sName (toMap fs) size, p)
+                    let size = foldr (max.padding.typeSize.snd) 0 fs
+                    types %= Map.insert sName (struct sName (toMap $offsE fs) size, p)
                 (RecordK) -> do
-                    let size = foldr ((+).padding.(\(_,t) -> typeSize t)) 0 fs
-                    types %= Map.insert sName (struct sName (toMap fs) size, p)
+                    let fs'  = offsR (Seq.viewl fs) 0
+                    let size = foldr ((+).padding.typeSize.snd) 0 fs
+                    types %= Map.insert sName (struct sName (toMap fs') size, p)
 
     current   .= Nothing
     curkind   .= Nothing
@@ -142,7 +136,10 @@ declStruct = do
                 Alias { name = n } ->
                     when (n == sName) $ err $ RecursiveType sName n p
                 _ -> return ()
-
+        offsR Seq.EmptyL _ = Seq.empty
+        offsR ((name, t):<xs) offs = 
+            (name, (t,offs)) <| (offsR (Seq.viewl xs) (offs + (padding $ typeSize t)))
+        offsE = fmap (\(n,t) -> (n,(t,0)))
         toMap                 = foldr toMap' []
         toMap' (name :@ _, t) = Map.insert name t
 
@@ -174,10 +171,10 @@ getField (t :@ _) (fieldname :@ p) = case t of
 
     where
         checkField fields = case fieldname `Map.lookup` fields of
-            Just t'  -> return (t' :@ p)
+            Just t'  -> return (fst t' :@ p)
             Nothing -> err' InvalidField
         checkMember members = case fieldname `Map.lookup` members of
-            Just t'  -> return (t' :@ p)
+            Just t'  -> return (fst t' :@ p)
             Nothing -> err' InvalidMember
         err' cons = do
             err $ cons fieldname (name t) p
@@ -240,6 +237,10 @@ buildPointers :: Int -> Type -> Type
 buildPointers 0 t = t
 buildPointers n t = Pointer $ buildPointers (n-1) t
 
+arrayPadding :: At Type -> At Type
+arrayPadding (array@(Array _ _ _ _) :@ p) =
+    array {sizeT = padding $ sizeT array} :@ p
+arrayPadding t = t
 
 buildArray :: Seq (Int32, Int32) -> Type  -> Type
 buildArray _ x@(Undef _) = x
@@ -248,8 +249,7 @@ buildArray sizes t = case Seq.viewl sizes of
     (low, high) :< lhs -> Array low high innerT size'
 
         where
-            size'  = padding $
-                (typeSize innerT) * (fromIntegral $ high - low + 1)
+            size'  = (typeSize  innerT) * (fromIntegral $ high - low + 1)
             innerT = (buildArray lhs t)
 
 

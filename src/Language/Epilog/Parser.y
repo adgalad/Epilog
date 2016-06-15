@@ -316,7 +316,7 @@ Type
 
 Type1
     : TBase TSizes
-    { buildArray $2 `fmap` $1 }
+    { arrayPadding $ buildArray $2 `fmap` $1 }
 
 TBase
     : TCore
