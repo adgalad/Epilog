@@ -3,21 +3,22 @@ either eitherT :-
 	boolean   H,
 	integer   T.
 
-record recordT :-	
+record recordT :-
 	integer [2}[5,15} Array,
 	eitherT Y,
 	character H,
 	integer I.
-	
 
 
 
-procedure main (integer Hola, integer Chao) :-
-	character[9}[9}[9} Str,
-	for integer I 
+
+procedure main (integer Hola, character C, integer Chao) :-
+	character[9}[10}[19} Str,
+
+	for integer I
 		from 1 to 6 -> if (true) -> character K end;
 		from 1 to 6 -> if (true) -> character K end
-	end,	
+	end,
 	integer H is 5,
 	^^integer P,
 	P^^ is 5,

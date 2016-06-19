@@ -90,7 +90,11 @@ predefinedProcs =
     , entry "toInteger"
         ([OneOf [ boolT, charT, floatT       ]] :-> intT  ) Epilog 0
     , entry "length"
-        ([Array 0 0 Any 4] :-> intT  ) Epilog 0
+        ([Array 0 0 Any 4]                      :-> intT  ) Epilog 0
+    , entry "make"
+        ([Pointer Any]                          :-> voidT ) Epilog 0
+    , entry "ekam"
+        ([Pointer Any]                          :-> voidT ) Epilog 0
     ]
 
 basicTypes :: Map Name (Type, Position)

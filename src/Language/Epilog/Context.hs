@@ -83,7 +83,7 @@ checkDeclVar (t :@ p) (var :@ _) = do
             return $ None :@ p
         Left _ -> do
             symbols %= insertSymbol var (Entry var t Nothing p (head offs))
-            offset  %= (\(x:xs) -> (x + typeSize t):xs)
+            offset  %= (\(x:xs) -> (x + padding (typeSize t)):xs)
             return $ voidT :@ p
 
 
@@ -137,7 +137,7 @@ declStruct = do
                     when (n == sName) $ err $ RecursiveType sName n p
                 _ -> return ()
         offsR Seq.EmptyL _ = Seq.empty
-        offsR ((name, t):<xs) offs = 
+        offsR ((name, t):<xs) offs =
             (name, (t,offs)) <| (offsR (Seq.viewl xs) (offs + (padding $ typeSize t)))
         offsE = fmap (\(n,t) -> (n,(t,0)))
         toMap                 = foldr toMap' []
