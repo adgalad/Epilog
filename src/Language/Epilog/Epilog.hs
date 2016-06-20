@@ -20,7 +20,7 @@ module Language.Epilog.Epilog
     , symbols, strings, pendProcs, types, expression, position, input
     , prevChar, bytes, scanCode, commentDepth, current, curfields
     , curkind, forVars, caseTypes, offset, instructions, guards
-    , curProcType, sets, ranges, ast
+    , curProcType, sets, ranges, caseSet, lastLval, ast
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
@@ -72,9 +72,11 @@ data EpilogState = EpilogState
     , _caseTypes    :: [At Type]
     , _offset       :: [Int]
     -- AST
+    , _caseSet      :: Exps 
     , _curProcType  :: Type
     , _currentEntry :: Entry
     , _instructions :: [Insts]
+    , _lastLval     :: Maybe Expression
     , _expression   :: Exps
     , _guards       :: Guards
     , _sets         :: Sets
@@ -138,13 +140,15 @@ initialState inp = EpilogState
     , _caseTypes    = []
     , _offset       = [0]
     -- AST
+    , _caseSet      = []
     , _curProcType  = None
-    , _instructions = [Seq.empty]
-    , _expression   = Seq.empty
-    , _guards       = Seq.empty
-    , _sets         = Seq.empty
-    , _ranges       = Seq.empty
-    , _ast          = Seq.empty
+    , _instructions = [[]]
+    , _lastLval     = Nothing
+    , _expression   = []
+    , _guards       = []
+    , _sets         = []
+    , _ranges       = []
+    , _ast          = []
 
     , _position     = Position (1, 1)
     , _input        = inp

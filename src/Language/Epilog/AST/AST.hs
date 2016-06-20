@@ -9,19 +9,22 @@ module Language.Epilog.AST.AST
     , topInsts
     , guard
     , range
+    , caseSets
     , insert
     , binOp
     , unaryOp
     , assign
     , openScope
     , buildIf
+    , buildCase
     , buildFor
+    , buildWhile
     ) where 
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Instruction
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.At
-import           Language.Epilog.Epilog
+import           Language.Epilog.Epilog          
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
 import           Data.Sequence          (Seq, (|>), (<|), viewl
@@ -42,7 +45,7 @@ topExpr = do
         x :< xs -> do 
             expression .= xs
             return x
-        _       -> undefined
+        _       -> return $Otherwise $Position (-100,-100)
 
 insertInst :: Instruction -> Epilog ()
 insertInst inst = instructions %= (\(x:xs) -> (x|>inst):xs)
@@ -66,12 +69,33 @@ guard p = do
     insts <- topInsts
     guards %= (|> (p, e, insts))
 
+caseSets :: Position -> Epilog ()
+caseSets p = do 
+    set   <- use caseSet
+    insts <- topInsts
+    sets %= (|> (p,set,insts) )
+    caseSet .= Seq.empty
+
 range :: Position -> Epilog ()
 range p =  do 
     h <- topExpr 
     l <- topExpr 
     insts <- topInsts 
     ranges %= (|> (p, l, h, insts))
+
+buildCase :: Position -> Epilog ()
+buildCase p = do
+    expr <- topExpr
+    sets' <- use sets
+    insertInst $ Case p expr sets'
+    sets .= Seq.empty
+
+buildIf :: Position -> Epilog () 
+buildIf p = do 
+    guards' <- use guards
+    insertInst $ If p guards'
+    guards .= Seq.empty
+
 
 buildFor :: Position -> Bool -> Epilog () 
 buildFor p decl = do 
@@ -83,11 +107,12 @@ buildFor p decl = do
         else insertInst $ For p  Nothing var ranges' 
     ranges .= Seq.empty
 
-buildIf :: Position -> Epilog () 
-buildIf p = do 
+buildWhile :: Position -> Epilog ()
+buildWhile p = do
     guards' <- use guards
-    insertInst $ If p guards'
+    insertInst $ While p guards'
     guards .= Seq.empty
+
 
 insert :: Instruction -> Epilog ()
 insert inst = ast %= (|> inst)
@@ -105,8 +130,9 @@ unaryOp op p = do
 
 assign :: Epilog ()
 assign = do
-    expr <- topExpr
-    lval <- topExpr
+    Just lval <- use lastLval
+    expr      <- topExpr
+    lastLval .= Nothing
     case lval of 
         Lval p elval ->
              insertInst $ (Assign p elval expr) 

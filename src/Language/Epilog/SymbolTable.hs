@@ -49,8 +49,7 @@ data Entry = Entry
     , eAST          :: Maybe Insts
     , ePosition     :: Position
     , eOffset       :: Int
-    } 
-    | EmptyEntry deriving (Eq)
+    } deriving (Eq)
 
 
 instance Treelike Entry where

@@ -380,15 +380,16 @@ Assign
 Lval
     : VarId
     {% do
-        AST.insertExpr $ Lval (pos $1) (Variable (item $1))
+        lastLval .= Just (Lval (pos $1) (Variable (item $1)))
         isSymbol' $1
         findTypeOfSymbol $1
     }
 
     | Lval "[" Exp "]"
     {% do 
-        -- let lval = Lval (pos $1) (Variable (item $1))
-        -- expression %= (lval:)
+        expr <- AST.topExpr
+        Just (Lval p lval) <- use lastLval
+        lastLval .= Just (Lval p (Index lval expr)) 
         checkArray $1 (item $3)  }
 
     | Lval "_" VarId
@@ -459,6 +460,7 @@ GuardCond
 Case
     : case CaseExp of Sets CLOSE( end )
     {% do
+        AST.buildCase (pos $1)
         caseTypes %= tail
         return $ checkBoth $2 $4
     }
@@ -482,7 +484,10 @@ Sets
 
 Set
     : Elems OPEN( "->" ) Insts
-    { checkBoth $1 $3 }
+    {% do
+        AST.caseSets (pos $1)
+        return $ checkBoth $1 $3 
+    }
 
 Elems
     : Elem
@@ -495,7 +500,9 @@ Elem
     {% do
         ((ct :@ p):_) <- use caseTypes
         if (ct == intT)
-            then return $ intT :@ pos $1
+            then do 
+                caseSet %= (|> LitInt (pos $1) (item $1))
+                return $ intT :@ pos $1
             else do
                 err $ BadCaseCharElem p (item $1) (pos $1)
                 return $ None :@ (pos $1)
@@ -504,7 +511,9 @@ Elem
     {% do
         ((ct :@ p):_) <- use caseTypes
         if (ct == charT)
-            then return $ charT :@ pos $1
+            then do 
+                caseSet %= (|> LitChar (pos $1) (item $1))
+                return $ charT :@ pos $1
             else do
                 err $ BadCaseIntElem p (item $1) (pos $1)
                 return $ None :@ (pos $1)
@@ -584,7 +593,10 @@ Range1
 ---- While loops -----------------------
 While
     : while Guards CLOSE( end )
-    { item $2 :@ pos $1 }
+    {% do 
+        AST.buildWhile (pos $1)
+        return $ item $2 :@ pos $1 
+    }
 
 ---- Expressions -------------------------
 Exp
@@ -611,7 +623,12 @@ Exp
                                     }
     -- | otherwise                  { voidT   }
 
-    | Lval                          { $1 }
+    | Lval                          {% do
+                                        Just lval <- use lastLval
+                                        AST.insertExpr lval 
+                                        lastLval .= Nothing
+                                        return $1 
+                                    }
 
     | Call                          { $1 }
 
