@@ -19,10 +19,12 @@ module Language.Epilog.Epilog
     -- Lenses
     , symbols, strings, pendProcs, types, expression, position, input
     , prevChar, bytes, scanCode, commentDepth, current, curfields
-    , curkind, forVars, caseTypes, offset
+    , curkind, forVars, caseTypes, offset, instructions, guards
+    , curProcType, sets, ranges, ast
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
+import           Language.Epilog.AST.Instruction
 import           Language.Epilog.Type
 import           Language.Epilog.Common
 import           Language.Epilog.Error
@@ -34,7 +36,7 @@ import           Control.Monad.Trans.RWS.Strict (RWS, get, gets, modify, runRWS,
                                                  tell)
 import           Data.Map.Strict                (Map)
 import           Data.Sequence                  (Seq)
-import qualified Data.Sequence                  as Seq (singleton)
+import qualified Data.Sequence                  as Seq (singleton, empty)
 import           Data.Word                      (Word8)
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
@@ -55,19 +57,29 @@ err = tell . Seq.singleton
 -- State Types -------------------------
 type Byte       = Word8
 
+
+
 -- | The state of the compiler monad. Includes the Lexer and Parser states.
 data EpilogState = EpilogState
     { _symbols      :: SymbolTable
     , _strings      :: Strings
     , _pendProcs    :: Pending
     , _types        :: Types
-    , _expression   :: Seq Expression
     , _current      :: Maybe (At Name)
     , _curfields    :: Seq (At Name, Type)
     , _curkind      :: Maybe StructKind
     , _forVars      :: [(At Name, Type)]
     , _caseTypes    :: [At Type]
     , _offset       :: [Int]
+    -- AST
+    , _curProcType  :: Type
+    , _currentEntry :: Entry
+    , _instructions :: [Insts]
+    , _expression   :: Exps
+    , _guards       :: Guards
+    , _sets         :: Sets
+    , _ranges       :: Ranges
+    , _ast          :: Insts
 
     , _position     :: Position
     , _input        :: String
@@ -119,13 +131,20 @@ initialState inp = EpilogState
     , _strings      = []
     , _pendProcs    = []
     , _types        = basicTypes
-    , _expression   = []
     , _current      = Nothing
     , _curfields    = []
     , _curkind      = Nothing
     , _forVars      = []
     , _caseTypes    = []
     , _offset       = [0]
+    -- AST
+    , _curProcType  = None
+    , _instructions = [Seq.empty]
+    , _expression   = Seq.empty
+    , _guards       = Seq.empty
+    , _sets         = Seq.empty
+    , _ranges       = Seq.empty
+    , _ast          = Seq.empty
 
     , _position     = Position (1, 1)
     , _input        = inp

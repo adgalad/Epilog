@@ -1,4 +1,8 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+
+
 
 module Language.Epilog.AST.Instruction
     ( Instruction (..)
@@ -14,6 +18,7 @@ module Language.Epilog.AST.Instruction
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
+import           Language.Epilog.Common
 import           Language.Epilog.Type
 import           Language.Epilog.Position
 import           Language.Epilog.Treelike
@@ -21,8 +26,8 @@ import           Language.Epilog.Treelike
 import           Data.Foldable                  (toList)
 import           Data.Sequence                  (Seq)
 --------------------------------------------------------------------------------
--- Sequence synonyms -----------------------------------------------------------
 
+-- Sequence synonyms -----------------------------------------------------------
 type Insts  = Seq Instruction
 
 type Guard  = (Position, Expression, Insts)
@@ -34,12 +39,10 @@ type Sets   = Seq Set
 type Range  = (Position, Expression, Expression, Insts)
 type Ranges = Seq Range
 
--- Other synonyms --------------------------------------------------------------
-type Name = String
-
 -- Instructions ----------------------------------------------------------------
 data Instruction
-    = Declaration Position Type         Name       (Maybe Expression)
+    = ProcDecl    Position Type         Name       Insts
+    | Declaration Position Type         Name       (Maybe Expression)
     | Assign      Position Lval         Expression
     | ICall       Position Name         Exps
 
@@ -67,12 +70,18 @@ instance P Instruction where
         Write       p _     -> p
         Finish      p       -> p
 
+instance Treelike Insts where 
+    toTree insts = Node "Instructions" (toForest insts)
+
 instance Treelike Instruction where
     toTree = \case
+        ProcDecl p t name insts ->
+                Node (unwords [name ++ " " ++ show t, showP p]) $
+                (toForest insts)    
         Declaration p t var val ->
             Node (unwords ["Declaration", showP p]) $
                 leaf (unwords ["Variable", var]) :
-                toTree t :
+                leaf (show t) :
                 (case val of
                     Nothing -> []
                     Just x  -> [Node "Initial value" [toTree x]])

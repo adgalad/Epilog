@@ -24,12 +24,15 @@ module Language.Epilog.Context
     , findTypeOfSymbol
     , getField
     , isSymbol'
+    , storeProcedure'
     , storeProcedure
     , string
     , verifyField
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
+import           Language.Epilog.AST.Instruction
+import qualified Language.Epilog.AST.AST        as AST
 import           Language.Epilog.At
 import           Language.Epilog.Common
 import           Language.Epilog.Epilog
@@ -82,7 +85,7 @@ checkDeclVar (t :@ p) (var :@ _) = do
             err $ DuplicateDeclaration var eType ePosition t p
             return $ None :@ p
         Left _ -> do
-            symbols %= insertSymbol var (Entry var t Nothing p (head offs))
+            symbols %= insertSymbol var (Entry var t Nothing Nothing p (head offs))
             offset  %= (\(x:xs) -> (x + padding (typeSize t)):xs)
             return $ voidT :@ p
 
@@ -185,7 +188,7 @@ findTypeOfSymbol :: At Name -> Epilog (At Type)
 findTypeOfSymbol (name :@ p) = do
     symbs <- use symbols
     case name `lookup` symbs of
-        Right (Entry _ t _ _ _) -> return (t :@ p)
+        Right (Entry _ t _ _ _ _) -> return (t :@ p)
         Left _ -> return (None :@ Position (0,0))
 
 
@@ -252,44 +255,65 @@ buildArray sizes t = case Seq.viewl sizes of
             size'  = (typeSize  innerT) * (fromIntegral $ high - low + 1)
             innerT = (buildArray lhs t)
 
-
-storeProcedure :: Type -> Epilog ()
-storeProcedure t = do
+storeProcedure' :: Epilog ()
+storeProcedure' = do
     Just (n :@ p) <- use current
-    (Scope { sEntries }, _) <- use symbols
-
-    let params = Seq.fromList . map eType . sortOn ePosition . Map.elems $
-            sEntries
-
+    t <- use curProcType
+    procInsts <- AST.topInsts
+    
     let entry' = Entry { eName         = n
-                       , eType         = params :-> t
+                       , eType         = t
                        , eInitialValue = Nothing
+                       , eAST          = Just procInsts
                        , ePosition     = p
                        , eOffset       = 0
                        }
 
+    AST.insert $ ProcDecl p t n procInsts 
+    current .= Nothing
     symbols %= (\(Right st) -> st) . goUp
     symbols %= insertSymbol n (entry')
     symbols %= (\(Right st) -> st) . goDownLast
 
+
+storeProcedure :: Type -> Epilog ()
+storeProcedure t = do
+    (Scope { sEntries }, _) <- use symbols
+    let params = Seq.fromList . map eType . sortOn ePosition . Map.elems $
+            sEntries
+    curProcType .= params :-> t
+                       
+    
+    
+
+    
+
 checkCall :: At Name -> Seq Type -> Epilog (At Type)
 checkCall (pname :@ p) ts = do
     symbs <- use symbols
-    case (pname `lookup` symbs) of
-        Right (Entry _ (ets :-> ret) _ _ _) -> do
-            if length ts == length ets && and (Seq.zipWith join ets ts)
+    Just (n :@ p) <- use current
+    (ets :-> ret) <- use curProcType
+    if (pname == n) then 
+        if length ts == length ets && and (Seq.zipWith join ets ts)
                 then return (ret :@ p)
                 else do
                     err $ BadCall pname ts ets p
                     return (None :@ p)
+        else case (pname `lookup` symbs) of
+            Right (Entry _ (ets :-> ret) _ _ _ _) -> do
+                if length ts == length ets && and (Seq.zipWith join ets ts)
+                    then return (ret :@ p)
+                    else do
+                        err $ BadCall pname ts ets p
+                        return (None :@ p)
 
-        Right (Entry _ _ _ _ _) -> do
-            err $ UndefinedProcedure pname p
-            return (None :@ p)
+            Right _ -> do
+                err $ UndefinedProcedure pname p
+                return (None :@ p)
 
-        Left _ -> do
-            err $ UndefinedProcedure pname p
-            return (None :@ p)
+            Left _ -> do
+                err $ UndefinedProcedure pname p
+                return (None :@ p)
 
     where
         join :: Type -> Type -> Bool
@@ -349,12 +373,14 @@ checkRead t p =
             return $ None :@ p
 
 
-checkBinOp :: BinaryOp -> At Type -> At Type -> Epilog (At Type)
-checkBinOp op = aux opTypes
+checkBinOp :: BinaryOp -> Position 
+           -> At Type  -> At Type 
+           -> Epilog (At Type)
+checkBinOp op p = aux opTypes
     where
-        aux _ (None :@ p) _        = return (None :@ p)
-        aux _ (_ :@ p) (None :@ _) = return (None :@ p)
-        aux [] (t1 :@ p) (t2 :@ _) = do
+        aux _ (None :@ _) _  = return (None :@ p)
+        aux _ _ (None :@ _)  = return (None :@ p)
+        aux [] (t1 :@ _) (t2 :@ _) = do
             err $ BadBinaryExpression op (t1, t2) (domain opTypes) p
             return (None :@ p)
         aux ((et1, et2, rt):ts) (t1 :@ p) (t2 :@ p') =
@@ -364,7 +390,8 @@ checkBinOp op = aux opTypes
         opTypes = typeBinOp op
         domain = map (\(a, b, _) -> (a, b))
 
-checkUnOp :: UnaryOp -> Position -> At Type -> Epilog (At Type)
+checkUnOp :: UnaryOp -> Position 
+          -> At Type -> Epilog (At Type)
 checkUnOp op p = aux opTypes
     where
         aux _ (None :@ _) = return (None :@ p)

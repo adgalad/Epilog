@@ -1,0 +1,11 @@
+procedure main() :-
+	integer H is 6+5 div 6*7,
+	character Y is 'c',
+	float F,
+	H is 6,
+	Y is 'a',
+	F is 0.12,
+	if 5 > H -> character H
+	end,
+	for integer Hg from 1 to 10 -> integer G
+	end.

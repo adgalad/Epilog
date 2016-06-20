@@ -28,6 +28,7 @@ module Language.Epilog.SymbolTable
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
+import           Language.Epilog.AST.Instruction
 import           Language.Epilog.Type
 import           Language.Epilog.Treelike
 import           Language.Epilog.Position
@@ -45,9 +46,11 @@ data Entry = Entry
     { eName         :: String
     , eType         :: Type
     , eInitialValue :: Maybe Expression
+    , eAST          :: Maybe Insts
     , ePosition     :: Position
     , eOffset       :: Int
-    } deriving (Eq)
+    } 
+    | EmptyEntry deriving (Eq)
 
 
 instance Treelike Entry where
@@ -66,7 +69,7 @@ instance Treelike Entry where
                 Just e  -> [Node "Initialized with value" [toTree e]]
 
 entry :: String -> Type -> Position -> Int -> Entry
-entry name t = Entry name t Nothing
+entry name t = Entry name t Nothing Nothing
 
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry

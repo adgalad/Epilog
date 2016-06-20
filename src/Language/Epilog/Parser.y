@@ -4,6 +4,7 @@
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
+import qualified Language.Epilog.AST.AST         as AST
 import           Language.Epilog.Type
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
@@ -189,10 +190,13 @@ StructKind
     | record { RecordK :@ (pos $1) }
 
 Procedure
-    : Procedure1 Procedure2 Procedure3 {}
+    : Procedure1 Procedure2 Procedure3 
+    {%
+        storeProcedure'
+    }
 Procedure1
     : proc GenId OPENF( "(" ) Params0 ")"
-    {%
+    {% 
         current .= Just (item $2 :@ pos $1)
     }
 Procedure2
@@ -206,7 +210,7 @@ Procedure2
     }
 Procedure3
     : OPENF ( ":-" ) Insts CLOSE(CLOSE( "." ))
-    {% current .= Nothing }
+    { }
 
 
 OPENF(TOKEN)
@@ -214,6 +218,7 @@ OPENF(TOKEN)
     {% do
         symbols %= openScope (pos $1)
         offset %= (0:)
+        AST.openScope
         return $1
     }
 
@@ -221,6 +226,7 @@ OPEN(TOKEN)
     : TOKEN
     {% do
         symbols %= openScope (pos $1)
+        AST.openScope
         offset %= (\(x:xs) -> (x:x:xs))
         return $1
     }
@@ -299,11 +305,17 @@ Inst
 ------ Declaration and Initialization ----
 Declaration
     : Type VarId
-    {% checkDeclVar $1 $2 }
+    {% do 
+        AST.insertInst $ (Declaration (pos $1) (item $1) (item $2) Nothing) 
+        checkDeclVar $1 $2
+    }
 
 Initialization
     : Type VarId is Exp
-    {% checkInit $1 $2 $4 }
+    {% do 
+        init <- AST.topExpr
+        AST.insertInst $ (Declaration (pos $1) (item $1) (item $2) (Just init)) 
+        checkInit $1 $2 $4 }
 
 Type
     : Type1
@@ -359,18 +371,25 @@ TSize
 ------ Assignment ------------------------
 Assign
     : Lval is Exp
-    {% checkAssign $1 $3 }
+    {% do
+        AST.assign
+        checkAssign $1 $3 
+    }
 
 
 Lval
     : VarId
-    { %do
+    {% do
+        AST.insertExpr $ Lval (pos $1) (Variable (item $1))
         isSymbol' $1
         findTypeOfSymbol $1
     }
 
     | Lval "[" Exp "]"
-    {% checkArray $1 (item $3)  }
+    {% do 
+        -- let lval = Lval (pos $1) (Variable (item $1))
+        -- expression %= (lval:)
+        checkArray $1 (item $3)  }
 
     | Lval "_" VarId
     {% $1 `getField` $3 }
@@ -407,7 +426,10 @@ Arg
 ---- If --------------------------------
 If
     : if Guards CLOSE( end )
-    { item $2 :@ pos $1 }
+    {% do
+        AST.buildIf (pos $1)
+        return $ item $2 :@ pos $1 
+    }
 
 Guards
     : Guard
@@ -417,11 +439,14 @@ Guards
 
 Guard
     : GuardCond OPEN( "->" ) Insts
-    { checkBoth $1 $3 }
+    {% do
+        AST.guard (pos $1)
+        return $ checkBoth $1 $3 
+    }
 
 GuardCond
     : Exp
-    {% do
+    {% 
         if item $1 == boolT
             then return $ voidT :@ pos $1
             else do
@@ -490,12 +515,16 @@ Elem
 For
     :       for   ForV Ranges CLOSE( end )
     {% do
+        AST.buildFor (pos $1) False
         forVars %= tail
         return $ checkBoth $2 $3
     }
 
     | OPEN( for ) ForD Ranges CLOSE( CLOSE( end ) )
     {% do
+        i <- AST.topInsts
+        AST.buildFor (pos $1) True
+        
         forVars %= tail
         return $ checkBoth $2 $3
     }
@@ -542,7 +571,10 @@ Ranges
 
 Range
     : Range1 OPEN( "->" ) Insts
-    { checkBoth $1 $3 }
+    {% do 
+        AST.range (pos $1)
+        return $ checkBoth $1 $3 
+    }
 
 Range1
     : from Exp to Exp
@@ -557,11 +589,26 @@ While
 ---- Expressions -------------------------
 Exp
     : "(" Exp ")"                   { $2 }
-    | Bool                          { boolT   :@ pos $1 }
-    | Char                          { charT   :@ pos $1 }
-    | Int                           { intT    :@ pos $1 }
-    | Float                         { floatT  :@ pos $1 }
-    | String                        { stringT :@ pos $1 }
+    | Bool                          {% do 
+                                        AST.insertExpr $ LitBool (pos $1) (item $1)
+                                        return $ boolT :@ pos $1 
+                                    }
+    | Char                          {% do 
+                                        AST.insertExpr $ LitChar (pos $1) (item $1)
+                                        return $ charT :@ pos $1 
+                                    }
+    | Int                           {% do 
+                                        AST.insertExpr $ LitInt (pos $1) (item $1)
+                                        return $ intT  :@ pos $1 
+                                    }
+    | Float                         {% do 
+                                        AST.insertExpr $ LitFloat (pos $1) (item $1)
+                                        return $ floatT :@ pos $1 
+                                    }
+    | String                        {% do 
+                                        AST.insertExpr $ LitString (pos $1) (item $1)
+                                        return $ stringT :@ pos $1 
+                                    }
     -- | otherwise                  { voidT   }
 
     | Lval                          { $1 }
@@ -570,39 +617,39 @@ Exp
 
     -- Operators
     ---- Logical
-    | Exp and     Exp               {% checkBinOp And      $1 $3 }
-    | Exp andalso Exp               {% checkBinOp Andalso  $1 $3 }
-    | Exp or      Exp               {% checkBinOp Or       $1 $3 }
-    | Exp orelse  Exp               {% checkBinOp Orelse   $1 $3 }
-    | Exp xor     Exp               {% checkBinOp Xor      $1 $3 }
-    |     not     Exp %prec NEG     {% checkUnOp  Not      (pos $1) $2 }
+    | Exp and     Exp               {% AST.binOp And     (pos $2) >> checkBinOp And     (pos $2) $1 $3 }
+    | Exp andalso Exp               {% AST.binOp Andalso (pos $2) >> checkBinOp Andalso (pos $2) $1 $3 }
+    | Exp or      Exp               {% AST.binOp Or      (pos $2) >> checkBinOp Or      (pos $2) $1 $3 }
+    | Exp orelse  Exp               {% AST.binOp Orelse  (pos $2) >> checkBinOp Orelse  (pos $2) $1 $3 }
+    | Exp xor     Exp               {% AST.binOp Xor     (pos $2) >> checkBinOp Xor     (pos $2) $1 $3 }
+    |     not     Exp %prec NEG     {% checkUnOp  Not     (pos $1) $2 }
 
     ---- Bitwise
-    | Exp band Exp                  {% checkBinOp Band     $1 $3 }
-    | Exp bor  Exp                  {% checkBinOp Bor      $1 $3 }
-    | Exp bsl  Exp                  {% checkBinOp Bsl      $1 $3 }
-    | Exp bsr  Exp                  {% checkBinOp Bsr      $1 $3 }
-    | Exp bxor Exp                  {% checkBinOp Bxor     $1 $3 }
-    |     bnot Exp %prec NEG        {% checkUnOp  Bnot     (pos $1) $2 }
+    | Exp band Exp                  {% AST.binOp Band (pos $2) >> checkBinOp Band (pos $2) $1 $3 }
+    | Exp bor  Exp                  {% AST.binOp Bor  (pos $2) >> checkBinOp Bor  (pos $2) $1 $3 }
+    | Exp bsl  Exp                  {% AST.binOp Bsl  (pos $2) >> checkBinOp Bsl  (pos $2) $1 $3 }
+    | Exp bsr  Exp                  {% AST.binOp Bsr  (pos $2) >> checkBinOp Bsr  (pos $2) $1 $3 }
+    | Exp bxor Exp                  {% AST.binOp Bxor (pos $2) >> checkBinOp Bxor (pos $2) $1 $3 }
+    |     bnot Exp %prec NEG        {% checkUnOp  Bnot (pos $1) $2 }
 
     ---- Arithmetic
-    | Exp "+" Exp                   {% checkBinOp Plus     $1 $3 }
-    | Exp "-" Exp                   {% checkBinOp Minus    $1 $3 }
-    | Exp "*" Exp                   {% checkBinOp Times    $1 $3 }
-    | Exp "/" Exp                   {% checkBinOp FloatDiv $1 $3 }
-    | Exp div Exp                   {% checkBinOp IntDiv   $1 $3 }
-    | Exp rem Exp                   {% checkBinOp Rem      $1 $3 }
+    | Exp "+" Exp                   {% AST.binOp Plus     (pos $2) >> checkBinOp Plus     (pos $2) $1 $3 }
+    | Exp "-" Exp                   {% AST.binOp Minus    (pos $2) >> checkBinOp Minus    (pos $2) $1 $3 }
+    | Exp "*" Exp                   {% AST.binOp Times    (pos $2) >> checkBinOp Times    (pos $2) $1 $3 }
+    | Exp "/" Exp                   {% AST.binOp FloatDiv (pos $2) >> checkBinOp FloatDiv (pos $2) $1 $3 }
+    | Exp div Exp                   {% AST.binOp IntDiv   (pos $2) >> checkBinOp IntDiv   (pos $2) $1 $3 }
+    | Exp rem Exp                   {% AST.binOp Rem      (pos $2) >> checkBinOp Rem      (pos $2) $1 $3 }
     |     "-" Exp %prec NEG         {% checkUnOp  Uminus   (pos $1) $2 }
 
     ---- Relational
-    | Exp "<"  Exp                  {% checkBinOp LTop     $1 $3 }
-    | Exp "=<" Exp                  {% checkBinOp LEop     $1 $3 }
-    | Exp ">"  Exp                  {% checkBinOp GTop     $1 $3 }
-    | Exp ">=" Exp                  {% checkBinOp GEop     $1 $3 }
-    | Exp "="  Exp                  {% checkBinOp EQop     $1 $3 }
-    | Exp "/=" Exp                  {% checkBinOp NEop     $1 $3 }
-    | Exp "|"  Exp                  {% checkBinOp FAop     $1 $3 }
-    | Exp "!|" Exp                  {% checkBinOp NFop     $1 $3 }
+    | Exp "<"  Exp                  {% AST.binOp LTop (pos $2) >> checkBinOp LTop (pos $2) $1 $3 }
+    | Exp "=<" Exp                  {% AST.binOp LEop (pos $2) >> checkBinOp LEop (pos $2) $1 $3 }
+    | Exp ">"  Exp                  {% AST.binOp GTop (pos $2) >> checkBinOp GTop (pos $2) $1 $3 }
+    | Exp ">=" Exp                  {% AST.binOp GEop (pos $2) >> checkBinOp GEop (pos $2) $1 $3 }
+    | Exp "="  Exp                  {% AST.binOp EQop (pos $2) >> checkBinOp EQop (pos $2) $1 $3 }
+    | Exp "/=" Exp                  {% AST.binOp NEop (pos $2) >> checkBinOp NEop (pos $2) $1 $3 }
+    | Exp "|"  Exp                  {% AST.binOp FAop (pos $2) >> checkBinOp FAop (pos $2) $1 $3 }
+    | Exp "!|" Exp                  {% AST.binOp NFop (pos $2) >> checkBinOp NFop (pos $2) $1 $3 }
 
 Bool
     : boolLit                       { unTokenBoolLit `fmap` $1 }

@@ -122,6 +122,11 @@ doParse filename handle  = do
         hPutStrLn stderr "Errors:"
         mapM_ (hPrint stderr) errors
 
+    unless (Seq.null $ s^.ast) $ do
+        putStrLn "AST:"
+        mapM_ (\inst -> putStrLn $ drawTree . toTree $ inst) (s^.ast)
+        putStrLn "\n"
+
 
 doST :: FilePath -> Handle -> IO ()
 doST filename handle = do
