@@ -53,36 +53,36 @@ instance P Expression where
 
 instance Treelike Expression where
     toTree = \case
-        LitBool p val ->
-            leaf (unwords [(if val then "true" else "false"), showP p])
+        LitBool _ val ->
+            leaf (unwords [(if val then "true" else "false")])
 
-        LitChar p val ->
-            leaf (unwords [show val, showP p])
+        LitChar _ val ->
+            leaf (unwords [show val])
 
-        LitInt p val ->
-            leaf (unwords [show val, showP p])
+        LitInt _ val ->
+            leaf (unwords [show val])
 
-        LitFloat p val ->
-            leaf (unwords [show val, showP p])
+        LitFloat _ val ->
+            leaf (unwords [show val])
 
-        LitString p val ->
-            leaf (unwords [show val, showP p])
+        LitString _ val ->
+            leaf (unwords [show val])
 
-        Otherwise p ->
-            leaf (unwords ["otherwise", showP p])
+        Otherwise _ ->
+            leaf (unwords ["otherwise"])
 
-        Lval p lval ->
-            Node (unwords ["Lval", showP p]) [toTree lval]
+        Lval _ lval ->
+            Node (unwords ["Lval"]) [toTree lval]
 
-        ECall p proc args ->
-            Node (unwords ["Expression Call", proc, showP p])
+        ECall _ proc args ->
+            Node (unwords ["Expression Call", proc])
                 [Node "Arguments" (toList . fmap toTree $ args)]
 
-        Binary p op exp0 exp1 ->
-            Node (unwords [show op, showP p]) (toForest [exp0, exp1])
+        Binary _ op exp0 exp1 ->
+            Node (unwords [show op]) (toForest [exp0, exp1])
 
-        Unary p op expr ->
-            Node (unwords [show op, showP p]) [toTree expr]
+        Unary _ op expr ->
+            Node (unwords [show op]) [toTree expr]
 
 data BinaryOp
     = And | Andalso | Or | Orelse | Xor
@@ -147,7 +147,7 @@ instance Treelike Lval where
                 Member lval member ->
                     ('_': member) : aux0 lval
                 Index lval index ->
-                    (':': (show . flatten . toTree $ index)) : aux0 lval
+                    ((show . flatten . toTree $ index)) : aux0 lval
 
             aux1 (x:y:xs) =
                 Node x [aux1 (y:xs)]

@@ -12,8 +12,6 @@ import           Language.Epilog.Context
 import           Language.Epilog.Epilog
 import           Language.Epilog.Error
 import           Language.Epilog.SymbolTable
-
-import Debug.Trace
 --------------------------------------------------------------------------------
 import           Control.Monad.Trans.RWS.Strict (RWS, execRWS, get, gets,
                                                  modify, put, tell)
@@ -383,7 +381,7 @@ Assign
 Lval
     : VarId
     {% do
-        lastLval .= Just (Lval (pos $1) (Variable (item $1)))
+        AST.insertLval $ Lval (pos $1) (Variable (item $1))
         isSymbol' $1
         findTypeOfSymbol $1
     }
@@ -391,8 +389,8 @@ Lval
     | Lval "[" Exp "]"
     {% do 
         expr <- AST.topExpr
-        Just (Lval p lval) <- use lastLval
-        lastLval .= Just (Lval p (Index lval expr)) 
+        (Lval p lval) <- AST.topLval
+        AST.insertLval $ Lval p (Index lval expr) 
         checkArray $1 (item $3)  }
 
     | Lval "_" VarId
@@ -627,9 +625,8 @@ Exp
     -- | otherwise                  { voidT   }
 
     | Lval                          {% do
-                                        Just lval <- use lastLval
+                                        lval <- AST.topLval
                                         AST.insertExpr lval 
-                                        lastLval .= Nothing
                                         return $1 
                                     }
 

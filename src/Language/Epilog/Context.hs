@@ -40,8 +40,6 @@ import           Language.Epilog.Error
 import           Language.Epilog.Lexer
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type
-
-import           Debug.Trace
 --------------------------------------------------------------------------------
 import           Control.Lens                   (use, (%=), (.=))
 import           Control.Monad                  (forM_, unless, when)
@@ -263,7 +261,6 @@ storeProcedure' (instType :@ _)= do
     t <- use curProcType
 
     symbols %= (\(Right st) -> st) . goUp
-
     if instType == voidT 
         then do 
             procInsts <- AST.topInsts
@@ -295,15 +292,11 @@ storeProcedure t = do
     (Scope { sEntries }, _) <- use symbols
     let params = Seq.fromList . map eType . sortOn ePosition . Map.elems $
             sEntries
-    curProcType .= params :-> t
-                       
-    
-    
+    curProcType .= params :-> t  
 
-    
 
 checkCall :: At Name -> Seq Type -> Epilog (At Type)
-checkCall (pname :@ p) ts = do
+checkCall (pname :@ _) ts = do
     symbs <- use symbols
     Just (n :@ p) <- use current
     (ets :-> ret) <- use curProcType
@@ -314,11 +307,11 @@ checkCall (pname :@ p) ts = do
                     err $ BadCall pname ts ets p
                     return (None :@ p)
         else case (pname `lookup` symbs) of
-            Right (Entry _ (ets :-> ret) _ _ _ _) -> do
-                if length ts == length ets && and (Seq.zipWith join ets ts)
-                    then return (ret :@ p)
+            Right (Entry _ (ets' :-> ret') _ _ _ _) -> do
+                if length ts == length ets' && and (Seq.zipWith join ets' ts)
+                    then return (ret' :@ p)
                     else do
-                        err $ BadCall pname ts ets p
+                        err $ BadCall pname ts ets' p
                         return (None :@ p)
 
             Right _ -> do

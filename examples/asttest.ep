@@ -5,7 +5,7 @@ procedure proc() :-
 
 	H is 6,
 	Y is 'a',
-	F[1][2][3] is 0.12.
+	F[H+4][toInteger(3.0)][3] is 0.12.
 
 procedure main() :-
 	integer H is 6+5 div 6*7,
