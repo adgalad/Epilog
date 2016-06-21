@@ -1,11 +1,14 @@
-procedure main() :-
-	integer H is 6+5 div 6*7,
+procedure proc() :-
+	integer H,
 	character Y is 'c',
 	float[4}[4}[5} F,
 
 	H is 6,
 	Y is 'a',
-	F[1][2][3] is 0.12,
+	F[H+4][toInteger(3.0)][3] is 0.12.
+
+procedure main() :-
+	integer H is 6+5 div 6*7,
 	if 5 > H -> 
 		for integer Hg from 1 to 10  -> 
 				while H > 5 -> 

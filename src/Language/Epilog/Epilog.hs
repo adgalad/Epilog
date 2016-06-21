@@ -22,7 +22,7 @@ module Language.Epilog.Epilog
     , symbols, strings, pendProcs, types, expression, position, input
     , prevChar, bytes, scanCode, commentDepth, current, curfields
     , curkind, forVars, caseTypes, offset, instructions, guards
-    , curProcType, sets, ranges, caseSet, lastLval, ast, structSize
+    , curProcType, sets, ranges, caseSet, lvals, ast, structSize
     , structAlign
     ) where
 --------------------------------------------------------------------------------
@@ -128,7 +128,7 @@ data EpilogState = EpilogState
     , _curProcType  :: Type
     ------ , _currentEntry :: Entry
     , _instructions :: [Insts]
-    , _lastLval     :: Maybe Expression
+    , _lvals        :: [Expression]
     , _expression   :: Exps
     , _guards       :: Guards
     , _sets         :: Sets
@@ -164,7 +164,7 @@ initialState inp = EpilogState
     , _caseSet      = []
     , _curProcType  = None
     , _instructions = [[]]
-    , _lastLval     = Nothing
+    , _lvals        = []
     , _expression   = []
     , _guards       = []
     , _sets         = []

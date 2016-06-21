@@ -225,6 +225,7 @@ showS t = show t ++ case t of
     1 -> " byte"
     _ -> " bytes"
 
+
 boolT, charT, intT, floatT, stringT :: Type
 boolT   = Basic EpBoolean   0 0
 charT   = Basic EpCharacter 0 0
@@ -232,11 +233,13 @@ floatT  = Basic EpFloat     0 0
 intT    = Basic EpInteger   0 0
 stringT = EpStr             0 0
 
+
 data StructKind = EitherK | RecordK deriving (Eq)
 
 instance Show StructKind where
     show EitherK = "Either"
     show RecordK = "Record"
+
 
 toCons :: StructKind -> Name -> Map Name (Type, Int) -> Int -> Int -> Type
 toCons EitherK = Either

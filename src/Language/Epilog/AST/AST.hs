@@ -7,6 +7,8 @@ module Language.Epilog.AST.AST
     , topExpr
     , insertInst
     , topInsts
+    , insertLval
+    , topLval
     , guard
     , range
     , caseSets
@@ -59,6 +61,17 @@ topInsts = do
             return x
         _      -> undefined
 
+insertLval :: Expression -> Epilog ()
+insertLval lval = lvals %= (lval:)
+
+topLval :: Epilog Expression
+topLval = do
+    lvals' <- use lvals
+    case lvals' of
+        (x:xs) -> do
+            lvals .= xs
+            return x
+        _      -> undefined
 
 guard :: Position -> Epilog ()
 guard p = do
@@ -127,9 +140,9 @@ unaryOp op p = do
 
 assign :: Epilog ()
 assign = do
-    Just lval <- use lastLval
-    expr      <- topExpr
-    lastLval .= Nothing
+    lval <- topLval
+    expr <- topExpr
     case lval of
-        Lval p elval -> insertInst $ Assign p elval expr
-        _            -> undefined
+        Lval p elval ->
+            insertInst $ Assign p elval expr
+        _           -> undefined

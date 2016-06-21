@@ -292,24 +292,34 @@ buildArray sizes t = case Seq.viewl sizes of
             size'  = typeSize  innerT * fromIntegral (high - low + 1)
 
 
-storeProcedure' :: Epilog ()
-storeProcedure' = do
+storeProcedure' :: At Type -> Epilog ()
+storeProcedure' (instType :@ _)= do
     Just (n :@ p) <- use current
     t <- use curProcType
-    -- procInsts <- AST.topInsts
-
-    let entry' = Entry { eName         = n
-                       , eType         = t
-                       , eInitialValue = Nothing
-                       -- , eAST          = Just procInsts
-                       , ePosition     = p
-                       , eOffset       = 0
-                       }
-
-    -- AST.insert $ ProcDecl p t n procInsts
-    current .= Nothing
     symbols %= (\(Right st) -> st) . goUp
-    symbols %= insertSymbol n entry'
+    if instType == voidT
+        then do
+            procInsts <- AST.topInsts
+            let entry' = Entry { eName         = n
+                               , eType         = t
+                               , eInitialValue = Nothing
+                               , eAST          = Just procInsts
+                               , ePosition     = p
+                               , eOffset       = 0
+                               }
+            AST.insert $ ProcDecl p t n procInsts
+            current .= Nothing
+            symbols %= insertSymbol n entry'
+        else do
+            let entry' = Entry { eName         = n
+                               , eType         = t
+                               , eInitialValue = Nothing
+                               , eAST          = Nothing
+                               , ePosition     = p
+                               , eOffset       = 0
+                               }
+            current .= Nothing
+            symbols %= insertSymbol n entry'
     symbols %= (\(Right st) -> st) . goDownLast
 
 
@@ -322,7 +332,7 @@ storeProcedure t = do
 
 
 checkCall :: At Name -> Seq Type -> Epilog (At Type)
-checkCall (pname :@ p) ts = do
+checkCall (pname :@ _) ts = do
     symbs <- use symbols
     Just (n :@ p) <- use current
     (ets :-> ret) <- use curProcType
@@ -337,7 +347,7 @@ checkCall (pname :@ p) ts = do
                 if length ts == length ets && and (Seq.zipWith (==) ets ts)
                     then return (ret :@ p)
                     else do
-                        err $ BadCall pname ts ets p
+                        err $ BadCall pname ts ets' p
                         return (None :@ p)
 
             Right _ -> do

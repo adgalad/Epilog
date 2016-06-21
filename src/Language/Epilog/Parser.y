@@ -197,7 +197,8 @@ StructKind
 Procedure
     : Procedure1 Procedure2 Procedure3
     {%
-        storeProcedure'
+
+        storeProcedure' $3
     }
 Procedure1
     : proc GenId OPENF( "(" ) Params0 ")"
@@ -214,8 +215,8 @@ Procedure2
         storeProcedure (item $2)
     }
 Procedure3
-    : OPENF ( ":-" ) Insts CLOSE(CLOSE( "." ))
-    { }
+    : OPENF( ":-" ) Insts CLOSE(CLOSE( "." ))
+    { $2 }
 
 
 OPENF(TOKEN)
@@ -385,7 +386,7 @@ Assign
 Lval
     : VarId
     {% do
-        lastLval .= Just (Lval (pos $1) (Variable (item $1)))
+        AST.insertLval $ Lval (pos $1) (Variable (item $1))
         isSymbol' $1
         findTypeOfSymbol $1
     }
@@ -393,9 +394,10 @@ Lval
     | Lval "[" Exp "]"
     {% do
         expr <- AST.topExpr
-        Just (Lval p lval) <- use lastLval
-        lastLval .= Just (Lval p (Index lval expr))
-        checkArray $1 (item $3)  }
+        (Lval p lval) <- AST.topLval
+        AST.insertLval $ Lval p (Index lval expr)
+        checkArray $1 (item $3)
+    }
 
     | Lval "_" VarId
     {% $1 `getField` $3 }
@@ -629,9 +631,8 @@ Exp
     -- | otherwise                  { voidT   }
 
     | Lval                          {% do
-                                        Just lval <- use lastLval
+                                        lval <- AST.topLval
                                         AST.insertExpr lval
-                                        lastLval .= Nothing
                                         return $1
                                     }
 
@@ -644,7 +645,7 @@ Exp
     | Exp or      Exp               {% AST.binOp Or      (pos $2) >> checkBinOp Or      (pos $2) $1 $3 }
     | Exp orelse  Exp               {% AST.binOp Orelse  (pos $2) >> checkBinOp Orelse  (pos $2) $1 $3 }
     | Exp xor     Exp               {% AST.binOp Xor     (pos $2) >> checkBinOp Xor     (pos $2) $1 $3 }
-    |     not     Exp %prec NEG     {% checkUnOp  Not     (pos $1) $2 }
+    |     not     Exp %prec NEG     {% checkUnOp Not     (pos $1) $2 }
 
     ---- Bitwise
     | Exp band Exp                  {% AST.binOp Band (pos $2) >> checkBinOp Band (pos $2) $1 $3 }
@@ -652,7 +653,7 @@ Exp
     | Exp bsl  Exp                  {% AST.binOp Bsl  (pos $2) >> checkBinOp Bsl  (pos $2) $1 $3 }
     | Exp bsr  Exp                  {% AST.binOp Bsr  (pos $2) >> checkBinOp Bsr  (pos $2) $1 $3 }
     | Exp bxor Exp                  {% AST.binOp Bxor (pos $2) >> checkBinOp Bxor (pos $2) $1 $3 }
-    |     bnot Exp %prec NEG        {% checkUnOp  Bnot (pos $1) $2 }
+    |     bnot Exp %prec NEG        {% checkUnOp Bnot (pos $1) $2 }
 
     ---- Arithmetic
     | Exp "+" Exp                   {% AST.binOp Plus     (pos $2) >> checkBinOp Plus     (pos $2) $1 $3 }
@@ -661,7 +662,7 @@ Exp
     | Exp "/" Exp                   {% AST.binOp FloatDiv (pos $2) >> checkBinOp FloatDiv (pos $2) $1 $3 }
     | Exp div Exp                   {% AST.binOp IntDiv   (pos $2) >> checkBinOp IntDiv   (pos $2) $1 $3 }
     | Exp rem Exp                   {% AST.binOp Rem      (pos $2) >> checkBinOp Rem      (pos $2) $1 $3 }
-    |     "-" Exp %prec NEG         {% checkUnOp  Uminus   (pos $1) $2 }
+    |     "-" Exp %prec NEG         {% checkUnOp Uminus   (pos $1) $2 }
 
     ---- Relational
     | Exp "<"  Exp                  {% AST.binOp LTop (pos $2) >> checkBinOp LTop (pos $2) $1 $3 }
