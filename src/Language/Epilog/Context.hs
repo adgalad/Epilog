@@ -3,8 +3,7 @@
 {-# LANGUAGE OverloadedLists #-}
 
 module Language.Epilog.Context
-    ( arrayPadding
-    , buildArray
+    ( buildArray
     , buildPointers
     , checkAnswer
     , checkArray
@@ -24,8 +23,9 @@ module Language.Epilog.Context
     , findTypeOfSymbol
     , getField
     , isSymbol'
-    , storeProcedure'
+    , prepare
     , storeProcedure
+    , storeProcedure'
     , string
     , verifyField
     ) where
@@ -43,6 +43,7 @@ import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                   (use, (%=), (.=))
 import           Control.Monad                  (forM_, unless, when)
+import           Control.Monad.Trans.RWS.Strict (asks)
 import           Data.Int                       (Int32)
 import           Data.List                      (find, sortOn)
 import qualified Data.Map                       as Map (elems, insert,
@@ -54,6 +55,17 @@ import qualified Data.Sequence                  as Seq (ViewL (EmptyL),
                                                         viewl, zipWith, empty)
 import           Prelude                        hiding (Either, lookup)
 --------------------------------------------------------------------------------
+
+prepare :: Epilog ()
+prepare = do
+    procs <- asks predefinedProcs
+
+    forM_ procs $ \proc @ Entry { eName } ->
+        symbols %= insertSymbol eName proc
+
+    ts <- asks basicTypes
+    types .= ts
+
 
 string :: At Token -> Epilog ()
 string (TokenStringLit s :@ p) =
@@ -72,103 +84,126 @@ checkBoth :: At Type -> At Type -> At Type
 checkBoth (t1 :@ p1) (t2 :@ _t2) =
     ( if (t1 == None) || (t2 == None)
         then None
-        else voidT
+        else EpVoid
     ) :@ p1
 
 checkDeclVar :: At Type -> At Name -> Epilog (At Type)
 checkDeclVar (None :@ p) (_ :@ _) = return $ None :@ p
 checkDeclVar (t :@ p) (var :@ _) = do
     symbs <- use symbols
-    offs   <- use offset
+    offs  <- use offset
     case var `local` symbs of
         Right Entry { eType, ePosition } -> do
             err $ DuplicateDeclaration var eType ePosition t p
             return $ None :@ p
         Left _ -> do
-            symbols %= insertSymbol var (Entry var t Nothing Nothing p (head offs))
-            offset  %= (\(x:xs) -> (x + padding (typeSize t)):xs)
-            return $ voidT :@ p
+            symbols %= insertSymbol var
+                (entry var t p (padded (typeAlign t) (head offs)))
+            offset  %= \(x:xs) -> (padded (typeAlign t) x + typeSize t : xs)
+            return $ EpVoid :@ p
 
 
 checkInit :: At Type -> At Name -> At Type -> Epilog (At Type)
 checkInit att atn (e :@ p) = do
     t :@ _ <- checkDeclVar att atn
     case t of
-        Basic EpVoid _ ->
-            if item att == e
-                then return $ voidT :@ p
-                else do
-                    case e of
+        EpVoid ->
+            if item att == OneOf [boolT, charT, intT, floatT, Pointer Any 0 0]
+                then if item att == e
+                    then return $ EpVoid :@ p
+                    else case e of
                         None -> return $ None :@ p
                         _ -> do
-                            err $ InvalidAssign (item att) e p
+                            err $ AssignMismatch (item att) e p
                             return $ None :@ p
-
+                else do
+                    err $ NonBasicAssign (item att) p
+                    return $ None :@ p
         _ -> return $ None :@ p
+
+
+pad :: Int -> Int -> Int
+pad a o = (a - (o `mod` a)) `mod` a
+
+
+padded :: Int -> Int -> Int
+padded a o = o + pad a o
+
 
 declStruct :: Epilog ()
 declStruct = do
     Just (sName :@ p) <- use current
-    ts                <- use types
+    ts <- use types
+    al <- use structAlign
+    sz <- use structSize
 
     case sName `Map.lookup` ts of
         Just (_, p0) ->
             err $ DuplicateDefinition sName p0 p
         Nothing -> do
-            Just struct' <- use curkind
-            let  struct  =  toCons struct'
+            Just structK <- use curkind
+            let struct = toCons structK
             fs <- use curfields
-            forM_ fs (check sName)
-            case struct' of
-                (EitherK) -> do
-                    let size = foldr (max.padding.typeSize.snd) 0 fs
-                    types %= Map.insert sName (struct sName (toMap $offsE fs) size, p)
-                (RecordK) -> do
-                    let fs'  = offsR (Seq.viewl fs) 0
-                    let size = foldr ((+).padding.typeSize.snd) 0 fs
-                    types %= Map.insert sName (struct sName (toMap fs') size, p)
+            forM_ fs $
+                check sName
+            case structK of
+                EitherK -> do
+                    let sz' = padded al sz
+                    types %= Map.insert sName
+                        (struct sName (toMap fs) sz' al, p)
+
+                RecordK ->
+                    types %= Map.insert sName
+                        (struct sName (toMap fs) sz al, p)
 
     current   .= Nothing
     curkind   .= Nothing
     curfields .= []
+    offset    %= tail
 
     where
-        check sName (name :@ p, t) =
+        check sName (name :@ p, t, _) =
             case t of
-                Array { inner } -> check sName (name :@ p, inner)
+                Array { inner } -> check sName (name :@ p, inner, 0)
                 Alias { name = n } ->
                     when (n == sName) $ err $ RecursiveType sName n p
                 _ -> return ()
-        offsR Seq.EmptyL _ = Seq.empty
-        offsR ((name, t):<xs) offs =
-            (name, (t,offs)) <| (offsR (Seq.viewl xs) (offs + (padding $ typeSize t)))
-        offsE = fmap (\(n,t) -> (n,(t,0)))
-        toMap                 = foldr toMap' []
-        toMap' (name :@ _, t) = Map.insert name t
+
+        toMap                    = foldr toMap' []
+        toMap' (name :@ _, t, o) = Map.insert name (t, o)
 
 verifyField :: At Name -> Type -> Epilog ()
 verifyField f@(n :@ p) t = do
-    cf <- use curfields
+    cf     <- use curfields
+    Just k <- use curkind
 
     case find sameName cf of
-        Just (_ :@ p1, t1) -> do
+        Just (_ :@ p1, t1, _) -> do
             Just (sName :@ sPos) <- use current
-            Just k               <- use curkind
             err $ DuplicateField sName k sPos n t1 p1 t p
-        Nothing ->
-            curfields %= (|> (f, t))
-
+        Nothing -> do
+            (o:os) <- use offset
+            curfields %= (|> (f, t, o))
+            case k of
+                RecordK -> do
+                    let newOffset = padded (typeAlign t) o + typeSize t
+                    offset       .= newOffset : os
+                    structAlign  %= max (typeAlign t)
+                    structSize   .= newOffset
+                EitherK -> do
+                    structAlign %= max (typeAlign t)
+                    structSize  %= max (typeSize t)
     where
-        sameName (n1 :@ _,_) = n == n1
+        sameName (n1 :@ _,_,_) = n == n1
 
 
 getField :: At Type -> At Name -> Epilog (At Type)
 getField (t :@ _) (fieldname :@ p) = case t of
-    Alias tname _ -> do
+    Alias tname _ _ -> do
         ts <- use types
         case tname `Map.lookup` ts of
-            Just (Record _ fs _, _) -> checkField  fs
-            Just (Either _ fs _, _) -> checkMember fs
+            Just (Record _ fs _ _, _) -> checkField  fs
+            Just (Either _ ms _ _, _) -> checkMember ms
             _                       -> err' InvalidAccess
     _  -> err' InvalidAccess
 
@@ -188,7 +223,7 @@ findTypeOfSymbol :: At Name -> Epilog (At Type)
 findTypeOfSymbol (name :@ p) = do
     symbs <- use symbols
     case name `lookup` symbs of
-        Right (Entry _ t _ _ _ _) -> return (t :@ p)
+        Right (Entry _ t _ _ _) -> return (t :@ p)
         Left _ -> return (None :@ Position (0,0))
 
 
@@ -198,17 +233,17 @@ findType tname = do
     ctype <- use current
 
     if not (null ctype) && tname == item (fromJust ctype)
-        then return $ Alias tname 0
+        then return $ Alias tname 0 0
     else case tname `Map.lookup` ts of
         Just (t, _) -> case t of
-            Record _ _ s -> return $ Alias tname s
-            Either _ _ s -> return $ Alias tname s
-            _            -> return t
+            Record _ _ s a -> return $ Alias tname s a
+            Either _ _ s a -> return $ Alias tname s a
+            _              -> return t
         Nothing ->
             return $ Undef tname
 
 checkArray :: At Type -> Type -> Epilog (At Type)
-checkArray (Array _ _ t _ :@ p) index =
+checkArray (Array _ _ t _ _ :@ p) index =
      if index == intT
         then return (t :@ p)
         else do
@@ -221,14 +256,14 @@ checkArray (_ :@ p) _ = do
 checkFor :: At Type -> At Type -> Epilog (At Type)
 checkFor (t1 :@ rangep) (t2 :@ _) = do
     ((n :@ vp, t):_) <- use forVars
-    if (t1 == t2 && t1 == t)
-        then return $ voidT :@ rangep
+    if t1 == t2 && t1 == t
+        then return $ EpVoid :@ rangep
         else do
             err $ InvalidRange n t vp t1 t2 rangep
             return $ None :@ rangep
 
 deref :: At Type -> Epilog (At Type)
-deref (Pointer t :@ p) =
+deref (Pointer t _ _ :@ p) =
     return $ t :@ p
 deref (None :@ p) =
     return $ None :@ p
@@ -236,43 +271,45 @@ deref (t :@ p) = do
     err $ BadDeref t p
     return $ None :@ p
 
-buildPointers :: Int -> Type -> Type
-buildPointers 0 t = t
-buildPointers n t = Pointer $ buildPointers (n-1) t
+buildPointers :: Int -> Type -> Epilog Type
+buildPointers 0 t = return t
+buildPointers n t = do
+    psize <- asks pointerSize
+    palg  <- asks pointerAlign
+    inner <- buildPointers (n-1) t
+    return $ Pointer inner psize palg
 
-arrayPadding :: At Type -> At Type
-arrayPadding (array@(Array _ _ _ _) :@ p) =
-    array {sizeT = padding $ sizeT array} :@ p
-arrayPadding t = t
 
 buildArray :: Seq (Int32, Int32) -> Type  -> Type
 buildArray _ x@(Undef _) = x
 buildArray sizes t = case Seq.viewl sizes of
     Seq.EmptyL         -> t
-    (low, high) :< lhs -> Array low high innerT size'
+    (low, high) :< lhs -> Array low high innerT size' al'
 
         where
-            size'  = (typeSize  innerT) * (fromIntegral $ high - low + 1)
-            innerT = (buildArray lhs t)
+            innerT = buildArray lhs t
+            al'    = typeAlign innerT
+            size'  = typeSize  innerT * fromIntegral (high - low + 1)
+
 
 storeProcedure' :: Epilog ()
 storeProcedure' = do
     Just (n :@ p) <- use current
     t <- use curProcType
-    procInsts <- AST.topInsts
-    
+    -- procInsts <- AST.topInsts
+
     let entry' = Entry { eName         = n
                        , eType         = t
                        , eInitialValue = Nothing
-                       , eAST          = Just procInsts
+                       -- , eAST          = Just procInsts
                        , ePosition     = p
                        , eOffset       = 0
                        }
 
-    AST.insert $ ProcDecl p t n procInsts 
+    -- AST.insert $ ProcDecl p t n procInsts
     current .= Nothing
     symbols %= (\(Right st) -> st) . goUp
-    symbols %= insertSymbol n (entry')
+    symbols %= insertSymbol n entry'
     symbols %= (\(Right st) -> st) . goDownLast
 
 
@@ -282,26 +319,22 @@ storeProcedure t = do
     let params = Seq.fromList . map eType . sortOn ePosition . Map.elems $
             sEntries
     curProcType .= params :-> t
-                       
-    
-    
 
-    
 
 checkCall :: At Name -> Seq Type -> Epilog (At Type)
 checkCall (pname :@ p) ts = do
     symbs <- use symbols
     Just (n :@ p) <- use current
     (ets :-> ret) <- use curProcType
-    if (pname == n) then 
-        if length ts == length ets && and (Seq.zipWith join ets ts)
+    if pname == n then
+        if length ts == length ets && and (Seq.zipWith (==) ets ts)
                 then return (ret :@ p)
                 else do
                     err $ BadCall pname ts ets p
                     return (None :@ p)
-        else case (pname `lookup` symbs) of
-            Right (Entry _ (ets :-> ret) _ _ _ _) -> do
-                if length ts == length ets && and (Seq.zipWith join ets ts)
+        else case pname `lookup` symbs of
+            Right (Entry _ (ets :-> ret) _ _ _) ->
+                if length ts == length ets && and (Seq.zipWith (==) ets ts)
                     then return (ret :@ p)
                     else do
                         err $ BadCall pname ts ets p
@@ -315,27 +348,15 @@ checkCall (pname :@ p) ts = do
                 err $ UndefinedProcedure pname p
                 return (None :@ p)
 
-    where
-        join :: Type -> Type -> Bool
-        join Any  _ = True
-        join None _ = False
-        join (OneOf ts') t  = t `elem` ts'
-        join (Alias t1 _) (Alias t2 _) = t1 == t2
-        join (Array {inner = i1}) (Array {inner = i2}) = join i1 i2
-        join (Pointer p1) (Pointer p2) = join p1 p2
-        join t1 t2 = t1 == t2
-
 
 checkAssign :: At Type -> At Type -> Epilog (At Type)
-checkAssign (lval :@ p) (e :@ _) = do
-    if lval == e
-        then return $ voidT :@ p
-        else do
-            case e of
-                None -> return $ None :@ p
-                _    -> do
-                    err $ InvalidAssign lval e p
-                    return $ None :@ p
+checkAssign (lval :@ p) (e :@ _) = if lval == e
+    then return $ EpVoid :@ p
+    else case e of
+        None -> return $ None :@ p
+        _    -> do
+            err $ AssignMismatch lval e p
+            return $ None :@ p
 
 
 checkAnswer :: Type -> Position -> Epilog (At Type)
@@ -344,10 +365,10 @@ checkAnswer aret retp = do
     Just proc <- use current
     (_ :-> eret) :@ procp <- findTypeOfSymbol proc
 
-    if (eret == aret)
-        then return $ voidT :@ retp
+    if eret == aret
+        then return $ EpVoid :@ retp
         else do
-            if aret == voidT
+            if aret == EpVoid
                 then err $ BadFinish eret      procp retp
                 else err $ BadAnswer eret aret procp retp
             return $ None :@ retp
@@ -357,7 +378,7 @@ checkWrite :: Type -> Position -> Epilog (At Type)
 checkWrite None p = return $ None :@ p
 checkWrite t p =
     if t `elem` ([boolT, charT, intT, floatT, stringT] :: [Type])
-        then return $ voidT :@ p
+        then return $ EpVoid :@ p
         else do
             err $ BadWrite t p
             return $ None :@ p
@@ -367,14 +388,14 @@ checkRead :: Type -> Position -> Epilog (At Type)
 checkRead None p = return $ None :@ p
 checkRead t p =
     if t `elem` ([boolT, charT, intT, floatT] :: [Type])
-        then return $ voidT :@ p
+        then return $ EpVoid :@ p
         else do
             err $ BadRead t p
             return $ None :@ p
 
 
-checkBinOp :: BinaryOp -> Position 
-           -> At Type  -> At Type 
+checkBinOp :: BinaryOp -> Position
+           -> At Type  -> At Type
            -> Epilog (At Type)
 checkBinOp op p = aux opTypes
     where
@@ -390,7 +411,7 @@ checkBinOp op p = aux opTypes
         opTypes = typeBinOp op
         domain = map (\(a, b, _) -> (a, b))
 
-checkUnOp :: UnaryOp -> Position 
+checkUnOp :: UnaryOp -> Position
           -> At Type -> Epilog (At Type)
 checkUnOp op p = aux opTypes
     where

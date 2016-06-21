@@ -46,7 +46,6 @@ data Entry = Entry
     { eName         :: String
     , eType         :: Type
     , eInitialValue :: Maybe Expression
-    , eAST          :: Maybe Insts
     , ePosition     :: Position
     , eOffset       :: Int
     } deriving (Eq)
@@ -68,7 +67,7 @@ instance Treelike Entry where
                 Just e  -> [Node "Initialized with value" [toTree e]]
 
 entry :: String -> Type -> Position -> Int -> Entry
-entry name t = Entry name t Nothing Nothing
+entry name t = Entry name t Nothing
 
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry

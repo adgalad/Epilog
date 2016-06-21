@@ -148,13 +148,15 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
 %% -----------------------------------------------------------------------------
 -- Program -----------------------------
 Program
-    : OPEN TopDefs CLOSE            {}
+    : PREPARE OPEN TopDefs CLOSE     {}
+
+PREPARE
+    : {- lambda -}
+    {% prepare }
 
 OPEN
     : {- lambda -}
-    {%
-        symbols %= openScope (Position (1,1))
-    }
+    {% symbols %= openScope (Position (1,1)) }
 
 CLOSE
     : {- lambda -}
@@ -184,19 +186,22 @@ Struct
     {% do
         current .= Just (item $2 :@ pos $1)
         curkind .= Just (item $1)
+        offset %= (0:)
+        structSize  .= 0
+        structAlign .= 0
     }
 StructKind
     : either { EitherK :@ (pos $1) }
     | record { RecordK :@ (pos $1) }
 
 Procedure
-    : Procedure1 Procedure2 Procedure3 
+    : Procedure1 Procedure2 Procedure3
     {%
         storeProcedure'
     }
 Procedure1
     : proc GenId OPENF( "(" ) Params0 ")"
-    {% 
+    {%
         current .= Just (item $2 :@ pos $1)
     }
 Procedure2
@@ -305,16 +310,16 @@ Inst
 ------ Declaration and Initialization ----
 Declaration
     : Type VarId
-    {% do 
-        AST.insertInst $ (Declaration (pos $1) (item $1) (item $2) Nothing) 
+    {% do
+        AST.insertInst $ (Declaration (pos $1) (item $1) (item $2) Nothing)
         checkDeclVar $1 $2
     }
 
 Initialization
     : Type VarId is Exp
-    {% do 
+    {% do
         init <- AST.topExpr
-        AST.insertInst $ (Declaration (pos $1) (item $1) (item $2) (Just init)) 
+        AST.insertInst $ (Declaration (pos $1) (item $1) (item $2) (Just init))
         checkInit $1 $2 $4 }
 
 Type
@@ -328,14 +333,14 @@ Type
 
 Type1
     : TBase TSizes
-    { arrayPadding $ buildArray $2 `fmap` $1 }
+    { buildArray $2 `fmap` $1 }
 
 TBase
     : TCore
     { $1 }
 
     | TPointers TCore
-    { buildPointers (item $1) (item $2) :@ (pos $1) }
+    {% buildPointers (item $1) (item $2) :@ (pos $1) }
 
 TCore
     : GenId
@@ -373,7 +378,7 @@ Assign
     : Lval is Exp
     {% do
         AST.assign
-        checkAssign $1 $3 
+        checkAssign $1 $3
     }
 
 
@@ -386,10 +391,10 @@ Lval
     }
 
     | Lval "[" Exp "]"
-    {% do 
+    {% do
         expr <- AST.topExpr
         Just (Lval p lval) <- use lastLval
-        lastLval .= Just (Lval p (Index lval expr)) 
+        lastLval .= Just (Lval p (Index lval expr))
         checkArray $1 (item $3)  }
 
     | Lval "_" VarId
@@ -429,7 +434,7 @@ If
     : if Guards CLOSE( end )
     {% do
         AST.buildIf (pos $1)
-        return $ item $2 :@ pos $1 
+        return $ item $2 :@ pos $1
     }
 
 Guards
@@ -442,12 +447,12 @@ Guard
     : GuardCond OPEN( "->" ) Insts
     {% do
         AST.guard (pos $1)
-        return $ checkBoth $1 $3 
+        return $ checkBoth $1 $3
     }
 
 GuardCond
     : Exp
-    {% 
+    {%
         if item $1 == boolT
             then return $ voidT :@ pos $1
             else do
@@ -486,7 +491,7 @@ Set
     : Elems OPEN( "->" ) Insts
     {% do
         AST.caseSets (pos $1)
-        return $ checkBoth $1 $3 
+        return $ checkBoth $1 $3
     }
 
 Elems
@@ -500,7 +505,7 @@ Elem
     {% do
         ((ct :@ p):_) <- use caseTypes
         if (ct == intT)
-            then do 
+            then do
                 caseSet %= (|> LitInt (pos $1) (item $1))
                 return $ intT :@ pos $1
             else do
@@ -511,7 +516,7 @@ Elem
     {% do
         ((ct :@ p):_) <- use caseTypes
         if (ct == charT)
-            then do 
+            then do
                 caseSet %= (|> LitChar (pos $1) (item $1))
                 return $ charT :@ pos $1
             else do
@@ -533,7 +538,7 @@ For
     {% do
         i <- AST.topInsts
         AST.buildFor (pos $1) True
-        
+
         forVars %= tail
         return $ checkBoth $2 $3
     }
@@ -580,9 +585,9 @@ Ranges
 
 Range
     : Range1 OPEN( "->" ) Insts
-    {% do 
+    {% do
         AST.range (pos $1)
-        return $ checkBoth $1 $3 
+        return $ checkBoth $1 $3
     }
 
 Range1
@@ -593,41 +598,41 @@ Range1
 ---- While loops -----------------------
 While
     : while Guards CLOSE( end )
-    {% do 
+    {% do
         AST.buildWhile (pos $1)
-        return $ item $2 :@ pos $1 
+        return $ item $2 :@ pos $1
     }
 
 ---- Expressions -------------------------
 Exp
     : "(" Exp ")"                   { $2 }
-    | Bool                          {% do 
+    | Bool                          {% do
                                         AST.insertExpr $ LitBool (pos $1) (item $1)
-                                        return $ boolT :@ pos $1 
+                                        return $ boolT :@ pos $1
                                     }
-    | Char                          {% do 
+    | Char                          {% do
                                         AST.insertExpr $ LitChar (pos $1) (item $1)
-                                        return $ charT :@ pos $1 
+                                        return $ charT :@ pos $1
                                     }
-    | Int                           {% do 
+    | Int                           {% do
                                         AST.insertExpr $ LitInt (pos $1) (item $1)
-                                        return $ intT  :@ pos $1 
+                                        return $ intT  :@ pos $1
                                     }
-    | Float                         {% do 
+    | Float                         {% do
                                         AST.insertExpr $ LitFloat (pos $1) (item $1)
-                                        return $ floatT :@ pos $1 
+                                        return $ floatT :@ pos $1
                                     }
-    | String                        {% do 
+    | String                        {% do
                                         AST.insertExpr $ LitString (pos $1) (item $1)
-                                        return $ stringT :@ pos $1 
+                                        return $ stringT :@ pos $1
                                     }
     -- | otherwise                  { voidT   }
 
     | Lval                          {% do
                                         Just lval <- use lastLval
-                                        AST.insertExpr lval 
+                                        AST.insertExpr lval
                                         lastLval .= Nothing
-                                        return $1 
+                                        return $1
                                     }
 
     | Call                          { $1 }

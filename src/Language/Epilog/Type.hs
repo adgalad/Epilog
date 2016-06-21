@@ -7,15 +7,14 @@ module Language.Epilog.Type
     , StructKind (..)
     , toCons
     , showS
-    , padding
+    , typeSize
+    , typeAlign
     -- basic types
     , boolT
     , charT
     , intT
     , floatT
     , stringT
-    , typeSize
-    , voidT
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
@@ -34,8 +33,6 @@ data Atom
     | EpCharacter
     | EpInteger
     | EpFloat
-    | EpString
-    | EpVoid
     deriving (Eq)
 
 
@@ -45,8 +42,6 @@ instance Show Atom where
         EpCharacter -> "character"
         EpInteger   -> "integer"
         EpFloat     -> "float"
-        EpString    -> "string"
-        EpVoid      -> "void"
 
 
 instance Treelike Atom where
@@ -55,44 +50,90 @@ instance Treelike Atom where
 
 data Type
     = Basic
-        { atom  :: Atom
-        , sizeT :: Int
+        { atom   :: Atom
+        , sizeT  :: Int
+        , alignT :: Int
         }
+    | EpStr
+        { sizeT  :: Int
+        , alignT :: Int
+        }
+    | EpVoid
     | Array
-        { low   :: Int32
-        , high  :: Int32
-        , inner :: Type
-        , sizeT :: Int
+        { low    :: Int32
+        , high   :: Int32
+        , inner  :: Type
+        , sizeT  :: Int
+        , alignT :: Int
         }
     | Record
         { name   :: String
         , fields :: Map Name (Type, Int)
         , sizeT  :: Int
+        , alignT :: Int
         }
     | Either
         { name    :: String
         , members :: Map Name (Type, Int)
         , sizeT   :: Int
+        , alignT  :: Int
         }
     | (:->)
         { params  :: Seq Type
         , returns :: Type
         }
     | Alias
-        { name  :: Name
-        , sizeT :: Int
+        { name   :: Name
+        , sizeT  :: Int
+        , alignT :: Int
         }
-    | Pointer { pointed :: Type }
-    | OneOf   { options :: [Type] }
+    | Pointer
+        { pointed :: Type
+        , sizeT   :: Int
+        , alignT  :: Int
+        }
+    | OneOf { options :: [Type] }
     | Any
     | None
-    | Undef   { name :: Name}
-    deriving (Eq)
+    | Undef { name :: Name }
+
+
+instance Eq Type where
+    Basic { atom = a } == Basic { atom = b } =
+        a == b
+    EpStr _ _ == EpStr _ _ =
+        True
+    EpVoid == EpVoid =
+        True
+    Array { inner = a } == Array { inner = b } =
+        a == b
+    Record { name = a } == Record { name = b } =
+        a == b
+    Either { name = a } == Either { name = b } =
+        a == b
+    Alias { name = a } == Alias { name = b } =
+        a == b
+    Pointer { pointed = a } == Pointer { pointed = b } =
+        a == b
+    OneOf { options = a } == OneOf { options = b } =
+        a == b
+    OneOf { options } == t =
+        t `elem` options
+    t == OneOf { options } =
+        t `elem` options
+    None == _ =
+        False
+    Any == _ =
+        True
+    _ == _ =
+        False
 
 
 instance Show Type where
     show = \case
         Basic   { atom }             -> show atom
+        EpStr   {}                   -> "string"
+        EpVoid                       -> "void"
         Pointer { pointed }          -> "pointer to " ++ show pointed
         Array   { low, high, inner } ->
             "array [" ++ show low ++ "," ++ show high ++ "] of " ++ show inner
@@ -116,10 +157,11 @@ instance Show Type where
             showPs = intercalate " × " . Foldable.toList . fmap show
 
 
-
 instance Treelike Type where
     toTree = \case
         Basic   { atom }             -> leaf . show $ atom
+        EpStr   {}                   -> leaf "string"
+        EpVoid                       -> leaf "void"
         Pointer { pointed }          -> Node "pointer to" [ toTree pointed ]
         Array   { low, high, inner } ->
             Node ("array [" ++ show low ++ "," ++ show high ++ "] of")
@@ -156,38 +198,46 @@ instance Treelike Type where
 
 typeSize :: Type -> Int
 typeSize t = case t of
-    Basic     _ s -> s
-    Array _ _ _ s -> s
-    Record  _ _ s -> s
-    Either  _ _ s -> s
-    Alias     _ s -> s
-    Pointer     _ -> 4
-    _             -> undefined
+    Basic     _ s _ -> s
+    EpStr       s _ -> s
+    Array _ _ _ s _ -> s
+    Record  _ _ s _ -> s
+    Either  _ _ s _ -> s
+    Alias     _ s _ -> s
+    Pointer   _ s _ -> s
+    EpVoid          -> 0
+    _               -> undefined
+
+typeAlign :: Type -> Int
+typeAlign t = case t of
+    Basic     _ _ a -> a
+    EpStr       _ a -> a
+    Array _ _ _ _ a -> a
+    Record  _ _ _ a -> a
+    Either  _ _ _ a -> a
+    Alias     _ _ a -> a
+    Pointer   _ _ a -> a
+    EpVoid          -> 0
+    _               -> undefined
 
 showS :: (Eq a, Num a, Show a) => a -> String
 showS t = show t ++ case t of
     1 -> " byte"
     _ -> " bytes"
 
-padding :: Int -> Int
-padding size = size + ((4 - size `mod` 4) `mod` 4)
+boolT, charT, intT, floatT, stringT :: Type
+boolT   = Basic EpBoolean   0 0
+charT   = Basic EpCharacter 0 0
+floatT  = Basic EpFloat     0 0
+intT    = Basic EpInteger   0 0
+stringT = EpStr             0 0
 
-
-boolT, charT, intT, floatT, stringT, voidT :: Type
-boolT   = Basic EpBoolean   1
-charT   = Basic EpCharacter 1
-intT    = Basic EpInteger   4
-floatT  = Basic EpFloat     4
-stringT = Basic EpString    4
-voidT   = Basic EpString    0
-
-data StructKind = EitherK | RecordK
-                deriving (Eq)
+data StructKind = EitherK | RecordK deriving (Eq)
 
 instance Show StructKind where
     show EitherK = "Either"
     show RecordK = "Record"
 
-toCons :: StructKind -> Name -> Map Name (Type, Int) -> Int -> Type
+toCons :: StructKind -> Name -> Map Name (Type, Int) -> Int -> Int -> Type
 toCons EitherK = Either
 toCons RecordK = Record

@@ -98,10 +98,14 @@ data EpilogError
         { moaName :: Name
         , moaP    :: Position
         }
-    | InvalidAssign
+    | AssignMismatch
         { iaFstT :: Type
         , iaSndT :: Type
         , iaP    :: Position
+        }
+    | NonBasicAssign
+        { nbaT :: Type
+        , nbaP :: Position
         }
     | InvalidGuard
         { igT :: Type
@@ -178,7 +182,8 @@ instance P EpilogError where
         DuplicateDefinition      _ _ p -> p
         DuplicateDeclaration _ _ _ _ p -> p
         DuplicateField _ _ _ _ _ _ _ p -> p
-        InvalidAssign            _ _ p -> p
+        AssignMismatch           _ _ p -> p
+        NonBasicAssign             _ p -> p
         InvalidArray                 p -> p
         InvalidSubindex            _ p -> p
         InvalidField             _ _ p -> p
@@ -228,10 +233,16 @@ instance Show EpilogError where
             "Duplicate definition " ++ show sndP ++ ", `" ++ name ++
             "` already defined " ++ show fstP
 
-        InvalidAssign t1 t2 p->
+        AssignMismatch t1 t2 p->
             "Invalid assignment " ++ show p ++
             ", attempted to assign an expression of type `" ++ show t2 ++
             "` to an lval of type `" ++ show t1 ++ "` "
+
+        NonBasicAssign t1 p->
+            "Invalid assignment " ++ show p ++
+            ", attempted to assign a value to an lval of type `" ++
+            show t1 ++ "`, but only characters, booleans, integers, " ++
+            "floats, or pointers may be targets of an assignment."
 
         InvalidArray p ->
             "Index of non-array variable " ++ show p
@@ -320,7 +331,7 @@ instance Show EpilogError where
             "Bad answer " ++ show retp ++
             ", attempted to answer with an expression of type `" ++
             show aret ++
-            "` in a procedure declared " ++ (if eret == voidT
+            "` in a procedure declared " ++ (if eret == EpVoid
                 then "without an answer type"
                 else "as answering `" ++ show eret ++ "`"
             ) ++ " " ++ show procp

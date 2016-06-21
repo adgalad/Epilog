@@ -19,19 +19,16 @@ module Language.Epilog.AST.AST
     , buildCase
     , buildFor
     , buildWhile
-    ) where 
+    ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Instruction
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.At
-import           Language.Epilog.Epilog          
-import           Language.Epilog.Treelike
+import           Language.Epilog.Epilog
 --------------------------------------------------------------------------------
-import           Data.Sequence          (Seq, (|>), (<|), viewl
-                                        , ViewL ((:<)))
+import           Data.Sequence          ((|>), (<|), viewl, ViewL((:<)))
 import qualified Data.Sequence          as Seq (empty)
 import           Control.Lens           (use, (%=), (.=))
-import           Data.Foldable          (toList)
 --------------------------------------------------------------------------------
 
 
@@ -42,7 +39,7 @@ topExpr :: Epilog Expression
 topExpr = do
     expr <- use expression
     case viewl expr of
-        x :< xs -> do 
+        x :< xs -> do
             expression .= xs
             return x
         _       -> return $Otherwise $Position (-100,-100)
@@ -51,36 +48,36 @@ insertInst :: Instruction -> Epilog ()
 insertInst inst = instructions %= (\(x:xs) -> (x|>inst):xs)
 
 openScope :: Epilog ()
-openScope = instructions %= (Seq.empty:) 
+openScope = instructions %= (Seq.empty:)
 
-topInsts :: Epilog (Insts)
-topInsts = do 
+topInsts :: Epilog Insts
+topInsts = do
     insts <- use instructions
-    case insts of 
+    case insts of
         (x:xs) -> do
             instructions .= xs
-            return x 
-        _      -> undefined 
+            return x
+        _      -> undefined
 
 
 guard :: Position -> Epilog ()
-guard p = do 
-    e <- topExpr 
+guard p = do
+    e <- topExpr
     insts <- topInsts
     guards %= (|> (p, e, insts))
 
 caseSets :: Position -> Epilog ()
-caseSets p = do 
+caseSets p = do
     set   <- use caseSet
     insts <- topInsts
     sets %= (|> (p,set,insts) )
     caseSet .= Seq.empty
 
 range :: Position -> Epilog ()
-range p =  do 
-    h <- topExpr 
-    l <- topExpr 
-    insts <- topInsts 
+range p =  do
+    h <- topExpr
+    l <- topExpr
+    insts <- topInsts
     ranges %= (|> (p, l, h, insts))
 
 buildCase :: Position -> Epilog ()
@@ -90,21 +87,21 @@ buildCase p = do
     insertInst $ Case p expr sets'
     sets .= Seq.empty
 
-buildIf :: Position -> Epilog () 
-buildIf p = do 
+buildIf :: Position -> Epilog ()
+buildIf p = do
     guards' <- use guards
     insertInst $ If p guards'
     guards .= Seq.empty
 
 
-buildFor :: Position -> Bool -> Epilog () 
-buildFor p decl = do 
+buildFor :: Position -> Bool -> Epilog ()
+buildFor p decl = do
     vars <- use forVars
     let (var :@ _, t) = head vars
     ranges' <- use ranges
-    if decl 
-        then insertInst $ For p (Just t) var ranges' 
-        else insertInst $ For p  Nothing var ranges' 
+    if decl
+        then insertInst $ For p (Just t) var ranges'
+        else insertInst $ For p  Nothing var ranges'
     ranges .= Seq.empty
 
 buildWhile :: Position -> Epilog ()
@@ -121,7 +118,7 @@ binOp :: BinaryOp -> Position -> Epilog ()
 binOp op p = do
     e2 <- topExpr
     e1 <- topExpr
-    insertExpr $ (Binary p op e1 e2)
+    insertExpr $ Binary p op e1 e2
 
 unaryOp :: UnaryOp -> Position -> Epilog ()
 unaryOp op p = do
@@ -133,7 +130,6 @@ assign = do
     Just lval <- use lastLval
     expr      <- topExpr
     lastLval .= Nothing
-    case lval of 
-        Lval p elval ->
-             insertInst $ (Assign p elval expr) 
-        _           -> undefined
+    case lval of
+        Lval p elval -> insertInst $ Assign p elval expr
+        _            -> undefined

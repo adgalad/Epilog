@@ -2,8 +2,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-
-
 module Language.Epilog.AST.Instruction
     ( Instruction (..)
     , Type (..)
@@ -42,7 +40,7 @@ type Ranges = Seq Range
 -- Instructions ----------------------------------------------------------------
 data Instruction
     = ProcDecl    Position Type         Name       Insts
-    | Declaration Position Type         Name       (Maybe Expression)
+    -- | Declaration Position Type         Name       (Maybe Expression)
     | Assign      Position Lval         Expression
     | ICall       Position Name         Exps
 
@@ -59,7 +57,8 @@ data Instruction
 
 instance P Instruction where
     pos = \case
-        Declaration p _ _ _ -> p
+        -- Declaration p _ _ _ -> p
+        ProcDecl    p _ _ _ -> p
         Assign      p _ _   -> p
         ICall       p _ _   -> p
         If          p _     -> p
@@ -70,21 +69,20 @@ instance P Instruction where
         Write       p _     -> p
         Finish      p       -> p
 
-instance Treelike Insts where 
+instance Treelike Insts where
     toTree insts = Node "Instructions" (toForest insts)
 
 instance Treelike Instruction where
     toTree = \case
-        ProcDecl p t name insts ->
-                Node (unwords [name ++ " " ++ show t, showP p]) $
-                (toForest insts)    
-        Declaration p t var val ->
-            Node (unwords ["Declaration", showP p]) $
-                leaf (unwords ["Variable", var]) :
-                leaf (show t) :
-                (case val of
-                    Nothing -> []
-                    Just x  -> [Node "Initial value" [toTree x]])
+        ProcDecl p t pname insts ->
+            Node (unwords [pname ++ " " ++ show t, showP p]) $ toForest insts
+        -- Declaration p t var val ->
+        --     Node (unwords ["Declaration", showP p]) $
+        --         leaf (unwords ["Variable", var]) :
+        --         leaf (show t) :
+        --         (case val of
+        --             Nothing -> []
+        --             Just x  -> [Node "Initial value" [toTree x]])
 
         Assign p lval expr ->
             Node (unwords ["Assign", showP p])
