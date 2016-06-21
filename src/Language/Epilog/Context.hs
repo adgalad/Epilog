@@ -40,6 +40,8 @@ import           Language.Epilog.Error
 import           Language.Epilog.Lexer
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type
+
+import           Debug.Trace
 --------------------------------------------------------------------------------
 import           Control.Lens                   (use, (%=), (.=))
 import           Control.Monad                  (forM_, unless, when)
@@ -255,24 +257,36 @@ buildArray sizes t = case Seq.viewl sizes of
             size'  = (typeSize  innerT) * (fromIntegral $ high - low + 1)
             innerT = (buildArray lhs t)
 
-storeProcedure' :: Epilog ()
-storeProcedure' = do
+storeProcedure' :: At Type -> Epilog ()
+storeProcedure' (instType :@ _)= do
     Just (n :@ p) <- use current
     t <- use curProcType
-    procInsts <- AST.topInsts
-    
-    let entry' = Entry { eName         = n
-                       , eType         = t
-                       , eInitialValue = Nothing
-                       , eAST          = Just procInsts
-                       , ePosition     = p
-                       , eOffset       = 0
-                       }
 
-    AST.insert $ ProcDecl p t n procInsts 
-    current .= Nothing
     symbols %= (\(Right st) -> st) . goUp
-    symbols %= insertSymbol n (entry')
+
+    if instType == voidT 
+        then do 
+            procInsts <- AST.topInsts
+            let entry' = Entry { eName         = n
+                               , eType         = t
+                               , eInitialValue = Nothing
+                               , eAST          = Just procInsts
+                               , ePosition     = p
+                               , eOffset       = 0
+                               }
+            AST.insert $ ProcDecl p t n procInsts 
+            current .= Nothing
+            symbols %= insertSymbol n (entry')
+        else do
+            let entry' = Entry { eName         = n
+                               , eType         = t
+                               , eInitialValue = Nothing
+                               , eAST          = Nothing
+                               , ePosition     = p
+                               , eOffset       = 0
+                               } 
+            current .= Nothing
+            symbols %= insertSymbol n (entry')
     symbols %= (\(Right st) -> st) . goDownLast
 
 

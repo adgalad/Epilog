@@ -12,6 +12,8 @@ import           Language.Epilog.Context
 import           Language.Epilog.Epilog
 import           Language.Epilog.Error
 import           Language.Epilog.SymbolTable
+
+import Debug.Trace
 --------------------------------------------------------------------------------
 import           Control.Monad.Trans.RWS.Strict (RWS, execRWS, get, gets,
                                                  modify, put, tell)
@@ -192,7 +194,8 @@ StructKind
 Procedure
     : Procedure1 Procedure2 Procedure3 
     {%
-        storeProcedure'
+
+        storeProcedure' $3
     }
 Procedure1
     : proc GenId OPENF( "(" ) Params0 ")"
@@ -209,8 +212,8 @@ Procedure2
         storeProcedure (item $2)
     }
 Procedure3
-    : OPENF ( ":-" ) Insts CLOSE(CLOSE( "." ))
-    { }
+    : OPENF( ":-" ) Insts CLOSE(CLOSE( "." ))
+    { $2 }
 
 
 OPENF(TOKEN)

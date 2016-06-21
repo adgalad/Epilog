@@ -179,7 +179,7 @@ charT   = Basic EpCharacter 1
 intT    = Basic EpInteger   4
 floatT  = Basic EpFloat     4
 stringT = Basic EpString    4
-voidT   = Basic EpString    0
+voidT   = Basic EpVoid      0
 
 data StructKind = EitherK | RecordK
                 deriving (Eq)
