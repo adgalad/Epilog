@@ -7,7 +7,6 @@ module Main (main) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Epilog
 import           Language.Epilog.Parser
-import           Language.Epilog.STTester
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
@@ -50,9 +49,6 @@ options =
     , Option ['p'] ["parse"]
         (NoArg (action .~ doParse))
         "Performs `lex` and syntactic analysis of the file"
-    , Option ['s'] ["symTable"]
-        (NoArg (action .~ doST))
-        "Builds and shows the symbol table tree of the file"
     ]
 
 helpStr :: String
@@ -97,7 +93,7 @@ doParse filename handle  = do
 
     putStrLn $ unwords ["Parsing", filename]
 
-    let (_a, s, errors) = runEpilog parse () (initialState inp)
+    (_a, s, _w) <- runEpilog inp parse
 
     putStrLn "Symbols:"
     putStrLn . drawTree . toTree . defocus $ s^.symbols
@@ -118,27 +114,14 @@ doParse filename handle  = do
             mapM_ (\p -> putStrLn $ "\t" ++ show p) ps
             ) (Map.toList $ s^.strings)
 
-    unless (Seq.null errors) $ do
-        hPutStrLn stderr "Errors:"
-        mapM_ (hPrint stderr) errors
+    -- unless (Seq.null errors) $ do
+    --     hPutStrLn stderr "Errors:"
+    --     mapM_ (hPrint stderr) errors
 
-    unless (Seq.null $ s^.ast) $ do
-        putStrLn "AST:"
-        mapM_ (\inst -> putStrLn $ drawTree . toTree $ inst) (s^.ast)
-        putStrLn "\n"
-
-
-doST :: FilePath -> Handle -> IO ()
-doST filename handle = do
-    putStrLn $ unwords
-        [ "I will proceed to ignore", filename
-        , "and show you an interactive prompt."
-        , "I hope you're okay with this."
-        ]
-
-    unless (handle == stdin) (hClose handle)
-
-    tester
+    -- unless (Seq.null $ s^.ast) $ do
+    --     putStrLn "AST:"
+    --     mapM_ (\inst -> putStrLn $ drawTree . toTree $ inst) (s^.ast)
+    --     putStrLn "\n"
 
 
 -- Main --------------------------------

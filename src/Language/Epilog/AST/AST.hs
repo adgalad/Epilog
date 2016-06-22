@@ -1,7 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-
 module Language.Epilog.AST.AST
     ( insertExpr
     , topExpr
@@ -33,7 +32,6 @@ import qualified Data.Sequence          as Seq (empty)
 import           Control.Lens           (use, (%=), (.=))
 --------------------------------------------------------------------------------
 
-
 insertExpr :: Expression -> Epilog ()
 insertExpr expr = expression %= ( expr <|)
 
@@ -44,7 +42,7 @@ topExpr = do
         x :< xs -> do
             expression .= xs
             return x
-        _       -> return $Otherwise $Position (-100,-100)
+        _       -> return $ Otherwise $ Position (-100) (-100)
 
 insertInst :: Instruction -> Epilog ()
 insertInst inst = instructions %= (\(x:xs) -> (x|>inst):xs)

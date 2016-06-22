@@ -1,6 +1,5 @@
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE TupleSections   #-}
- -- {-# LANGUAGE OverloadedLists #-}
 
 module Language.Epilog.SymbolTable
     ( Entry (..)
@@ -41,13 +40,14 @@ import           Data.Sequence                  (Seq, ViewL ((:<)),
 import qualified Data.Sequence                  as Seq
 import           Prelude                        hiding (lookup)
 --------------------------------------------------------------------------------
+
 -- Symbol Table Entry ------------------
 data Entry = Entry
     { eName         :: String
     , eType         :: Type
     , eInitialValue :: Maybe Expression
-    , ePosition     :: Position
-    , eOffset       :: Int
+    , ePosition     :: !Position
+    , eOffset       :: !Int
     } deriving (Eq)
 
 
@@ -60,17 +60,20 @@ instance Treelike Entry where
         Node ("`" ++ eName ++ "`") $
             leaf ("Declared " ++ show ePosition) :
             leaf ("Type: " ++ show eType) :
-            leaf ("Size: " ++ showS (typeSize eType)) :
+            leaf ("Size: " ++ showS (sizeT eType)) :
             leaf ("Offset: "++ show eOffset) :
             case eInitialValue of
                 Nothing -> []
                 Just e  -> [Node "Initialized with value" [toTree e]]
 
+
 entry :: String -> Type -> Position -> Int -> Entry
 entry name t = Entry name t Nothing
 
+
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry
+
 
 data Scope = Scope
     { sFrom     :: Position
@@ -79,7 +82,9 @@ data Scope = Scope
     , sChildren :: Scopes
     }
 
+
 type Scopes = Seq Scope
+
 
 instance Treelike Scope where
     toTree Scope { sFrom, sTo, sEntries, sChildren } =
@@ -89,23 +94,28 @@ instance Treelike Scope where
                 else Node "Symbols" (toForest . sortOn ePosition . Map.elems $ sEntries) :
                         toForest sChildren
 
+
 lookup' :: String -> Scope -> Either String Entry
 lookup' key Scope { sEntries } =
     case Map.lookup key sEntries of
          Just entry' -> Right entry'
          Nothing    -> Left "Not found."
 
+
 insert' :: String -> Entry -> Scope -> Scope
 insert' key entry' s @ Scope { sEntries } =
     s { sEntries = Map.insert key entry' sEntries }
+
 
 insertST' :: Scope -> Scope -> Scope
 insertST' newScope s @ Scope { sChildren } =
     s { sChildren = sChildren |> newScope }
 
+
 close' :: Position -> Scope -> Scope
 close' position scope =
     scope { sTo = position }
+
 
 empty' :: Position -> Scope
 empty' position = Scope
@@ -115,6 +125,7 @@ empty' position = Scope
     , sChildren = Seq.empty
     }
 
+
 -- Symbol Table ------------------------
 data Breadcrumb = Breadcrumb
     { bScope :: (Position, Position, Entries)
@@ -122,14 +133,18 @@ data Breadcrumb = Breadcrumb
     , bRight :: Scopes
     }
 
+
 type SymbolTable = (Scope, [Breadcrumb])
+
 
 ---- Starter Symbo lTable ----
 empty :: SymbolTable
-empty = focus $ empty' (Position (0, 0))
+empty = focus . empty' $ Position 0 0
+
 
 emptyP :: Position -> SymbolTable
 emptyP = focus . empty'
+
 
 ---- Moving around -----------
 goDownFirst :: SymbolTable -> Either String SymbolTable
@@ -140,6 +155,7 @@ goDownFirst (Scope { sFrom, sTo, sEntries, sChildren }, bs)
     where
         x :< xs = Seq.viewl sChildren
 
+
 goDownLast :: SymbolTable -> Either String SymbolTable
 goDownLast (Scope { sFrom, sTo, sEntries, sChildren }, bs)
     | Seq.null sChildren = Left "No embedded scopes."
@@ -147,6 +163,7 @@ goDownLast (Scope { sFrom, sTo, sEntries, sChildren }, bs)
         Right (x, Breadcrumb (sFrom, sTo, sEntries) xs Seq.empty : bs)
     where
         xs :> x = Seq.viewr sChildren
+
 
 goNext :: SymbolTable -> Either String SymbolTable
 goNext (_, []) =
@@ -158,6 +175,7 @@ goNext (s, Breadcrumb { bScope, bLeft, bRight } : bs)
     where
         r :< bRight' = Seq.viewl bRight
 
+
 goPrevious :: SymbolTable -> Either String SymbolTable
 goPrevious (_, []) =
     Left "Root scope has no siblings."
@@ -168,22 +186,27 @@ goPrevious (s, Breadcrumb { bScope, bLeft, bRight } : bs)
     where
         bLeft' :> l = Seq.viewr bLeft
 
+
 goUp :: SymbolTable -> Either String SymbolTable
 goUp (_, []) =
     Left "Already at root scope."
 goUp (s, Breadcrumb { bScope = (sFrom, sTo, sEntries), bLeft, bRight } : bs) =
     Right (Scope sFrom sTo sEntries ((bLeft |> s) >< bRight), bs)
 
+
 root :: SymbolTable -> Either a SymbolTable -- we want to stay in the monad
 root (s, []) = Right (s, [])
 root st      = root . (\(Right x) -> x) . goUp $ st
+
 
 ---- (de)focusing ------------
 focus :: Scope -> SymbolTable
 focus = (,[])
 
+
 defocus :: SymbolTable -> Scope
 defocus = fst
+
 
 ---- Using the table ---------
 isSymbol :: String -> SymbolTable -> Bool
@@ -191,10 +214,12 @@ isSymbol key st = case lookup key st of
     Left _ -> False
     Right _ -> True
 
+
 isLocal ::  String -> SymbolTable -> Bool
 isLocal key st = case local key st of
     Left _ -> False
     Right _ -> True
+
 
 lookup :: String -> SymbolTable -> Either String Entry
 lookup key (s, []) =
@@ -204,20 +229,25 @@ lookup key st@(s, _) =
         Left      _ -> goUp st >>= lookup key
         bRightEntry -> bRightEntry
 
+
 local :: String -> SymbolTable -> Either String Entry
 local key (s, _) =
     lookup' key s
+
 
 insertSymbol :: String -> Entry -> SymbolTable -> SymbolTable
 insertSymbol key entry' (s, bs) =
     (insert' key entry' s, bs)
 
+
 insertST :: Scope -> SymbolTable -> SymbolTable
 insertST newST (s, bs) =
     (insertST' newST s, bs)
 
+
 openScope :: Position -> SymbolTable -> SymbolTable
 openScope p = (\(Right x) -> x) . goDownLast . insertST (empty' p)
+
 
 closeScope :: Position -> SymbolTable -> SymbolTable
 closeScope p (s, bs) = (close' p s, bs)

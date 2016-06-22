@@ -28,7 +28,7 @@ data Expression
     | LitFloat  Position Float
     | LitString Position String
 
-    | Otherwise Position
+    -- | Otherwise Position
 
     | Lval      Position Lval
 
@@ -40,21 +40,21 @@ data Expression
 
 instance P Expression where
     pos = \case
-        LitBool   p _     -> p
-        LitChar   p _     -> p
-        LitInt    p _     -> p
-        LitFloat  p _     -> p
-        LitString p _     -> p
-        Otherwise p       -> p
-        Lval      p _     -> p
-        ECall     p _ _   -> p
-        Binary    p _ _ _ -> p
-        Unary     p _ _   -> p
+        LitBool   p _     -> p -- AST built
+        LitChar   p _     -> p -- AST built
+        LitInt    p _     -> p -- AST built
+        LitFloat  p _     -> p -- AST built
+        LitString p _     -> p -- AST built
+     -- Otherwise p       -> p
+        Lval      p _     -> p -- AST built
+        ECall     p _ _   -> p -- AST built
+        Binary    p _ _ _ -> p -- AST built
+        Unary     p _ _   -> p -- AST built
 
 instance Treelike Expression where
     toTree = \case
         LitBool _ val ->
-            leaf (unwords [(if val then "true" else "false")])
+            leaf (unwords [if val then "true" else "false"])
 
         LitChar _ val ->
             leaf (unwords [show val])
@@ -68,8 +68,8 @@ instance Treelike Expression where
         LitString _ val ->
             leaf (unwords [show val])
 
-        Otherwise _ ->
-            leaf (unwords ["otherwise"])
+        -- Otherwise _ ->
+        --     leaf (unwords ["otherwise"])
 
         Lval _ lval ->
             Node (unwords ["Lval"]) [toTree lval]
@@ -133,9 +133,10 @@ instance Show UnaryOp where
 -- Lval ------------------------------------------------------------------------
 
 data Lval
-    = Variable Name
-    | Member   Lval Name
-    | Index    Lval Expression
+    = Variable Name            -- AST built
+    | Member   Lval Name       -- AST built
+    | Index    Lval Expression -- AST built
+    | Deref    Lval            -- AST built
     deriving (Eq, Show)
 
 instance Treelike Lval where
@@ -147,7 +148,9 @@ instance Treelike Lval where
                 Member lval member ->
                     ('_': member) : aux0 lval
                 Index lval index ->
-                    ((show . flatten . toTree $ index)) : aux0 lval
+                    (show . flatten . toTree $ index) : aux0 lval
+                Deref lval ->
+                    "^" : aux0 lval
 
             aux1 (x:y:xs) =
                 Node x [aux1 (y:xs)]

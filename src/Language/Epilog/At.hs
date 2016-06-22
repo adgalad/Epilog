@@ -17,7 +17,7 @@ import qualified Language.Epilog.Position as P (col, row)
 data At a = a :@ Position deriving (Eq, Ord, Functor)
 
 instance Show a => Show (At a) where
-    show (i :@ Position (r, c)) = unlines
+    show (i :@ Position r c) = unlines
         [ show i
         , case c of
             0 -> "POSITION: row " ++ show r

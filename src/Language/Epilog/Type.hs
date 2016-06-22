@@ -7,8 +7,6 @@ module Language.Epilog.Type
     , StructKind (..)
     , toCons
     , showS
-    , typeSize
-    , typeAlign
     -- basic types
     , boolT
     , charT
@@ -28,6 +26,7 @@ import           Data.Sequence            (Seq)
 import qualified Data.Foldable            as Foldable
 import           Prelude                  hiding (Either)
 --------------------------------------------------------------------------------
+
 data Atom
     = EpBoolean
     | EpCharacter
@@ -50,47 +49,47 @@ instance Treelike Atom where
 
 data Type
     = Basic
-        { atom   :: Atom
-        , sizeT  :: Int
-        , alignT :: Int
+        { atom   :: !Atom
+        , sizeT  :: !Int
+        , alignT :: !Int
         }
     | EpStr
-        { sizeT  :: Int
-        , alignT :: Int
+        { sizeT  :: !Int
+        , alignT :: !Int
         }
     | EpVoid
     | Array
         { low    :: Int32
         , high   :: Int32
         , inner  :: Type
-        , sizeT  :: Int
-        , alignT :: Int
+        , sizeT  :: !Int
+        , alignT :: !Int
         }
     | Record
         { name   :: String
         , fields :: Map Name (Type, Int)
-        , sizeT  :: Int
-        , alignT :: Int
+        , sizeT  :: !Int
+        , alignT :: !Int
         }
     | Either
         { name    :: String
         , members :: Map Name (Type, Int)
-        , sizeT   :: Int
-        , alignT  :: Int
+        , sizeT   :: !Int
+        , alignT  :: !Int
         }
     | (:->)
         { params  :: Seq Type
         , returns :: Type
         }
     | Alias
-        { name   :: Name
-        , sizeT  :: Int
-        , alignT :: Int
+        { name   :: !Name
+        , sizeT  :: !Int
+        , alignT :: !Int
         }
     | Pointer
-        { pointed :: Type
-        , sizeT   :: Int
-        , alignT  :: Int
+        { pointed :: !Type
+        , sizeT   :: !Int
+        , alignT  :: !Int
         }
     | OneOf { options :: [Type] }
     | Any
@@ -191,34 +190,11 @@ instance Treelike Type where
         where
             toTreeFs = Map.foldrWithKey aux []
             aux k (t,offs) b = Node k [toTree t
-                                      , leaf ("Size: "   ++ showS (typeSize t))
+                                      , leaf ("Size: "   ++ showS (sizeT t))
                                       , leaf ("Offset: " ++ show offs)
                                       ] : b
             toTreePs = Foldable.toList . fmap toTree
 
-typeSize :: Type -> Int
-typeSize t = case t of
-    Basic     _ s _ -> s
-    EpStr       s _ -> s
-    Array _ _ _ s _ -> s
-    Record  _ _ s _ -> s
-    Either  _ _ s _ -> s
-    Alias     _ s _ -> s
-    Pointer   _ s _ -> s
-    EpVoid          -> 0
-    _               -> undefined
-
-typeAlign :: Type -> Int
-typeAlign t = case t of
-    Basic     _ _ a -> a
-    EpStr       _ a -> a
-    Array _ _ _ _ a -> a
-    Record  _ _ _ a -> a
-    Either  _ _ _ a -> a
-    Alias     _ _ a -> a
-    Pointer   _ _ a -> a
-    EpVoid          -> 0
-    _               -> undefined
 
 showS :: (Eq a, Num a, Show a) => a -> String
 showS t = show t ++ case t of
@@ -235,6 +211,7 @@ stringT = EpStr             0 0
 
 
 data StructKind = EitherK | RecordK deriving (Eq)
+
 
 instance Show StructKind where
     show EitherK = "Either"

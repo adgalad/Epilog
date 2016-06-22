@@ -39,51 +39,58 @@ type Ranges = Seq Range
 
 -- Instructions ----------------------------------------------------------------
 data Instruction
-    = ProcDecl    Position Type         Name       Insts
-    -- | Declaration Position Type         Name       (Maybe Expression)
-    | Assign      Position Lval         Expression
-    | ICall       Position Name         Exps
-
-    | If          Position Guards
-    | Case        Position Expression   Sets
-    | For         Position (Maybe Type) Name       Ranges
-    | While       Position Guards
-
-    | Read        Position Lval
-    | Write       Position Expression
-
-    | Finish      Position
+    = Assign -- AST built
+        { instP        :: Position
+        , assignTarget :: Lval
+        , assignVal    :: Expression
+        }
+    | ICall -- AST built
+        { instP    :: Position
+        , callName :: Name
+        , callArgs :: Exps
+        }
+    | If -- AST MISSING!!!
+        { instP    :: Position
+        , ifGuards :: Guards
+        }
+    | Case -- AST MISSING!!!
+        { instP    :: Position
+        , caseExp  :: Expression
+        , caseSets :: Sets
+        }
+    | For -- AST MISSING!!!
+        { instP     :: Position
+        , forVar    :: Name
+        , forRanges :: Ranges
+        }
+    | While -- AST MISSING!!!
+        { instP       :: Position
+        , whileGuards :: Guards
+        }
+    | Read -- AST built
+        { instP      :: Position
+        , readTarget :: Lval
+        }
+    | Write -- AST built
+        { instP    :: Position
+        , writeVal :: Expression
+        }
+    | Answer -- AST built
+        { instP     :: Position
+        , answerVal :: Expression
+        }
+    | Finish -- AST built
+        { instP :: Position }
     deriving (Eq, Show)
 
 instance P Instruction where
-    pos = \case
-        -- Declaration p _ _ _ -> p
-        ProcDecl    p _ _ _ -> p
-        Assign      p _ _   -> p
-        ICall       p _ _   -> p
-        If          p _     -> p
-        Case        p _ _   -> p
-        For         p _ _ _ -> p
-        While       p _     -> p
-        Read        p _     -> p
-        Write       p _     -> p
-        Finish      p       -> p
+    pos = instP
 
 instance Treelike Insts where
     toTree insts = Node "Instructions" (toForest insts)
 
 instance Treelike Instruction where
     toTree = \case
-        ProcDecl p t pname insts ->
-            Node (unwords [pname ++ " " ++ show t, showP p]) $ toForest insts
-        -- Declaration p t var val ->
-        --     Node (unwords ["Declaration", showP p]) $
-        --         leaf (unwords ["Variable", var]) :
-        --         leaf (show t) :
-        --         (case val of
-        --             Nothing -> []
-        --             Just x  -> [Node "Initial value" [toTree x]])
-
         Assign p lval expr ->
             Node (unwords ["Assign", showP p])
                 [toTree lval, toTree expr]
@@ -101,17 +108,9 @@ instance Treelike Instruction where
                 toTree var :
                 (toList . fmap setTree $ sets)
 
-        For p Nothing var ranges ->
+        For p var ranges ->
             Node (unwords ["For", showP p]) $
                 leaf ("Variable " ++ var) :
-                (toList . fmap rangeTree $ ranges)
-
-        For p (Just t) var ranges ->
-            Node (unwords ["For", showP p]) $
-                Node "Declaration"
-                    [ leaf (unwords ["Variable", var])
-                    , toTree t
-                    ] :
                 (toList . fmap rangeTree $ ranges)
 
         While p guards ->
@@ -124,6 +123,10 @@ instance Treelike Instruction where
 
         Write p expr ->
             Node (unwords ["Write", showP p])
+                [toTree expr]
+
+        Answer p expr ->
+            Node (unwords ["Answer", showP p])
                 [toTree expr]
 
         Finish p ->

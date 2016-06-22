@@ -238,13 +238,13 @@ getInput = do
 -- Utility functions -------------------
 -- | Updates the position after moving one char
 alexMove :: Position -> Char -> Position
-alexMove (Position (l, c)) '\t' =
+alexMove (Position l c) '\t' =
     let alex_tab_size = 8 in
-    Position (l, (((c+alex_tab_size-1) `div` alex_tab_size)*alex_tab_size+1))
-alexMove (Position (l, c)) '\n' =
-    Position ((l+1), 1)
-alexMove (Position (l, c)) _    =
-    Position (l, (c+1))
+    Position l (((c+alex_tab_size-1) `div` alex_tab_size) * alex_tab_size + 1)
+alexMove (Position l c) '\n' =
+    Position (l+1) 1
+alexMove (Position l c) _    =
+    Position l (c+1)
 
 skip _input _len = readToken
 

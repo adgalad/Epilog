@@ -18,15 +18,15 @@ module Language.Epilog.Epilog
     , mipsConfig
     , modify
     , runEpilog
+    , runEpilog'
     -- State Lenses
-    , symbols, strings, pendProcs, types, expression, position, input
+    , symbols, strings, pendProcs, types, {-expression,-} position, input
     , prevChar, bytes, scanCode, commentDepth, current, curfields
-    , curkind, forVars, caseTypes, offset, instructions, guards
-    , curProcType, sets, ranges, caseSet, lvals, ast, structSize
+    , curkind, forVars, caseTypes, offset {-, instructions, guards-}
+    , curProcType {-, sets, ranges, caseSet, lvals, ast-}, structSize
     , structAlign
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
 import           Language.Epilog.Type
 import           Language.Epilog.Common
@@ -50,9 +50,7 @@ type Byte    = Word8
 
 -- | The configuration of the compiler monad.
 data EpilogConfig = EpilogConfig
-    {
-    --padding         :: Int  -> Int,
-      basicTypes      :: Map Name (Type, Position)
+    { basicTypes      :: Map Name (Type, Position)
     , predefinedProcs :: [Entry]
     , pointerSize     :: Int
     , pointerAlign    :: Int
@@ -123,17 +121,16 @@ data EpilogState = EpilogState
     , _forVars      :: [(At Name, Type)]
     , _caseTypes    :: [At Type]
     , _offset       :: [Int]
-    -- AST
-    , _caseSet      :: Exps
+    -- , _caseSet      :: Exps
     , _curProcType  :: Type
     ------ , _currentEntry :: Entry
-    , _instructions :: [Insts]
-    , _lvals        :: [Expression]
-    , _expression   :: Exps
-    , _guards       :: Guards
-    , _sets         :: Sets
-    , _ranges       :: Ranges
-    , _ast          :: Insts
+    -- , _instructions :: [Insts]
+    -- , _lvals        :: [Expression]
+    -- , _expression   :: Exps
+    -- , _guards       :: Guards
+    -- , _sets         :: Sets
+    -- , _ranges       :: Ranges
+    -- , _ast          :: Insts
 
     , _position     :: Position
     , _input        :: String
@@ -161,17 +158,15 @@ initialState inp = EpilogState
     , _caseTypes    = []
     , _offset       = [0]
     -- AST
-    , _caseSet      = []
     , _curProcType  = None
-    , _instructions = [[]]
-    , _lvals        = []
-    , _expression   = []
-    , _guards       = []
-    , _sets         = []
-    , _ranges       = []
-    , _ast          = []
+    -- , _lvals        = []
+    -- , _expression   = []
+    -- , _guards       = []
+    -- , _sets         = []
+    -- , _ranges       = []
+    -- , _ast          = []
 
-    , _position     = Position (1, 1)
+    , _position     = Position 1 1
     , _input        = inp
     , _prevChar     = '\n'
     , _bytes        = []
@@ -183,5 +178,10 @@ initialState inp = EpilogState
 -- The Monad ---------------------------
 type Epilog = RWST EpilogConfig () EpilogState IO
 
-runEpilog :: RWST r w s IO a -> r -> s -> IO (a, s, w)
-runEpilog = runRWST
+runEpilog' :: RWST r w s IO a -> r -> s -> IO (a, s, w)
+runEpilog' = runRWST
+
+runEpilog :: String
+          -> RWST EpilogConfig w EpilogState IO a
+          -> IO (a, EpilogState, w)
+runEpilog inp x = runEpilog' x mipsConfig (initialState inp)

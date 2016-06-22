@@ -281,7 +281,7 @@ instance Show EpilogError where
         NoMain _ ->
             "No procedure `main` defined in the program"
 
-        LexicalError (Position (line, column)) ->
+        LexicalError (Position line column) ->
             "Lexical error at line " ++ show line ++
             ", column " ++ show column
 
@@ -375,4 +375,3 @@ instance Show EpilogError where
             "Bad dereference " ++ show p ++
             ", attempted to dereference lval of type `" ++ show t ++
             "`, but only Pointer types can be dereferenced"
-
