@@ -29,6 +29,7 @@ module Language.Epilog.SymbolTable
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
+import           Language.Epilog.IR.TAC          (Operand)
 import           Language.Epilog.Position
 import           Language.Epilog.Treelike
 import           Language.Epilog.Type
@@ -50,7 +51,8 @@ data Entry = Entry
     , eType         :: Type
     , ePosition     :: !Position
     , eInitialValue :: Maybe Expression
-    , eOffset       :: !Int }
+    , eOffset       :: !Int
+    , eOperand      :: Maybe Operand }
     deriving (Eq)
 
 
@@ -72,7 +74,8 @@ value eName eType ePosition eOffset = Entry
   , eType
   , ePosition
   , eInitialValue = Nothing
-  , eOffset }
+  , eOffset
+  , eOperand = Nothing }
 
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry
