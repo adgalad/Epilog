@@ -219,71 +219,71 @@ instance Ord EpilogError where
 instance Show EpilogError where
     show = \case
         DuplicateDeclaration name fstT fstP sndT sndP ->
-            "Duplicate declaration " ++ show sndP ++ ", variable `" ++
-            name ++ "` already declared as `" ++ show fstT ++ "` " ++
-            show fstP ++ ", cannot be redeclared as `" ++ show sndT ++ "`"
+            "Duplicate declaration " <> show sndP <> ", variable `" <>
+            name <> "` already declared as `" <> show fstT <> "` " <>
+            show fstP <> ", cannot be redeclared as `" <> show sndT <> "`"
 
         DuplicateField sName sKind sPos name fstT fstP sndT sndP ->
-            "Duplicate field " ++ show sndP ++ ", field `" ++
-            name ++ "` already used as `" ++ show fstT ++ "` " ++
-            show fstP ++ " in " ++ show sKind ++ " `" ++ sName ++ "` " ++
-            show sPos ++ " cannot be redeclared as `" ++ show sndT ++ "`"
+            "Duplicate field " <> show sndP <> ", field `" <>
+            name <> "` already used as `" <> show fstT <> "` " <>
+            show fstP <> " in " <> show sKind <> " `" <> sName <> "` " <>
+            show sPos <> " cannot be redeclared as `" <> show sndT <> "`"
 
         DuplicateDefinition name fstP sndP ->
-            "Duplicate definition " ++ show sndP ++ ", `" ++ name ++
-            "` already defined " ++ show fstP
+            "Duplicate definition " <> show sndP <> ", `" <> name <>
+            "` already defined " <> show fstP
 
         AssignMismatch t1 t2 p->
-            "Invalid assignment " ++ show p ++
-            ", attempted to assign an expression of type `" ++ show t2 ++
-            "` to an lval of type `" ++ show t1 ++ "` "
+            "Invalid assignment " <> show p <>
+            ", attempted to assign an expression of type `" <> show t2 <>
+            "` to an lval of type `" <> show t1 <> "` "
 
         NonBasicAssign t1 p->
-            "Invalid assignment " ++ show p ++
-            ", attempted to assign a value to an lval of type `" ++
-            show t1 ++ "`, but only characters, booleans, integers, " ++
+            "Invalid assignment " <> show p <>
+            ", attempted to assign a value to an lval of type `" <>
+            show t1 <> "`, but only characters, booleans, integers, " <>
             "floats, or pointers may be targets of an assignment."
 
         InvalidArray p ->
-            "Index of non-array variable " ++ show p
+            "Index of non-array variable " <> show p
 
         InvalidSubindex t p ->
-            "Invalid index " ++ show p ++
-            ", attempted to use an expression of type `" ++ show t ++
+            "Invalid index " <> show p <>
+            ", attempted to use an expression of type `" <> show t <>
             "` as a subindex"
 
         InvalidField field t p ->
-            "No field named `" ++ field ++ "` " ++ show p ++
-            " in record `" ++ t ++ "`"
+            "No field named `" <> field <> "` " <> show p <>
+            " in record `" <> t <> "`"
 
         InvalidMember member t p ->
-            "No member named `" ++ member ++ "` "++ show p ++
-            " in either `" ++ t ++ "`"
+            "No member named `" <> member <> "` "<> show p <>
+            " in either `" <> t <> "`"
 
         InvalidAccess access t p ->
-            "Invalid access `" ++ access ++ "` "++ show p ++
-            " in type `" ++ t ++ "`, only records and eithers can be accessed"
+            "Invalid access `" <> access <> "` "<> show p <>
+            " in type `" <> t <> "`, only records and eithers can be accessed"
 
         InvalidGuard t p ->
-            "Invalid guard " ++ show p ++
-            ", guards most be of type `boolean` but `" ++ show t ++
+            "Invalid guard " <> show p <>
+            ", guards most be of type `boolean` but `" <> show t <>
             "` was provided"
 
         InvalidRange vname vt vp t1 t2 p ->
-            "Invalid range " ++ show p ++", lower bound is `" ++ show t1 ++
-            "` and higher bound is `" ++ show t2 ++ "`, but for variable `"
-            ++ vname ++ "` was declared as `" ++ show vt ++ "` " ++ show vp
+            "Invalid range " <> show p <>", lower bound is `" <> show t1 <>
+            "` and higher bound is `" <> show t2 <> "`, but for variable `"
+            <> vname <> "` was declared as `" <> show vt <> "` " <> show vp
 
         MemberOfArray member p ->
-            "Expected array index instead of member " ++ show p ++
-            " member named `" ++ member ++ "`"
+            "Expected array index instead of member " <> show p <>
+            " member named `" <> member <> "`"
 
         NoMain _ ->
             "No procedure `main` defined in the program"
 
         LexicalError (Position line column) ->
-            "Lexical error at line " ++ show line ++
-            ", column " ++ show column
+            "Lexical error at line " <> show line <>
+            ", column " <> show column
 
         LexicalError _otherPosition -> undefined
 
@@ -291,87 +291,87 @@ instance Show EpilogError where
             "Comment not closed at end of file"
 
         OutOfScope name p ->
-            "Out of scope variable " ++ show p ++ ": `" ++ name ++
+            "Out of scope variable " <> show p <> ": `" <> name <>
             "` not available in this scope."
 
         RecursiveType t name p ->
-            "Attempted to declare a recursive field named `" ++ name ++
-            "` " ++ show p ++" in struct `" ++ t ++ "`"
+            "Attempted to declare a recursive field named `" <> name <>
+            "` " <> show p <>" in struct `" <> t <> "`"
 
         UndefinedType nameT p ->
-            "Attempted to declare variable of undefined type " ++ show p ++
-            ", type `" ++ nameT ++ "`"
+            "Attempted to declare variable of undefined type " <> show p <>
+            ", type `" <> nameT <> "`"
 
         UndefinedProcedure name p ->
-            "Call to undeclared procedure " ++ show p ++ " named `" ++
-            name ++ "`"
+            "Call to undeclared procedure " <> show p <> " named `" <>
+            name <> "`"
 
         BadCall name args expArgs p ->
-            "Bad call to procedure " ++ show p ++ " named `" ++
-            name ++ "`, expected args of types " ++ show (toList expArgs) ++
-            ", but instead received " ++ show (toList args)
+            "Bad call to procedure " <> show p <> " named `" <>
+            name <> "`, expected args of types " <> show (toList expArgs) <>
+            ", but instead received " <> show (toList args)
 
         BadRead t p ->
-            "Bad read " ++ show p ++
-            " attempted to read into variable of type `" ++ show t ++
+            "Bad read " <> show p <>
+            " attempted to read into variable of type `" <> show t <>
             "`; only booleans, chars, floats and integers can be read"
 
         BadWrite t p ->
-            "Bad write " ++ show p ++
-            " attempted to write variable of type `" ++ show t ++
-            "`; only booleans, chars, floats, integers and strings " ++
+            "Bad write " <> show p <>
+            " attempted to write variable of type `" <> show t <>
+            "`; only booleans, chars, floats, integers and strings " <>
             "can be written"
 
         BadFinish eret procp retp ->
-            "Bad finish " ++ show retp ++
-            ", used finish in a procedure declared as answering `" ++
-            show eret ++ "` " ++ show procp
+            "Bad finish " <> show retp <>
+            ", used finish in a procedure declared as answering `" <>
+            show eret <> "` " <> show procp
 
         BadAnswer eret aret procp retp ->
-            "Bad answer " ++ show retp ++
-            ", attempted to answer with an expression of type `" ++
-            show aret ++
-            "` in a procedure declared " ++ (if eret == EpVoid
+            "Bad answer " <> show retp <>
+            ", attempted to answer with an expression of type `" <>
+            show aret <>
+            "` in a procedure declared " <> (if eret == EpVoid
                 then "without an answer type"
-                else "as answering `" ++ show eret ++ "`"
-            ) ++ " " ++ show procp
+                else "as answering `" <> show eret <> "`"
+            ) <> " " <> show procp
 
         UnexpectedToken t p ->
-            "Unexpected token \n" ++ show t ++ "\n" ++ show p
+            "Unexpected token \n" <> show t <> "\n" <> show p
 
         BadBinaryExpression op ts ets p ->
-            "Bad binary expression " ++ show p ++ ", operator `" ++
-            show op ++ "` expected one pair of " ++ show ets ++
-            ", but received " ++ show ts
+            "Bad binary expression " <> show p <> ", operator `" <>
+            show op <> "` expected one pair of " <> show ets <>
+            ", but received " <> show ts
 
         BadUnaryExpression op t ets p ->
-            "Bad unary expression " ++ show p ++ ", operator `" ++
-            show op ++ "` expected one of " ++ show ets ++
-            ", but received `" ++ show t ++ "`"
+            "Bad unary expression " <> show p <> ", operator `" <>
+            show op <> "` expected one of " <> show ets <>
+            ", but received `" <> show t <> "`"
 
         BadForVar n t dp up ->
-            "Bad for variable, " ++ show up ++ ", `" ++ n ++
-            "`, declared as `" ++ show t ++ "` at " ++ show dp ++
+            "Bad for variable, " <> show up <> ", `" <> n <>
+            "`, declared as `" <> show t <> "` at " <> show dp <>
             "; expected `character` or `integer`"
 
         BadCaseExp t p ->
-            "Bad case expression " ++ show p ++
-            ", expected expression of type `character` or `integer`, but `" ++
-            show t ++ "` was given"
+            "Bad case expression " <> show p <>
+            ", expected expression of type `character` or `integer`, but `" <>
+            show t <> "` was given"
 
         BadCaseIntElem ep v vp ->
-            "Bad element in case expression " ++
-            show vp ++ ", element `" ++ show v ++
-            "` has type `character` but expression " ++
-            show ep ++ " has type `integer`"
+            "Bad element in case expression " <>
+            show vp <> ", element `" <> show v <>
+            "` has type `character` but expression " <>
+            show ep <> " has type `integer`"
 
         BadCaseCharElem ep v vp ->
-            "Bad element in case expression " ++
-            show vp ++ ", element `" ++ show v ++
-            "` has type `integer` but expression " ++
-            show ep ++ " has type `character`"
+            "Bad element in case expression " <>
+            show vp <> ", element `" <> show v <>
+            "` has type `integer` but expression " <>
+            show ep <> " has type `character`"
 
         BadDeref t p ->
-            "Bad dereference " ++ show p ++
-            ", attempted to dereference lval of type `" ++ show t ++
+            "Bad dereference " <> show p <>
+            ", attempted to dereference lval of type `" <> show t <>
             "`, but only Pointer types can be dereferenced"

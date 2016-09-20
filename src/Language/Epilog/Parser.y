@@ -4,7 +4,7 @@
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
--- import qualified Language.Epilog.AST.AST         as AST
+import           Language.Epilog.AST.Program     hiding (types)
 import           Language.Epilog.Type
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
@@ -18,6 +18,7 @@ import           Control.Monad.Trans.RWS.Strict (RWS, execRWS, get, gets,
                                                  modify, put, tell)
 import           Control.Monad                  (unless)
 import           Data.Int                       (Int32)
+import           Data.Maybe                     (fromJust)
 import           Data.Sequence                  (Seq, ViewL ((:<)), (<|), (><),
                                                  (|>))
 import qualified Data.Sequence                  as Seq (empty, singleton, viewl)
@@ -149,7 +150,10 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
 %% -----------------------------------------------------------------------------
 -- Program -----------------------------
 Program
-    : PREPARE OPEN TopDefs CLOSE     {}
+    : PREPARE OPEN TopDefs CLOSE
+    {% Program `fmap` use types
+                  <*> use procedures
+                  <*> (defocus `fmap` use symbols) }
 
 PREPARE
     : {- lambda -}
@@ -197,7 +201,7 @@ StructKind
 
 Procedure
     : Procedure1 Procedure2 Procedure3
-    {% storeProcedure' $3  }
+    {% storeProcedure' $3 }
 Procedure1
     : proc GenId OPENF( "(" ) Params0 ")"
     {% current .= Just (item $2 :@ pos $1) }
@@ -207,8 +211,8 @@ Procedure2
     | "->" Type
     {% storeProcedure (item $2) }
 Procedure3
-    : OPENF( ":-" ) Insts CLOSE(CLOSE( "." ))
-    { $2 }
+    : ":-" Insts CLOSE( "." )
+    { $2 { jPos = pos $3 } }
 
 
 OPENF(TOKEN)
@@ -256,7 +260,7 @@ Params
 
 Param
     : Type VarId
-    {% checkDeclaration $1 $2 }
+    {% checkParam $1 $2 }
 
 Conts
     : Cont
@@ -539,10 +543,11 @@ Exp
     -- | otherwise                  { EpVoid   }
 
     | Lval
-    {% do
-        -- lval <- AST.topLval
-        -- AST.insertExpr lval
-        return $1
+    { $1
+      { jLval = Nothing
+      , jExps = case jType $1 of
+        None -> Seq.empty
+        _    -> Seq.singleton . Lval (jPos $1) . fromJust . jLval $ $1 }
     }
 
     | Call

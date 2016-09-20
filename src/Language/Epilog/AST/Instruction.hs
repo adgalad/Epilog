@@ -1,6 +1,6 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
 
 module Language.Epilog.AST.Instruction
     ( Instruction (..)
@@ -17,9 +17,9 @@ module Language.Epilog.AST.Instruction
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.Common
-import           Language.Epilog.Type
 import           Language.Epilog.Position
 import           Language.Epilog.Treelike
+import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Data.Foldable                  (toList)
 import           Data.Sequence                  (Seq)
@@ -110,7 +110,7 @@ instance Treelike Instruction where
 
         For p var ranges ->
             Node (unwords ["For", showP p]) $
-                leaf ("Variable " ++ var) :
+                leaf ("Variable " <> var) :
                 (toList . fmap rangeTree $ ranges)
 
         While p guards ->

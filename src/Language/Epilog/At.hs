@@ -10,6 +10,7 @@ module Language.Epilog.At
     , item
     ) where
 --------------------------------------------------------------------------------
+import           Language.Epilog.Common
 import           Language.Epilog.Position hiding (col, row)
 import qualified Language.Epilog.Position as P (col, row)
 --------------------------------------------------------------------------------
@@ -20,8 +21,8 @@ instance Show a => Show (At a) where
     show (i :@ Position r c) = unlines
         [ show i
         , case c of
-            0 -> "POSITION: row " ++ show r
-            _ -> "POSITION: row " ++ show r ++ ", col " ++ show c
+            0 -> "POSITION: row " <> show r
+            _ -> "POSITION: row " <> show r <> ", col " <> show c
         ]
     show (i :@ p) = unlines
         [ show i

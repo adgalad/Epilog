@@ -1,5 +1,5 @@
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE TupleSections  #-}
 
 module Language.Epilog.SymbolTable
     ( Entry (..)
@@ -9,7 +9,7 @@ module Language.Epilog.SymbolTable
     , defocus
     , empty
     , emptyP
-    , entry
+    , value
     , focus
     , goDownFirst
     , goDownLast
@@ -24,52 +24,55 @@ module Language.Epilog.SymbolTable
     , lookup
     , openScope
     , root
+    , extractScope
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
-import           Language.Epilog.Type
-import           Language.Epilog.Treelike
 import           Language.Epilog.Position
+import           Language.Epilog.Treelike
+import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import           Data.Map.Strict                (Map)
-import           Data.List                      (sortOn)
-import qualified Data.Map.Strict                as Map hiding (Map)
-import           Data.Sequence                  (Seq, ViewL ((:<)),
-                                                 ViewR ((:>)), (<|), (><), (|>))
-import qualified Data.Sequence                  as Seq
-import           Prelude                        hiding (lookup)
+import           Data.List                       (sortOn)
+import           Data.Map.Strict                 (Map)
+import qualified Data.Map.Strict                 as Map hiding (Map)
+import           Data.Semigroup                  (Semigroup (..))
+import           Data.Sequence                   (Seq, ViewL ((:<)),
+                                                  ViewR ((:>)), (<|), (><),
+                                                  (|>))
+import qualified Data.Sequence                   as Seq
+import           Prelude                         hiding (lookup)
 --------------------------------------------------------------------------------
 
 -- Symbol Table Entry ------------------
 data Entry = Entry
     { eName         :: String
     , eType         :: Type
-    , eInitialValue :: Maybe Expression
     , ePosition     :: !Position
-    , eOffset       :: !Int
-    } deriving (Eq)
+    , eInitialValue :: Maybe Expression
+    , eOffset       :: !Int }
+    deriving (Eq)
 
 
 instance Treelike Entry where
-    toTree Entry { eName, eType = t@( (:->) _ _), ePosition } =
-        Node ("`" ++ eName ++ "`") $
-            leaf ("Declared " ++ show ePosition) :
-            [leaf ("Type: " ++ show t)]
-    toTree Entry { eName, eType, eInitialValue, ePosition, eOffset } =
-        Node ("`" ++ eName ++ "`") $
-            leaf ("Declared " ++ show ePosition) :
-            leaf ("Type: " ++ show eType) :
-            leaf ("Size: " ++ showS (sizeT eType)) :
-            leaf ("Offset: "++ show eOffset) :
-            case eInitialValue of
-                Nothing -> []
-                Just e  -> [Node "Initialized with value" [toTree e]]
+  toTree Entry { eName, eType, ePosition, eInitialValue, eOffset } =
+    Node ("`" <> eName <> "`") $
+      leaf ("Declared " <> show ePosition) :
+      leaf ("Type: " <> show eType) :
+      leaf ("Size: " <> showS (sizeT eType)) :
+      leaf ("Offset: "<> show eOffset) :
+      case eInitialValue of
+        Nothing -> []
+        Just e  -> [Node "Initialized with value" [toTree e]]
 
 
-entry :: String -> Type -> Position -> Int -> Entry
-entry name t = Entry name t Nothing
-
+value :: String -> Type -> Position -> Int -> Entry
+value eName eType ePosition eOffset = Entry
+  { eName
+  , eType
+  , ePosition
+  , eInitialValue = Nothing
+  , eOffset }
 
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry
@@ -79,8 +82,8 @@ data Scope = Scope
     { sFrom     :: Position
     , sTo       :: Position
     , sEntries  :: Entries
-    , sChildren :: Scopes
-    }
+    , sChildren :: Scopes }
+    deriving (Eq)
 
 
 type Scopes = Seq Scope
@@ -88,7 +91,7 @@ type Scopes = Seq Scope
 
 instance Treelike Scope where
     toTree Scope { sFrom, sTo, sEntries, sChildren } =
-        Node ("Scope " ++ showP sFrom ++ " -> " ++ showP sTo) $
+        Node ("Scope " <> showP sFrom <> " -> " <> showP sTo) $
             if Map.null sEntries
                 then toForest sChildren
                 else Node "Symbols" (toForest . sortOn ePosition . Map.elems $ sEntries) :
@@ -251,3 +254,10 @@ openScope p = (\(Right x) -> x) . goDownLast . insertST (empty' p)
 
 closeScope :: Position -> SymbolTable -> SymbolTable
 closeScope p (s, bs) = (close' p s, bs)
+
+
+extractScope :: SymbolTable -> (Scope, SymbolTable)
+extractScope (parentScope@Scope { sChildren }, bcs) = (scope, st')
+  where
+    scope :< sChildren' = Seq.viewl sChildren
+    st' = (parentScope {sChildren = sChildren'}, bcs)

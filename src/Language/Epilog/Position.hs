@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase   #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Language.Epilog.Position
     ( Position (..)
@@ -9,14 +9,16 @@ module Language.Epilog.Position
     , showP
     ) where
 --------------------------------------------------------------------------------
+import           Language.Epilog.Common
+--------------------------------------------------------------------------------
 
 data Position = Position !Int !Int | Epilog | Code | EOFP
     deriving (Eq, Ord)
 
 instance Show Position where
     show = \case
-        Position r 0 -> "in row " ++ show r
-        Position r c -> "at row " ++ show r ++ ", col " ++ show c
+        Position r 0 -> "in row " <> show r
+        Position r c -> "at row " <> show r <> ", col " <> show c
         Epilog       -> "in epilog"
         Code         -> "in the program code"
         EOFP         -> "in the end of file"

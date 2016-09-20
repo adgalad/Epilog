@@ -3,10 +3,12 @@ module Language.Epilog.Token
     , isError
     ) where
 --------------------------------------------------------------------------------
-import           Data.Char               (showLitChar)
-import           Data.Int                (Int32)
-import           Data.List               (intercalate)
-import           GHC.Show                (showLitString)
+import           Language.Epilog.Common
+--------------------------------------------------------------------------------
+import           Data.Char              (showLitChar)
+import           Data.Int               (Int32)
+import           Data.List              (intercalate)
+import           GHC.Show               (showLitString)
 --------------------------------------------------------------------------------
 
 data Token
@@ -56,10 +58,10 @@ data Token
     |  TokenRead | TokenWrite
 
     -- Literals
-    | TokenBoolLit   { unTokenBoolLit   :: Bool   }
-    | TokenCharLit   { unTokenCharLit   :: Char   }
-    | TokenIntLit    { unTokenIntLit    :: Int32  }
-    | TokenFloatLit  { unTokenFloatLit  :: Float  }
+    | TokenBoolLit   { unTokenBoolLit :: Bool   }
+    | TokenCharLit   { unTokenCharLit :: Char   }
+    | TokenIntLit    { unTokenIntLit :: Int32  }
+    | TokenFloatLit  { unTokenFloatLit :: Float  }
     | TokenStringLit { unTokenStringLit :: String }
 
     -- Identifier
@@ -84,7 +86,7 @@ isError (ErrorUnexpectedToken   _) = True
 isError _                          = False
 
 instance Show Token where
-    show t = "TOKEN: " ++ case t of
+    show t = "TOKEN: " <> case t of
 
     -- Operators
     ---- Logical
@@ -172,39 +174,39 @@ instance Show Token where
         TokenBoolLit value ->
             intercalate "\n"
                 [ "Boolean Literal"
-                , "VALUE: " ++ (if value then "true" else "false")
+                , "VALUE: " <> (if value then "true" else "false")
                 ]
         TokenCharLit value ->
             intercalate "\n"
                 [ "Character Literal"
-                , "VALUE: " ++ showLitChar value ""
+                , "VALUE: " <> showLitChar value ""
                 ]
         TokenIntLit value ->
             intercalate "\n"
                 [ "Integer Literal"
-                , "VALUE: " ++ show value
+                , "VALUE: " <> show value
                 ]
         TokenFloatLit value ->
             intercalate "\n"
                 [ "Float Literal"
-                , "VALUE: " ++ show value
+                , "VALUE: " <> show value
                 ]
         TokenStringLit value ->
             intercalate "\n"
                 [ "String Literal"
-                , "VALUE: " ++ showLitString value ""
+                , "VALUE: " <> showLitString value ""
                 ]
 
     -- Identifier
         TokenVarId name ->
             intercalate "\n"
                 [ "Variable ID"
-                , "VALUE: " ++ name
+                , "VALUE: " <> name
                 ]
         TokenGenId name ->
             intercalate "\n"
                 [ "General ID"
-                , "VALUE: " ++ name
+                , "VALUE: " <> name
                 ]
 
     -- Error
@@ -212,25 +214,25 @@ instance Show Token where
             intercalate "\n"
                 [ "ERROR"
                 , "REASON: Underflow"
-                , "VALUE: " ++ value
+                , "VALUE: " <> value
                 ]
         ErrorOverflow value ->
             intercalate "\n"
                 [ "ERROR"
                 , "REASON: Overflow"
-                , "VALUE: " ++ value
+                , "VALUE: " <> value
                 ]
         ErrorUnclosedStringLit value ->
             intercalate "\n"
                 [ "ERROR"
                 , "REASON: Unclosed String Literal"
-                , "VALUE: \"" ++ value
+                , "VALUE: \"" <> value
                 ]
         ErrorUnexpectedToken value ->
             intercalate "\n"
                 [ "ERROR"
                 , "REASON: Unexpected Token"
-                , "VALUE: " ++ [value]
+                , "VALUE: " <> [value]
                 ]
 
     -- EOF

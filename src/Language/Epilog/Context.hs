@@ -22,6 +22,7 @@ module Language.Epilog.Context
     , checkIf
     , checkInitialization
     , checkIntElem
+    , checkParam
     , checkRange
     , checkRangeLimits
     , checkRanges
@@ -49,6 +50,7 @@ module Language.Epilog.Context
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
+import           Language.Epilog.AST.Procedure
 import           Language.Epilog.At
 import           Language.Epilog.Common
 import           Language.Epilog.Epilog
@@ -58,21 +60,27 @@ import           Language.Epilog.Lexer
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import           Control.Lens                    (use, (%=), (.=))
-import           Control.Monad                   (forM_, when, unless)
+import           Control.Lens                    (at, use, (%%=), (%=), (&),
+                                                  (.=), (?=), (|>))
+import           Control.Monad                   (forM_, unless, when)
 import           Control.Monad.Trans.RWS.Strict  (asks)
+import           Data.Foldable                   (elem)
 import           Data.Int                        (Int32)
 import           Data.List                       (find, sortOn)
 import qualified Data.Map                        as Map (elems, insert,
                                                          insertWith, lookup)
 import           Data.Maybe                      (fromJust)
-import           Data.Sequence                   (Seq, ViewL ((:<)), (><), (|>))
-import qualified Data.Sequence                   as Seq (ViewL (EmptyL),
-                                                         fromList, singleton,
-                                                         viewl, zipWith, index)
-import           Prelude                         hiding (Either, lookup, elem)
-import           Data.Foldable                   (elem)
+import           Data.Sequence                   (Seq, ViewL ((:<)), (><))
+import qualified Data.Sequence                   as Seq (ViewL (EmptyL), empty,
+                                                         fromList, index,
+                                                         singleton, viewl,
+                                                         zipWith)
+import           Prelude                         hiding (Either, elem, lookup)
 --------------------------------------------------------------------------------
+
+xs |>= x = xs %= (|> x)
+
+
 prepare :: Epilog ()
 prepare = do
     procs <- asks predefinedProcs
@@ -169,7 +177,7 @@ declStruct = do
             case t of
                 Array { inner } -> check sName (name :@ p, inner, 0)
                 Alias { name = n } ->
-                    when (n == sName) $ err $ RecursiveType sName n p
+                    when (n == sName) . err $ RecursiveType sName n p
                 _ -> return ()
 
         toMap                    = foldr toMap' []
@@ -203,56 +211,56 @@ verifyField f@(n :@ p) t = do
 
 -- Procedures ------------------------------------------------------------------
 storeProcedure' :: Joy -> Epilog ()
-storeProcedure' Joy { jType = instType } = do
+storeProcedure' Joy { jType = blockType, jInsts } = do
     Just (n :@ p) <- use current
     t <- use curProcType
-    symbols %= (\(Right st) -> st) . goUp
-    if instType == EpVoid
-        then do
-            -- procInsts <- AST.topInsts
-            let entry' = Entry { eName         = n
-                               , eType         = t
-                               , eInitialValue = Nothing
-                               -- , eAST          = Just procInsts
-                               , ePosition     = p
-                               , eOffset       = 0
-                               }
-            -- AST.insert $ ProcDecl p t n procInsts
-            current .= Nothing
-            symbols %= insertSymbol n entry'
-        else do
-            let entry' = Entry { eName         = n
-                               , eType         = t
-                               , eInitialValue = Nothing
-                               -- , eAST          = Nothing
-                               , ePosition     = p
-                               , eOffset       = 0
-                               }
-            current .= Nothing
-            symbols %= insertSymbol n entry'
-    symbols %= (\(Right st) -> st) . goDownLast
+
+    scope <- symbols %%= extractScope
+
+    if blockType == None
+      then
+        procedures . at n ?= Procedure
+          { procName   = n
+          , procPos    = p
+          , procType   = t
+          , procParams = Seq.empty
+          , procDef    = Nothing }
+
+      else do
+        params <- use parameters
+
+        procedures . at n ?= Procedure
+          { procName   = n
+          , procPos    = p
+          , procType   = t
+          , procParams = params
+          , procDef    = Just (jInsts, scope) }
+
+    current .= Nothing
+    curProcType .= None
+    parameters .= Seq.empty
 
 
 storeProcedure :: Type -> Epilog ()
 storeProcedure t = do
-    (Scope { sEntries }, _) <- use symbols
-    let params = Seq.fromList . map eType . sortOn ePosition . Map.elems $
-            sEntries
-    curProcType .= params :-> t
+  params <- fmap parType <$> use parameters
+  curProcType .= params :-> t
 
 
 -- Instructions ----------------------------------------------------------------
 instructions :: Joy -> Joy -> Epilog Joy
-instructions is@Joy { jType = isT, jPos } i@Joy { jType = iT } = do
-    if isT == None || iT == None
+instructions
+    Joy { jType = isT, jPos, jInsts = is }
+    Joy { jType = iT, jInsts = i }
+    = if isT == None || iT == None
         then return $ noJoy { jPos }
-        else return $ joy { jPos }
+        else return $ joy { jPos, jInsts = is <> i }
 
 ---- Declaration -----------------------
 checkDeclaration :: At Type -> At Name -> Epilog Joy
 checkDeclaration (None :@ p) _ =
     return $ noJoy { jPos = p }
-checkDeclaration (t :@ jPos) (var :@ _) = do
+checkDeclaration (t :@ _) (var :@ jPos) = do
     symbs <- use symbols
     offs  <- use offset
     case var `local` symbs of
@@ -261,9 +269,23 @@ checkDeclaration (t :@ jPos) (var :@ _) = do
             return $ noJoy { jPos }
         Left _ -> do
             symbols %= insertSymbol var
-                (entry var t jPos (padded (alignT t) (head offs)))
+                (value var t jPos (padded (alignT t) (head offs)))
             offset  %= \(x:xs) -> (padded (alignT t) x + sizeT t : xs)
             return $ joy { jPos }
+
+---- Parameter -------------------------
+checkParam :: At Type -> At Name -> Epilog Joy
+checkParam att@(parType :@ _) atn@(parName :@ parPos) = do
+  j@Joy { jType } <- checkDeclaration att atn
+  case jType of
+    None -> pure j
+    _ -> do
+      parameters |>= Parameter
+        { parName
+        , parType
+        , parPos }
+      pure j
+
 
 
 ---- Initialization --------------------
@@ -291,7 +313,7 @@ checkAssign
                     return $ noJoy { jPos = p }
 
     where
-        theAssign = Seq.singleton $ Assign
+        theAssign = Seq.singleton Assign
             { instP        = p
             , assignTarget = lval
             , assignVal    = jExps `Seq.index` 0
@@ -506,8 +528,8 @@ checkWhile p j@Joy { } =
 checkAnswer :: Position -> Joy -> Epilog Joy
 checkAnswer retp Joy { jType = None } = return $ noJoy { jPos = retp }
 checkAnswer retp Joy { jType = aret, jExps } = do
-    Just proc <- use current
-    Joy { jType = _ :-> eret, jPos = procp } <- checkVariable proc
+    Just (proc :@ procp) <- use current
+    _ :-> eret <- use curProcType
 
     if eret == aret
         then return $ joy { jPos = retp, jInsts = theAnswer }
@@ -533,7 +555,7 @@ checkWrite p Joy { jType = t, jExps } =
     if t `elem` ([boolT, charT, intT, floatT, stringT] :: [Type])
         then return $ joy { jPos = p, jInsts = theWrite }
         else do
-            unless (t == None) $ err $ BadWrite t p
+            unless (t == None) . err $ BadWrite t p
             return $ noJoy { jPos = p }
 
     where
@@ -541,7 +563,6 @@ checkWrite p Joy { jType = t, jExps } =
             { instP    = p
             , writeVal = jExps `Seq.index` 0
             }
-
 
 ---- Read ------------------------------
 checkRead :: Position -> Joy -> Epilog Joy
@@ -668,8 +689,7 @@ checkBinOp p op = aux opTypes
                         (jExps j1 `Seq.index` 0)
                         (jExps j2 `Seq.index` 0)
         opTypes = typeBinOp op
-        domain = map (\(a, b, _) -> (a, b))
-
+        domain = fmap (\(a, b, _) -> (a, b))
 
 
 ---- Unary Expressions -----------------
@@ -689,7 +709,7 @@ checkUnOp p op = aux opTypes
                 theUnExp = Seq.singleton $
                     Unary p op (jExps j `Seq.index` 0)
         opTypes = typeUnOp op
-        domain = map fst
+        domain = fmap fst
 
 
 

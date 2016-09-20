@@ -133,26 +133,26 @@ instance Show Type where
         Basic   { atom }             -> show atom
         EpStr   {}                   -> "string"
         EpVoid                       -> "void"
-        Pointer { pointed }          -> "pointer to " ++ show pointed
+        Pointer { pointed }          -> "pointer to " <> show pointed
         Array   { low, high, inner } ->
-            "array [" ++ show low ++ "," ++ show high ++ "] of " ++ show inner
+            "array [" <> show low <> "," <> show high <> "] of " <> show inner
         Record  { name, fields, sizeT } ->
-            name ++ " as record {" ++ showFs fields ++
-            "} (" ++ showS sizeT ++ ")"
+            name <> " as record {" <> showFs fields <>
+            "} (" <> showS sizeT <> ")"
         Either  { name, members, sizeT } ->
-            name ++ " as either {" ++ showFs members ++
-            "} (" ++ showS sizeT ++ ")"
+            name <> " as either {" <> showFs members <>
+            "} (" <> showS sizeT <> ")"
         (:->)   { params, returns }  ->
-            "procedure (" ++ showPs params ++ ") → " ++ show returns
+            "procedure (" <> showPs params <> ") → " <> show returns
         Alias   { name }             -> name
-        OneOf   { options }          -> "one of " ++ show options
+        OneOf   { options }          -> "one of " <> show options
         Any                          -> "any type"
         None                         -> "no type at all"
-        Undef   { name }             -> "undefined type `" ++ name ++ "`"
+        Undef   { name }             -> "undefined type `" <> name <> "`"
 
         where
             showFs = intercalate ", " . Map.foldrWithKey aux []
-            aux k (t,_) b = (k ++ " : " ++ show t) : b
+            aux k (t,_) b = (k <> " : " <> show t) : b
             showPs = intercalate " × " . Foldable.toList . fmap show
 
 
@@ -163,7 +163,7 @@ instance Treelike Type where
         EpVoid                       -> leaf "void"
         Pointer { pointed }          -> Node "pointer to" [ toTree pointed ]
         Array   { low, high, inner } ->
-            Node ("array [" ++ show low ++ "," ++ show high ++ "] of")
+            Node ("array [" <> show low <> "," <> show high <> "] of")
                 [ toTree inner ]
         Record  { fields, sizeT }     ->
             Node "record"
@@ -185,19 +185,19 @@ instance Treelike Type where
         Any                          -> leaf "any type"
         None                         -> leaf "no type at all"
         Undef   { name }             ->
-            leaf $ "undefined type `" ++ name ++ "`"
+            leaf $ "undefined type `" <> name <> "`"
 
         where
             toTreeFs = Map.foldrWithKey aux []
             aux k (t,offs) b = Node k [toTree t
-                                      , leaf ("Size: "   ++ showS (sizeT t))
-                                      , leaf ("Offset: " ++ show offs)
+                                      , leaf ("Size: "   <> showS (sizeT t))
+                                      , leaf ("Offset: " <> show offs)
                                       ] : b
             toTreePs = Foldable.toList . fmap toTree
 
 
 showS :: (Eq a, Num a, Show a) => a -> String
-showS t = show t ++ case t of
+showS t = show t <> case t of
     1 -> " byte"
     _ -> " bytes"
 

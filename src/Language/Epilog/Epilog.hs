@@ -1,14 +1,13 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Language.Epilog.Epilog
     ( Byte
     , Epilog
     , EpilogConfig (..)
     , EpilogState (..)
-    , ProcSignature (..)
     , Strings
     , Types
     , err
@@ -24,23 +23,23 @@ module Language.Epilog.Epilog
     , prevChar, bytes, scanCode, commentDepth, current, curfields
     , curkind, forVars, caseTypes, offset {-, instructions, guards-}
     , curProcType {-, sets, ranges, caseSet, lvals, ast-}, structSize
-    , structAlign
+    , structAlign, parameters, procedures
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Instruction
-import           Language.Epilog.Type
-import           Language.Epilog.Common
+import           Language.Epilog.AST.Procedure
 import           Language.Epilog.At
-import           Language.Epilog.SymbolTable    hiding (empty)
+import           Language.Epilog.Common
+import           Language.Epilog.SymbolTable     hiding (empty)
+import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import           Control.Lens                   (makeLenses)
-import           Control.Monad.Trans.RWS.Strict (RWST, get, gets, modify,
-                                                 runRWST)
-import           Data.Map.Strict                (Map)
-import           Data.Sequence                  (Seq)
-import           Data.Word                      (Word8)
-import           System.IO                      (hPrint, stderr)
-import           Control.Monad.IO.Class         (liftIO)
+import           Control.Lens                    (makeLenses)
+import           Control.Monad.IO.Class          (liftIO)
+import           Control.Monad.Trans.RWS.Strict  (RWST, get, gets, modify,
+                                                  runRWST)
+import           Data.Sequence                   (Seq)
+import           Data.Word                       (Word8)
+import           System.IO                       (hPrint, stderr)
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
 type Strings = Map String (Seq Position)
@@ -53,8 +52,7 @@ data EpilogConfig = EpilogConfig
     { basicTypes      :: Map Name (Type, Position)
     , predefinedProcs :: [Entry]
     , pointerSize     :: Int
-    , pointerAlign    :: Int
-    }
+    , pointerAlign    :: Int }
 
 makeLenses ''EpilogConfig
 
@@ -75,34 +73,27 @@ mipsConfig = EpilogConfig
             , ("string"   , ( EpStr             0 1, Epilog ))
             , ("void"     , ( EpVoid               , Epilog ))
             ]
-        mipsProcs =
-            [ entry "toBoolean"
-                ([OneOf [        charT, floatT, intT ]] :-> boolT ) Epilog 0
-            , entry "toCharacter"
-                ([OneOf [ boolT,        floatT, intT ]] :-> charT ) Epilog 0
-            , entry "toFloat"
-                ([OneOf [ boolT, charT,         intT ]] :-> floatT) Epilog 0
-            , entry "toInteger"
-                ([OneOf [ boolT, charT, floatT       ]] :-> intT  ) Epilog 0
-            , entry "length"
-                ([Array 0 0 Any 4 0]                    :-> intT  ) Epilog 0
-            , entry "make"
-                ([Pointer Any 0 0]                      :-> EpVoid) Epilog 0
-            , entry "ekam"
-                ([Pointer Any 0 0]                      :-> EpVoid) Epilog 0
-            ]
+        mipsProcs = []
+            -- [ func "toBoolean"
+            --     ([OneOf [        charT, floatT, intT ]] :-> boolT ) Epilog 0
+            -- , func "toCharacter"
+            --     ([OneOf [ boolT,        floatT, intT ]] :-> charT ) Epilog 0
+            -- , func "toFloat"
+            --     ([OneOf [ boolT, charT,         intT ]] :-> floatT) Epilog 0
+            -- , func "toInteger"
+            --     ([OneOf [ boolT, charT, floatT       ]] :-> intT  ) Epilog 0
+            -- , func "length"
+            --     ([Array 0 0 Any 4 0]                    :-> intT  ) Epilog 0
+            -- , func "make"
+            --     ([Pointer Any 0 0]                      :-> EpVoid) Epilog 0
+            -- , func "ekam"
+            --     ([Pointer Any 0 0]                      :-> EpVoid) Epilog 0
+            -- ]
         mipsPointerSize  = 4
         mipsPointerAlign = 4
 
 
 ---- Table Element Types ---------------
-data ProcSignature = ProcSignature
-    { procName     :: Name
-    , procType     :: Type
-    , procPosition :: Position
-    }
-
-
 err :: Show a => a -> RWST r () s IO ()
 err = liftIO . hPrint stderr
 
@@ -131,6 +122,9 @@ data EpilogState = EpilogState
     -- , _sets         :: Sets
     -- , _ranges       :: Ranges
     -- , _ast          :: Insts
+
+    , _procedures   :: Map String Procedure
+    , _parameters   :: Params
 
     , _position     :: Position
     , _input        :: String
@@ -165,6 +159,9 @@ initialState inp = EpilogState
     -- , _sets         = []
     -- , _ranges       = []
     -- , _ast          = []
+
+    , _procedures   = []
+    , _parameters   = []
 
     , _position     = Position 1 1
     , _input        = inp

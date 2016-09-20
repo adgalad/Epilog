@@ -1,20 +1,25 @@
 procedure collatz (integer X, integer N) :-
-    N is 0,
-    while
-        true   -> write X, N is N + 1;
-        X  = 1 -> finish;
-        2  | X -> X is X div 2;
-        2 !| X -> X is X * 3 + 1
+    while true -> write X, N is N + 1
+        ; X = 2 -> write N
+        ; 2 | X -> write X
+        ; 2 !| X -> X is X * 3 + 1
     end.
 
+%%procedure collatz (integer X, integer N) :-
+%%    while true     -> write X, N is N + 1
+%%        ; X  = 1 -> finish
+%%        ; 2  | X -> X is X div 2
+%%        ; 2 !| X -> X is X * 3 + 1
+%%    end.
+
 record p :-
-    (^integer)[40}{3] Q.
+    (^integer)[40}{3, 10] Q.
 
 procedure main () :-
     integer X,
     integer N,
     read X,
-    collatz(X, N),
+%%    collatz(X, N),
     write N,
     write "Chau",
     write "Chau".

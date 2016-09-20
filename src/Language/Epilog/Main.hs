@@ -5,6 +5,7 @@
 
 module Main (main) where
 --------------------------------------------------------------------------------
+import           Language.Epilog.Common
 import           Language.Epilog.Epilog
 import           Language.Epilog.Parser
 import           Language.Epilog.SymbolTable
@@ -13,7 +14,6 @@ import           Language.Epilog.Treelike
 import           Control.Lens                (makeLenses, (.~), (^.))
 import           Control.Monad               (unless, when)
 import qualified Data.Map                    as Map
-import qualified Data.Sequence               as Seq
 import           System.Console.GetOpt       (ArgDescr (..), ArgOrder (..),
                                               OptDescr (..), getOpt, usageInfo)
 import           System.Environment          (getArgs)
@@ -74,7 +74,7 @@ getOpts = do
         (flags, rest, []  ) ->
             return (foldl (flip id) defaultOptions flags, rest)
         (_, _, errs) ->
-            ioError $ userError (concat errs ++ helpStr)
+            ioError $ userError (concat errs <> helpStr)
 
 -- Actions -----------------------------
 doVersion :: IO ()
@@ -93,7 +93,10 @@ doParse filename handle  = do
 
     putStrLn $ unwords ["Parsing", filename]
 
-    (_a, s, _w) <- runEpilog inp parse
+    (a, s, _w) <- runEpilog inp parse
+
+    putStrLn . drawTree . toTree $ a
+    putStrLn ""
 
     putStrLn "Symbols:"
     putStrLn . drawTree . toTree . defocus $ s^.symbols
@@ -102,7 +105,7 @@ doParse filename handle  = do
     unless (Map.null $ s^.types) $ do
         putStrLn "Types:"
         mapM_ (\(name, (t, p)) ->
-            putStrLn $ "`" ++ name ++ "` " ++ show p ++ " as\n" ++
+            putStrLn $ "`" <> name <> "` " <> show p <> " as\n" <>
                 (drawTree . toTree $ t)
             ) (Map.toList $ s^.types)
         putStrLn ""
@@ -111,7 +114,7 @@ doParse filename handle  = do
         putStrLn "Strings:"
         mapM_ (\(str, ps) -> do
             print str
-            mapM_ (\p -> putStrLn $ "\t" ++ show p) ps
+            mapM_ (\p -> putStrLn $ "\t" <> show p) ps
             ) (Map.toList $ s^.strings)
 
     -- unless (Seq.null errors) $ do
