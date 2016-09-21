@@ -1,8 +1,6 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE KindSignatures #-}
 
 module Language.Epilog.Context
     ( buildArray
@@ -64,10 +62,8 @@ import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                    (at, use, (%%=), (%=), (.=),
-                                                  (?=), (|>), Snoc, ASetter)
+                                                  (?=), (|>))
 import           Control.Monad                   (forM_, unless, when)
-import           Control.Monad.Trans.RWS.Strict  (asks)
-import Control.Monad.State.Class (MonadState)
 import           Data.Foldable                   (elem)
 import           Data.Int                        (Int32)
 import           Data.List                       (find, uncons)
@@ -79,12 +75,6 @@ import qualified Data.Sequence                   as Seq (ViewL (EmptyL), empty,
                                                          zipWith)
 import           Prelude                         hiding (Either, elem, lookup)
 --------------------------------------------------------------------------------
-
-(|>=) :: forall s b (m :: * -> *) a
-      .  (Snoc b b a a, MonadState s m)
-      => ASetter s s b b -> a -> m ()
-xs |>= x = xs %= (|> x)
-
 
 prepare :: Epilog ()
 prepare = do
