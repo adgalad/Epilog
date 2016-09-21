@@ -37,7 +37,6 @@ import           Control.Lens                    (makeLenses)
 import           Control.Monad.IO.Class          (liftIO)
 import           Control.Monad.Trans.RWS.Strict  (RWST, get, gets, modify,
                                                   runRWST)
-import           Data.Sequence                   (Seq)
 import           Data.Word                       (Word8)
 import           System.IO                       (hPrint, stderr)
 --------------------------------------------------------------------------------

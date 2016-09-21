@@ -9,7 +9,6 @@ module Language.Epilog.SymbolTable
     , defocus
     , empty
     , emptyP
-    , value
     , focus
     , goDownFirst
     , goDownLast
@@ -66,16 +65,6 @@ instance Treelike Entry where
       case eInitialValue of
         Nothing -> []
         Just e  -> [Node "Initialized with value" [toTree e]]
-
-
-value :: String -> Type -> Position -> Int -> Entry
-value eName eType ePosition eOffset = Entry
-  { eName
-  , eType
-  , ePosition
-  , eInitialValue = Nothing
-  , eOffset
-  , eOperand = Nothing }
 
 -- Symbol Table Scope ------------------
 type Entries = Map String Entry

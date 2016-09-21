@@ -18,9 +18,8 @@ import           System.Console.GetOpt       (ArgDescr (..), ArgOrder (..),
                                               OptDescr (..), getOpt, usageInfo)
 import           System.Environment          (getArgs)
 import           System.Exit                 (exitSuccess)
-import           System.IO                   (Handle, IOMode (ReadMode), hClose,
-                                              hGetContents, hPrint, hPutStrLn,
-                                              openFile, stderr, stdin)
+import           System.IO                   (Handle, IOMode (ReadMode),
+                                              hGetContents, openFile, stdin)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
 data Options = Options

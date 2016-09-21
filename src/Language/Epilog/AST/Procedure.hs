@@ -6,7 +6,6 @@ module Language.Epilog.AST.Procedure
   , Parameter (..)
   , Params
   ) where
-
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Instruction
 import           Language.Epilog.Common
@@ -14,11 +13,9 @@ import           Language.Epilog.Position
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
-import           Data.Sequence                   (Seq)
---------------------------------------------------------------------------------
+
 type Procedures = Map String Procedure
 type Params = Seq Parameter
-
 --------------------------------------------------------------------------------
 
 data Parameter = Parameter

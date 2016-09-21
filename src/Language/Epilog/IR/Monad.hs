@@ -2,16 +2,22 @@
 
 module Language.Epilog.IR.Monad
   ( IRState (..)
+  , initialIR
+  , newLabel
+  , newRegister
   , blocks, currentBlock, labelCount, registerSupply
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
 import           Language.Epilog.IR.TAC
 --------------------------------------------------------------------------------
-import           Control.Lens           (makeLenses, (<<+=))
-import           Data.Graph             (Graph, Table, Vertex)
-import qualified Data.Map               as Map (empty)
+import           Control.Lens              (at, makeLenses, (%%=), (&), (<<+=),
+                                            (?~))
+import           Control.Monad.Trans.State
+import qualified Data.Map                  as Map (empty, lookup)
 --------------------------------------------------------------------------------
+
+type IRMonad a = StateT IRState IO a
 
 data IRState = IRState
   { _blocks         :: Map Int Block
@@ -28,5 +34,10 @@ initialIR = IRState
 
 makeLenses ''IRState
 
-newLabel :: IR Int
-newLabel = labelCount <<+= 1
+newLabel :: IRMonad Label
+newLabel = L <$> (labelCount <<+= 1)
+
+newRegister :: String -> IRMonad Operand
+newRegister name = registerSupply %%= \supply -> case name `Map.lookup` supply of
+  Nothing -> (R $ name <> ".0"         , supply & at name ?~ 1)
+  Just i  -> (R $ name <> "." <> show i, supply & at name ?~ i + 1)

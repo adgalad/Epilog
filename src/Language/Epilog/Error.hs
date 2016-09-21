@@ -5,16 +5,14 @@ module Language.Epilog.Error
     , Errors
     ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.Type hiding (name)
+import           Language.Epilog.AST.Expression
 import           Language.Epilog.Common
 import           Language.Epilog.Position
 import           Language.Epilog.Token
-import           Language.Epilog.AST.Expression
+import           Language.Epilog.Type           hiding (name)
 --------------------------------------------------------------------------------
-import           Data.Function            (on)
-import           Data.Sequence            (Seq)
-import           Data.Foldable            (toList)
-import           Data.Int                 (Int32)
+import           Data.Function                  (on)
+import           Data.Int                       (Int32)
 --------------------------------------------------------------------------------
 type Errors = Seq EpilogError
 
@@ -61,12 +59,12 @@ data EpilogError
         , bcP     :: Position
         }
     | BadRead
-        { brType  :: Type
-        , brP     :: Position
+        { brType :: Type
+        , brP    :: Position
         }
     | BadWrite
-        { bwType  :: Type
-        , bwP     :: Position
+        { bwType :: Type
+        , bwP    :: Position
         }
     | BadFinish
         { bfERet  :: Type
@@ -99,9 +97,9 @@ data EpilogError
         , moaP    :: Position
         }
     | AssignMismatch
-        { iaFstT :: Type
-        , iaSndT :: Type
-        , iaP    :: Position
+        { amFstT :: Type
+        , amSndT :: Type
+        , amP    :: Position
         }
     | NonBasicAssign
         { nbaT :: Type
@@ -172,8 +170,8 @@ data EpilogError
         , bccVP  :: Position
         }
     | BadDeref
-        { bdT    :: Type
-        , bdP    :: Position
+        { bdT :: Type
+        , bdP :: Position
         }
     deriving (Eq)
 

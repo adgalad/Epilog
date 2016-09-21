@@ -1,4 +1,7 @@
 procedure collatz (integer X, integer N) :-
+    for X from 1 to 10 -> write X
+    end,
+
     while true -> write X, N is N + 1
         ; X = 2 -> write N
         ; 2 | X -> write X

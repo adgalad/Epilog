@@ -18,12 +18,10 @@ module Language.Epilog.Type
 import           Language.Epilog.Common
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
+import qualified Data.Foldable            as Foldable
 import           Data.Int                 (Int32)
 import           Data.List                (intercalate)
-import           Data.Map                 (Map)
 import qualified Data.Map                 as Map
-import           Data.Sequence            (Seq)
-import qualified Data.Foldable            as Foldable
 import           Prelude                  hiding (Either)
 --------------------------------------------------------------------------------
 

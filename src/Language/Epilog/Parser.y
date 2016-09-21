@@ -86,8 +86,8 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
     if              { TokenIf        :@ _ }
     -- otherwise       { TokenOtherwise :@ _ }
     while           { TokenWhile     :@ _ }
-    case            { TokenCase      :@ _ }
-    of              { TokenOf        :@ _ }
+    -- case            { TokenCase      :@ _ }
+    -- of              { TokenOf        :@ _ }
 
     -- Procedures
     proc            { TokenProcedure :@ _ }
@@ -286,7 +286,7 @@ Inst
     | Assign                        { $1 }
     | Call                          { $1 }
     | If                            { $1 }
-    | Case                          { $1 }
+    -- | Case                          { $1 }
     | For                           { $1 }
     | While                         { $1 }
 
@@ -431,37 +431,37 @@ GuardCond
 
 
 ---- Case ------------------------------
-Case
-    : case CaseExp of Sets CLOSE( end )
-    {% do
-        checkCase (pos $1) $2 $4
-    }
-
-CaseExp
-    : Exp
-    {% checkCaseExp $1 }
-
-Sets
-    : Set
-    { $1 }
-    | Sets CLOSE( ";" ) Set
-    {% checkSets $1 $3 }
-
-Set
-    : Elems OPEN( "->" ) Insts
-    {% checkSet $1 $3 }
-
-Elems
-    : Elem
-    { $1 }
-    | Elems "," Elem
-    {% checkSetElems $1 $3 }
-
-Elem
-    : Int
-    {% checkIntElem $1 }
-    | Char
-    {% checkCharElem $1 }
+-- Case
+--     : case CaseExp of Sets CLOSE( end )
+--     {% do
+--         checkCase (pos $1) $2 $4
+--     }
+--
+-- CaseExp
+--     : Exp
+--     {% checkCaseExp $1 }
+--
+-- Sets
+--     : Set
+--     { $1 }
+--     | Sets CLOSE( ";" ) Set
+--     {% checkSets $1 $3 }
+--
+-- Set
+--     : Elems OPEN( "->" ) Insts
+--     {% checkSet $1 $3 }
+--
+-- Elems
+--     : Elem
+--     { $1 }
+--     | Elems "," Elem
+--     {% checkSetElems $1 $3 }
+--
+-- Elem
+--     : Int
+--     {% checkIntElem $1 }
+--     | Char
+--     {% checkCharElem $1 }
 
 
 ---- For loops -------------------------
@@ -469,12 +469,12 @@ For
     :       for   ForV Ranges CLOSE( end )
     {% checkFor (pos $1) $2 $3 }
 
-    | OPEN( for ) ForD Ranges CLOSE( CLOSE( end ) )
-    {% checkFor (pos $1) $2 $3 }
+    -- | OPEN( for ) ForD Ranges CLOSE( CLOSE( end ) )
+    -- {% checkFor (pos $1) $2 $3 }
 
-ForD -- It could be a Declaration
-    : Type VarId
-    {% checkForD $1 $2 }
+-- ForD -- It could be a Declaration
+--     : Type VarId
+--     {% checkForD $1 $2 }
 
 ForV -- Or a var
     : VarId
@@ -508,47 +508,42 @@ Exp
     {% return $ joy
         { jType = boolT
         , jPos  = pos $1
-        , jExps = Seq.singleton $ LitBool (pos $1) (item $1)
+        , jExp  = Just $ LitBool (pos $1) (item $1)
         }
     }
     | Char
     {% return $ joy
         { jType = charT
         , jPos  = pos $1
-        , jExps = Seq.singleton $ LitChar (pos $1) (item $1)
+        , jExp  = Just $ LitChar (pos $1) (item $1)
         }
     }
     | Int
     {% return $ joy
         { jType = intT
         , jPos  = pos $1
-        , jExps = Seq.singleton $ LitInt (pos $1) (item $1)
+        , jExp  = Just $ LitInt (pos $1) (item $1)
         }
     }
     | Float
     {% return $ joy
         { jType = floatT
         , jPos  = pos $1
-        , jExps = Seq.singleton $ LitFloat (pos $1) (item $1)
+        , jExp  = Just $ LitFloat (pos $1) (item $1)
         }
     }
     | String
     {% return $ joy
         { jType = stringT
         , jPos  = pos $1
-        , jExps = Seq.singleton $ LitString (pos $1) (item $1)
+        , jExp  = Just $ LitString (pos $1) (item $1)
         }
     }
 
     -- | otherwise                  { EpVoid   }
 
     | Lval
-    { $1
-      { jLval = Nothing
-      , jExps = case jType $1 of
-        None -> Seq.empty
-        _    -> Seq.singleton . Lval (jPos $1) . fromJust . jLval $ $1 }
-    }
+    {% expLval $1 }
 
     | Call
     {% expCall $1 }

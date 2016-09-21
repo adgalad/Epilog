@@ -1,6 +1,8 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE KindSignatures #-}
 
 module Language.Epilog.Context
     ( buildArray
@@ -9,27 +11,27 @@ module Language.Epilog.Context
     , checkAssign
     , checkBinOp
     , checkCall
-    , checkCase
-    , checkCaseExp
-    , checkCharElem
+    -- , checkCase
+    -- , checkCaseExp
+    -- , checkCharElem
     , checkDeclaration
     , checkFor
-    , checkForD
+    -- , checkForD
     , checkForV
     , checkGuard
     , checkGuardCond
     , checkGuards
     , checkIf
     , checkInitialization
-    , checkIntElem
+    -- , checkIntElem
     , checkParam
     , checkRange
     , checkRangeLimits
     , checkRanges
     , checkRead
-    , checkSet
-    , checkSetElems
-    , checkSets
+    -- , checkSet
+    -- , checkSetElems
+    -- , checkSets
     , checkSubindex
     , checkUnOp
     , checkVariable
@@ -38,6 +40,7 @@ module Language.Epilog.Context
     , declStruct
     , deref
     , expCall
+    , expLval
     , getField
     , instructions
     , lookupType
@@ -60,24 +63,26 @@ import           Language.Epilog.Lexer
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import           Control.Lens                    (at, use, (%%=), (%=), (&),
-                                                  (.=), (?=), (|>))
+import           Control.Lens                    (at, use, (%%=), (%=), (.=),
+                                                  (?=), (|>), Snoc, ASetter)
 import           Control.Monad                   (forM_, unless, when)
 import           Control.Monad.Trans.RWS.Strict  (asks)
+import Control.Monad.State.Class (MonadState)
 import           Data.Foldable                   (elem)
 import           Data.Int                        (Int32)
-import           Data.List                       (find, sortOn)
-import qualified Data.Map                        as Map (elems, insert,
-                                                         insertWith, lookup)
-import           Data.Maybe                      (fromJust)
-import           Data.Sequence                   (Seq, ViewL ((:<)), (><))
+import           Data.List                       (find, uncons)
+import qualified Data.Map                        as Map (insert, insertWith,
+                                                         lookup)
+import           Data.Sequence                   (ViewL ((:<)), (><))
 import qualified Data.Sequence                   as Seq (ViewL (EmptyL), empty,
-                                                         fromList, index,
                                                          singleton, viewl,
                                                          zipWith)
 import           Prelude                         hiding (Either, elem, lookup)
 --------------------------------------------------------------------------------
 
+(|>=) :: forall s b (m :: * -> *) a
+      .  (Snoc b b a a, MonadState s m)
+      => ASetter s s b b -> a -> m ()
 xs |>= x = xs %= (|> x)
 
 
@@ -109,23 +114,23 @@ lookupType tname = do
     ctype <- use current
 
     if not (null ctype) && tname == item (fromJust ctype)
-        then return $ Alias tname 0 0
+        then pure $ Alias tname 0 0
     else case tname `Map.lookup` ts of
         Just (t, _) -> case t of
-            Record _ _ s a -> return $ Alias tname s a
-            Either _ _ s a -> return $ Alias tname s a
-            _              -> return t
+            Record _ _ s a -> pure $ Alias tname s a
+            Either _ _ s a -> pure $ Alias tname s a
+            _              -> pure t
         Nothing ->
-            return $ Undef tname
+            pure $ Undef tname
 
 
 buildPointers :: Int -> Type -> Epilog Type
-buildPointers 0 t = return t
+buildPointers 0 t = pure t
 buildPointers n t = do
     psize <- asks pointerSize
     palg  <- asks pointerAlign
     inner <- buildPointers (n-1) t
-    return $ Pointer inner psize palg
+    pure $ Pointer inner psize palg
 
 
 buildArray :: Seq (Int32, Int32) -> Type -> Type
@@ -178,7 +183,7 @@ declStruct = do
                 Array { inner } -> check sName (name :@ p, inner, 0)
                 Alias { name = n } ->
                     when (n == sName) . err $ RecursiveType sName n p
-                _ -> return ()
+                _ -> pure ()
 
         toMap                    = foldr toMap' []
         toMap' (name :@ _, t, o) = Map.insert name (t, o)
@@ -253,25 +258,8 @@ instructions
     Joy { jType = isT, jPos, jInsts = is }
     Joy { jType = iT, jInsts = i }
     = if isT == None || iT == None
-        then return $ noJoy { jPos }
-        else return $ joy { jPos, jInsts = is <> i }
-
----- Declaration -----------------------
-checkDeclaration :: At Type -> At Name -> Epilog Joy
-checkDeclaration (None :@ p) _ =
-    return $ noJoy { jPos = p }
-checkDeclaration (t :@ _) (var :@ jPos) = do
-    symbs <- use symbols
-    offs  <- use offset
-    case var `local` symbs of
-        Right Entry { eType, ePosition } -> do
-            err $ DuplicateDeclaration var eType ePosition t jPos
-            return $ noJoy { jPos }
-        Left _ -> do
-            symbols %= insertSymbol var
-                (value var t jPos (padded (alignT t) (head offs)))
-            offset  %= \(x:xs) -> (padded (alignT t) x + sizeT t : xs)
-            return $ joy { jPos }
+        then pure $ noJoy { jPos }
+        else pure $ joy { jPos, jInsts = is <> i }
 
 ---- Parameter -------------------------
 checkParam :: At Type -> At Name -> Epilog Joy
@@ -287,310 +275,369 @@ checkParam att@(parType :@ _) atn@(parName :@ parPos) = do
       pure j
 
 
+---- Initialization and Declaration ----
+checkDeclaration :: At Type -> At Name -> Epilog Joy
+checkDeclaration att atn = checkInitialization' att atn Nothing
 
----- Initialization --------------------
 checkInitialization :: At Type -> At Name -> Joy -> Epilog Joy
-checkInitialization att atn expJ = do
-    Joy { jType } <- checkDeclaration att atn
+checkInitialization att atn = checkInitialization' att atn . Just
 
-    case jType of
-        None   -> return $ noJoy { jPos = pos att }
-        EpVoid -> return $ joy { jPos = pos att }
-        _      -> undefined
-
+checkInitialization' :: At Type -> At Name -> Maybe Joy -> Epilog Joy
+checkInitialization' (None :@ p) _ _ =
+  pure $ noJoy { jPos = p }
+checkInitialization' (t :@ _) (var :@ jPos) mj = do
+  symbs <- use symbols
+  offs  <- use offset
+  case var `local` symbs of
+    Right Entry { eType, ePosition } -> do
+      err $ DuplicateDeclaration var eType ePosition t jPos
+      pure $ noJoy { jPos }
+    Left _ ->
+      case mj of
+        Nothing -> do
+          symbols %= insertSymbol var Entry
+            { eName         = var
+            , eType         = t
+            , ePosition     = jPos
+            , eInitialValue = Nothing
+            , eOffset       = padded (alignT t) (head offs)
+            , eOperand      = Nothing }
+          offset  %= \(x:xs) -> (padded (alignT t) x + sizeT t : xs)
+          pure joy { jPos }
+        Just Joy { jType, jExp }
+          | jType == None -> pure noJoy { jPos }
+          | jType == t    -> do
+            symbols %= insertSymbol var Entry
+              { eName         = var
+              , eType         = t
+              , ePosition     = jPos
+              , eInitialValue = jExp
+              , eOffset       = padded (alignT t) (head offs)
+              , eOperand      = Nothing }
+            offset  %= \(x:xs) -> (padded (alignT t) x + sizeT t : xs)
+            pure joy { jPos }
+          | otherwise    -> do
+            err AssignMismatch { amFstT = t, amSndT = jType, amP = jPos}
+            pure noJoy { jPos }
 
 ---- Assign ----------------------------
 checkAssign :: Joy -> Joy -> Epilog Joy
 checkAssign
-    Joy { jType = lvalType, jPos = p, jLval = Just lval }
-    Joy { jType = eType, jExps } =
-        if lvalType == eType
-            then return $ joy { jPos = p }
-            else case eType of
-                None -> return $ noJoy { jPos = p }
-                _    -> do
-                    err $ AssignMismatch lvalType eType p
-                    return $ noJoy { jPos = p }
+  Joy { jType = lvalType, jPos = p, jLval }
+  Joy { jType = eType, jExp } =
+    if lvalType == eType
+      then pure $ joy { jPos = p, jInsts = theAssign }
+      else case eType of
+        None -> pure $ noJoy { jPos = p }
+        _    -> do
+          err $ AssignMismatch lvalType eType p
+          pure $ noJoy { jPos = p }
 
-    where
-        theAssign = Seq.singleton Assign
-            { instP        = p
-            , assignTarget = lval
-            , assignVal    = jExps `Seq.index` 0
-            }
-
+  where
+    theAssign = Seq.singleton Assign
+      { instP        = p
+      , assignTarget = fromJust jLval
+      , assignVal    = fromJust jExp }
 
 ---- Call ------------------------------
 checkCall :: At Name -> Seq Joy -> Epilog Joy
 checkCall (pname :@ callP) js = do
-    symbs <- use symbols
-    Just (n :@ p) <- use current
-    (ets :-> ret) <- use curProcType
-    if pname == n
-        then compareArgs p ets ret
-        else case pname `lookup` symbs of
-            Right Entry { eType = ets' :-> ret' } ->
-                compareArgs p ets' ret'
+  symbs <- use symbols
+  Just (n :@ p) <- use current
+  (ets :-> ret) <- use curProcType
+  if pname == n
+    then compareArgs p ets ret
+    else case pname `lookup` symbs of
+      Right Entry { eType = ets' :-> ret' } ->
+        compareArgs p ets' ret'
 
-            Right _ -> do
-                err $ UndefinedProcedure pname p
-                return $ noJoy { jPos = p }
+      Right _ -> do
+        err $ UndefinedProcedure pname p
+        pure $ noJoy { jPos = p }
 
-            Left _ -> do
-                err $ UndefinedProcedure pname p
-                return $ noJoy { jPos = p }
+      Left _ -> do
+        err $ UndefinedProcedure pname p
+        pure $ noJoy { jPos = p }
 
-    where
-        compareArgs p ets ret =
-            if length js == length ets && and (Seq.zipWith eq' ets js)
-                then return $ joy { jType = ret, jPos = p, jInsts = theCall }
-                else if None `elem` (fmap jType js)
-                    then return $ noJoy { jPos = p }
-                    else  do
-                        err $ BadCall pname (fmap jType js) ets p
-                        return $ noJoy { jPos = p }
+  where
+    compareArgs p ets ret
+      | length js == length ets && and (Seq.zipWith eq' ets js) =
+        pure $ joy { jType = ret, jPos = p, jInsts = theCall }
+      | None `elem` fmap jType js = pure $ noJoy { jPos = p }
+      | otherwise = do
+        err $ BadCall pname (fmap jType js) ets p
+        pure $ noJoy { jPos = p }
 
-        eq' et Joy { jType = t } = et == t
+    eq' et Joy { jType = t } = et == t
 
-        theCall = Seq.singleton $ ICall
-            { instP    = callP
-            , callName = pname
-            , callArgs = fmap ((`Seq.index` 0) . jExps) js
-            }
+    theCall = Seq.singleton ICall
+      { instP    = callP
+      , callName = pname
+      , callArgs = fromJust . jExp <$> js }
 
 
 ---- If --------------------------------
 checkIf :: Position -> Joy -> Epilog Joy
-checkIf p j@Joy { } =
-    return j { jPos = p }
+checkIf p Joy { jType, jGuards }
+  | jType == None = pure noJoy { jPos = p }
+  | otherwise = pure joy
+    { jPos = p
+    , jInsts = Seq.singleton If
+      { instP = p
+      , ifGuards = jGuards } }
 
 
 checkGuards :: Joy -> Joy -> Epilog Joy
-checkGuards gs@Joy { jType = gsT, jPos } g@Joy { jType = gT } = do
-    if gsT == None || gT == None
-        then return $ noJoy { jPos }
-        else return $ joy { jPos }
-
+checkGuards
+  Joy { jType = gsT, jPos, jGuards }
+  Joy { jType = gT, jGuards = jGuard }
+  | gsT == None || gT == None = pure $ noJoy { jPos }
+  | otherwise = pure $ joy
+    { jPos
+    , jGuards = jGuards <> jGuard }
 
 checkGuard :: Joy -> Joy -> Epilog Joy
-checkGuard condJ@Joy { jType = condT, jPos } instsJ@Joy { jType = instsT } = do
-    if condT == None || instsT == None
-        then return $ noJoy { jPos }
-        else return $ joy { jPos }
-
+checkGuard
+  Joy { jType = condT, jPos, jExp }
+  Joy { jType = instsT, jInsts }
+  | condT == None || instsT == None = pure noJoy { jPos }
+  | otherwise = pure joy
+    { jPos
+    , jGuards = Seq.singleton
+      ( jPos
+      , fromJust jExp
+      , jInsts ) }
 
 checkGuardCond :: Joy -> Epilog Joy
-checkGuardCond Joy { jType = Basic { atom = EpBoolean }, jPos } =
-    return $ joy { jPos }
+checkGuardCond j@Joy { jType = Basic { atom = EpBoolean } } =
+  pure j
 checkGuardCond j@Joy { jType = None } =
-    return j
-checkGuardCond Joy { jPos } =
-    return $ noJoy { jPos }
+  pure j
+checkGuardCond Joy { jPos, jType } = do
+  err InvalidGuard { igT = jType, igP = jPos }
+  pure noJoy { jPos }
 
 
----- Case ------------------------------
-checkCase :: Position -> Joy -> Joy -> Epilog Joy
-checkCase p jexp@Joy { jType = eT } jsets@Joy { jType = sT } = do
-    caseTypes %= tail
-    if eT == None || sT == None
-        then return $ noJoy { jPos = p }
-        else return $ joy { jPos = p }
-
-
-checkCaseExp :: Joy -> Epilog Joy
-checkCaseExp j@Joy { jType, jPos } = do
-    if jType `elem` ([intT, charT] :: [Type])
-        then do
-            caseTypes %= ((jType :@ jPos) :)
-            return j
-        else do
-            caseTypes %= ((None :@ jPos) :)
-            err $ BadCaseExp jType jPos
-            return $ noJoy { jPos }
-
-
-checkSets :: Joy -> Joy -> Epilog Joy
-checkSets ss@Joy { jType = ssT, jPos } s@Joy { jType = sT } = do
-    if ssT == None || sT == None
-        then return $ noJoy { jPos }
-        else return $ joy { jPos }
-
-
-checkSet :: Joy -> Joy -> Epilog Joy
-checkSet elemsJ@Joy { jType = elemsT, jPos } instsJ@Joy { jType = instsT } = do
-    if elemsT == None || instsT == None
-        then return $ noJoy { jPos }
-        else return $ joy { jPos }
-
-
-checkSetElems :: Joy -> Joy -> Epilog Joy
-checkSetElems elsJ@Joy { jType = elsT, jPos } elJ@Joy { jType = elT } = do
-    if elsT == None || elT == None
-        then return $ noJoy { jPos }
-        else return $ joy { jPos }
-
-
-checkIntElem :: At Int32 -> Epilog Joy
-checkIntElem (el :@ elp) = do
-    ((ct :@ p):_) <- use caseTypes
-    if ct == intT
-        then do
-            -- caseSet %= (|> LitInt elp el)
-            return $ joy { jType = intT, jPos = elp }
-        else do
-            err $ BadCaseCharElem p el elp
-            return $ noJoy { jPos = elp }
-
-
-checkCharElem :: At Char -> Epilog Joy
-checkCharElem (el :@ elp) = do
-    ((ct :@ p):_) <- use caseTypes
-    if (ct == charT)
-        then do
-            -- caseSet %= (|> LitChar elp el)
-            return $ joy { jType = charT, jPos = elp }
-        else do
-            err $ BadCaseIntElem p el elp
-            return $ noJoy { jPos = elp }
+-- ---- Case ------------------------------
+-- checkCase :: Position -> Joy -> Joy -> Epilog Joy
+-- checkCase p jexp@Joy { jType = eT } jsets@Joy { jType = sT } = do
+--     caseTypes %= tail
+--     if eT == None || sT == None
+--         then pure $ noJoy { jPos = p }
+--         else pure $ joy { jPos = p }
+--
+--
+-- checkCaseExp :: Joy -> Epilog Joy
+-- checkCaseExp j@Joy { jType, jPos } =
+--   if jType `elem` ([intT, charT] :: [Type])
+--     then do
+--       caseTypes %= ((jType :@ jPos) :)
+--       pure j
+--     else do
+--       caseTypes %= ((None :@ jPos) :)
+--       err $ BadCaseExp jType jPos
+--       pure $ noJoy { jPos }
+--
+--
+-- checkSets :: Joy -> Joy -> Epilog Joy
+-- checkSets ss@Joy { jType = ssT, jPos } s@Joy { jType = sT } = do
+--     if ssT == None || sT == None
+--         then pure $ noJoy { jPos }
+--         else pure $ joy { jPos }
+--
+--
+-- checkSet :: Joy -> Joy -> Epilog Joy
+-- checkSet elemsJ@Joy { jType = elemsT, jPos } instsJ@Joy { jType = instsT } = do
+--     if elemsT == None || instsT == None
+--         then pure $ noJoy { jPos }
+--         else pure $ joy { jPos }
+--
+--
+-- checkSetElems :: Joy -> Joy -> Epilog Joy
+-- checkSetElems elsJ@Joy { jType = elsT, jPos } elJ@Joy { jType = elT } = do
+--     if elsT == None || elT == None
+--         then pure $ noJoy { jPos }
+--         else pure $ joy { jPos }
+--
+--
+-- checkIntElem :: At Int32 -> Epilog Joy
+-- checkIntElem (el :@ elp) = do
+--     ((ct :@ p):_) <- use caseTypes
+--     if ct == intT
+--         then do
+--             -- caseSet %= (|> LitInt elp el)
+--             pure $ joy { jType = intT, jPos = elp }
+--         else do
+--             err $ BadCaseCharElem p el elp
+--             pure $ noJoy { jPos = elp }
+--
+--
+-- checkCharElem :: At Char -> Epilog Joy
+-- checkCharElem (el :@ elp) = do
+--     ((ct :@ p):_) <- use caseTypes
+--     if (ct == charT)
+--         then do
+--             -- caseSet %= (|> LitChar elp el)
+--             pure $ joy { jType = charT, jPos = elp }
+--         else do
+--             err $ BadCaseIntElem p el elp
+--             pure $ noJoy { jPos = elp }
 
 
 ---- For -------------------------------
 checkFor :: Position -> Joy -> Joy -> Epilog Joy
-checkFor p jit@Joy { jType = itT } jrngs@Joy { jType = rngsT } = do
+checkFor p Joy { jType = itT } Joy { jType = rngsT, jRanges }
+  | itT == None || rngsT == None = do
     forVars %= tail
-    if itT == None || rngsT == None
-        then return $ noJoy { jPos = p }
-        else return $ joy { jPos = p }
+    pure noJoy { jPos = p }
+  | otherwise = do
+    (var :@ _, _) <- forVars %%= fromJust . uncons
+    pure joy
+      { jPos = p
+      , jInsts = Seq.singleton For
+        { instP     = p
+        , forVar    = var
+        , forRanges = jRanges } }
 
 
-checkForD :: At Type -> At Name -> Epilog Joy
-checkForD att@(t :@ p) var@(n :@ _) =
-    if t `elem` ([intT, charT] :: [Type])
-        then do
-            Joy { jType = t' } <- checkDeclaration att var
-            case t' of
-                None -> do
-                    forVars %= ((var, None):)
-                    return $ noJoy { jPos = p }
-                _    -> do
-                    forVars %= ((var, t):)
-                    return $ joy { jPos = p }
-        else do
-            checkDeclaration (None :@ p) var
-            err $ BadForVar n t p p
-            forVars %= ((var, None):)
-            return $ noJoy { jPos = p }
+-- checkForD :: At Type -> At Name -> Epilog Joy
+-- checkForD att@(t :@ p) var@(n :@ _) =
+--     if t `elem` ([intT, charT] :: [Type])
+--         then do
+--             Joy { jType = t' } <- checkDeclaration att var
+--             case t' of
+--                 None -> do
+--                     forVars %= ((var, None):)
+--                     pure $ noJoy { jPos = p }
+--                 _    -> do
+--                     forVars %= ((var, t):)
+--                     pure $ joy { jPos = p }
+--         else do
+--             checkDeclaration (None :@ p) var
+--             err $ BadForVar n t p p
+--             forVars %= ((var, None):)
+--             pure $ noJoy { jPos = p }
 
 
 checkForV :: At Name -> Epilog Joy
 checkForV var@(n :@ p) = do
-    Joy { jType = t, jPos = pdec } <- checkVariable var
-    if t `elem` ([intT, charT] :: [Type])
-        then do
-            forVars %= ((var, t):)
-            return $ joy { jPos = pdec }
-        else do
-            err $ BadForVar n t pdec p
-            forVars %= ((var, None):)
-            return $ noJoy { jPos = pdec }
+  Joy { jType = t, jPos = pdec } <- checkVariable var
+  if t `elem` ([intT, charT] :: [Type])
+    then do
+      forVars %= ((var, t):)
+      pure $ joy { jPos = pdec }
+    else do
+      err $ BadForVar n t pdec p
+      forVars %= ((var, None):)
+      pure $ noJoy { jPos = pdec }
+
 
 checkRanges :: Joy -> Joy -> Epilog Joy
-checkRanges rs@Joy { jType = rsT, jPos } r@Joy { jType = rT } = do
-    if rsT == None || rT == None
-        then return $ noJoy { jPos }
-        else return $ joy { jPos }
+checkRanges Joy { jType = rsT, jPos, jRanges } Joy { jType = rT, jRanges = jRange }
+  | rsT == None || rT == None = pure noJoy { jPos }
+  | otherwise = pure $ joy
+    { jPos
+    , jRanges = jRanges <> jRange }
 
 
 checkRange :: Joy -> Joy -> Epilog Joy
-checkRange r@Joy { jType = rT, jPos } insts@Joy { jType = instsT } = do
-    if rT == None || instsT == None
-        then return $ noJoy { jPos }
-        else return $ joy { jPos }
+checkRange Joy { jType = rT, jPos, jExp, jExp' } Joy { jType = instsT, jInsts }
+  | rT == None || instsT == None = pure noJoy { jPos }
+  | otherwise = pure $ joy
+    { jPos
+    , jRanges = Seq.singleton
+      ( jPos
+      , fromJust jExp
+      , fromJust jExp'
+      , jInsts ) }
 
 
 checkRangeLimits :: Joy -> Joy -> Epilog Joy
-checkRangeLimits Joy { jType = t1, jPos } Joy { jType = t2 } = do
-    ((n :@ vp, t):_) <- use forVars
-    if t1 == t2 && t1 == t
-        then return $ joy { jPos }
-        else do
-            err $ InvalidRange n t vp t1 t2 jPos
-            return $ noJoy { jPos }
+checkRangeLimits Joy { jType = t1, jPos, jExp } Joy { jType = t2, jExp = jExp' } = do
+  ((n :@ vp, t):_) <- use forVars
+  if t1 == t2 && t1 == t
+    then pure $ joy { jPos, jExp, jExp' }
+    else do
+      err $ InvalidRange n t vp t1 t2 jPos
+      pure $ noJoy { jPos }
 
 
 ---- While -----------------------------
 checkWhile :: Position -> Joy -> Epilog Joy
-checkWhile p j@Joy { } =
-    return j { jPos = p }
+checkWhile p Joy { jType, jGuards }
+  | jType == None = pure noJoy { jPos = p }
+  | otherwise = pure joy
+    { jPos = p
+    , jInsts = Seq.singleton While
+      { instP = p
+      , whileGuards = jGuards } }
 
 
 ---- Finish & Answer -------------------
 checkAnswer :: Position -> Joy -> Epilog Joy
-checkAnswer retp Joy { jType = None } = return $ noJoy { jPos = retp }
-checkAnswer retp Joy { jType = aret, jExps } = do
-    Just (proc :@ procp) <- use current
-    _ :-> eret <- use curProcType
+checkAnswer retp Joy { jType = None } = pure noJoy { jPos = retp }
+checkAnswer retp Joy { jType = aret, jExp } = do
+  Just (_ :@ procp) <- use current
+  _ :-> eret <- use curProcType
 
-    if eret == aret
-        then return $ joy { jPos = retp, jInsts = theAnswer }
-        else do
-            if aret == EpVoid
-                then err $ BadFinish eret      procp retp
-                else err $ BadAnswer eret aret procp retp
-            return $ noJoy { jPos = retp }
+  if eret == aret
+    then pure joy { jPos = retp, jInsts = theAnswer }
+    else do
+      if aret == EpVoid
+        then err $ BadFinish eret      procp retp
+        else err $ BadAnswer eret aret procp retp
+      pure noJoy { jPos = retp }
 
-    where
-        theAnswer = Seq.singleton $ if aret == EpVoid
-            then Finish { instP = retp }
-            else Answer
-                { instP     = retp
-                , answerVal = jExps `Seq.index` 0
-                }
+  where
+    theAnswer = Seq.singleton $ if aret == EpVoid
+      then Finish { instP = retp }
+      else Answer
+        { instP     = retp
+        , answerVal = fromJust jExp }
 
 
 ---- Write -----------------------------
 checkWrite :: Position -> Joy -> Epilog Joy
-checkWrite p Joy { jType = None } = return $ noJoy { jPos = p }
-checkWrite p Joy { jType = t, jExps } =
+checkWrite p Joy { jType = None } = pure $ noJoy { jPos = p }
+checkWrite p Joy { jType = t, jExp } =
     if t `elem` ([boolT, charT, intT, floatT, stringT] :: [Type])
-        then return $ joy { jPos = p, jInsts = theWrite }
+        then pure $ joy { jPos = p, jInsts = theWrite }
         else do
             unless (t == None) . err $ BadWrite t p
-            return $ noJoy { jPos = p }
+            pure $ noJoy { jPos = p }
 
     where
-        theWrite = Seq.singleton $ Write
+        theWrite = Seq.singleton Write
             { instP    = p
-            , writeVal = jExps `Seq.index` 0
+            , writeVal = fromJust jExp
             }
 
 ---- Read ------------------------------
 checkRead :: Position -> Joy -> Epilog Joy
-checkRead p Joy { jType = None } = return $ noJoy { jPos = p }
+checkRead p Joy { jType = None } = pure $ noJoy { jPos = p }
 checkRead p Joy { jType = t, jLval = Just lval } =
-    if t `elem` ([boolT, charT, intT, floatT] :: [Type])
-        then return $ joy { jPos = p }
-        else do
-            err $ BadRead t p
-            return $ noJoy { jPos = p }
-    where
-        theRead = Seq.singleton $ Read
-            { instP      = p
-            , readTarget = lval
-            }
+  if t `elem` ([boolT, charT, intT, floatT] :: [Type])
+    then pure $ joy { jPos = p, jInsts = theRead }
+    else do
+      err $ BadRead t p
+      pure $ noJoy { jPos = p }
+  where
+    theRead = Seq.singleton Read
+      { instP      = p
+      , readTarget = lval }
 
-checkRead _ _ = undefined
+checkRead _ _ = error "internal error: non-none read without lval"
 
 -- Lvals -----------------------------------------------------------------------
 checkVariable :: At Name -> Epilog Joy
 checkVariable (name :@ p) = do
     symbs <- use symbols
     case name `lookup` symbs of
-        Right (Entry { eType }) ->
-            return $ joy { jType = eType, jPos = p, jLval = Just theLval }
+        Right Entry { eType } ->
+            pure $ joy { jType = eType, jPos = p, jLval = Just theLval }
         Left _ -> do
             err $ OutOfScope name p
-            return $ noJoy { jPos = Position 0 0 }
+            pure $ noJoy { jPos = Position 0 0 }
 
     where
         theLval = Variable name
@@ -599,117 +646,124 @@ checkVariable (name :@ p) = do
 checkSubindex :: Joy -> Joy -> Epilog Joy
 checkSubindex
     Joy { jType = Array { inner } , jPos, jLval = Just lval }
-    Joy { jType = indexT, jExps } =
+    Joy { jType = indexT, jExp } =
         if indexT == intT
-            then return $ joy { jType = inner, jPos, jLval = Just theLval }
+            then pure $ joy { jType = inner, jPos, jLval = Just theLval }
             else do
                 err $ InvalidSubindex indexT jPos
-                return $ noJoy { jPos }
+                pure $ noJoy { jPos }
     where
-        theLval = Index lval (jExps `Seq.index` 0)
+        theLval = Index lval . fromJust $ jExp
 
 checkSubindex j @ Joy { jType = None } _ =
-    return j
+    pure j
 checkSubindex Joy { jPos } _ = do
     err $ InvalidArray jPos
-    return noJoy { jPos }
+    pure noJoy { jPos }
 
 
 getField :: Joy -> At Name -> Epilog Joy
-getField Joy { jType, jLval = Just lval } (fieldname :@ p) = case jType of
+getField
+  Joy { jPos, jType, jLval }
+  (fieldname :@ p)
+  = case jType of
     Alias tname _ _ -> do
-        ts <- use types
-        case tname `Map.lookup` ts of
-            Just (Record { fields  }, _) -> checkField  fields
-            Just (Either { members }, _) -> checkMember members
-            _                         -> err' InvalidAccess
+      ts <- use types
+      case tname `Map.lookup` ts of
+        Just (Record { fields  }, _) -> checkField  fields
+        Just (Either { members }, _) -> checkMember members
+        _                         -> err' InvalidAccess
+    None -> pure noJoy { jPos }
     _  -> err' InvalidAccess
 
-    where
-        checkField fields = case fieldname `Map.lookup` fields of
-            Just t'  -> return $
-                joy { jType = fst t', jPos = p, jLval = Just theLval }
-            Nothing -> err' InvalidField
-        checkMember members = case fieldname `Map.lookup` members of
-            Just t'  -> return $
-                joy { jType = fst t', jPos = p, jLval = Just theLval }
-            Nothing -> err' InvalidMember
-        theLval = Member lval fieldname
-        err' cons = do
-            err $ cons fieldname (name jType) p
-            return $ noJoy { jPos = p }
+  where
+    checkField fields = case fieldname `Map.lookup` fields of
+      Just t'  -> pure $
+        joy { jType = fst t', jPos = p, jLval = Just theLval }
+      Nothing -> err' InvalidField
+    checkMember members = case fieldname `Map.lookup` members of
+      Just t'  -> pure $
+        joy { jType = fst t', jPos = p, jLval = Just theLval }
+      Nothing -> err' InvalidMember
+    theLval = Member (fromJust jLval) fieldname
+    err' cons = do
+      err $ cons fieldname (name jType) p
+      pure $ noJoy { jPos = p }
 
 
 deref :: Joy -> Epilog Joy
 deref Joy { jType = Pointer { pointed }, jPos, jLval = Just lval } =
-    return $ joy { jType = pointed, jPos, jLval = Just (Deref lval) }
+    pure $ joy { jType = pointed, jPos, jLval = Just (Deref lval) }
 deref j @ Joy { jType = None } =
-    return j
+    pure j
 deref Joy { jType, jPos } = do
     err $ BadDeref jType jPos
-    return $ noJoy { jPos }
+    pure $ noJoy { jPos }
 
 
 -- Expressions -----------------------------------------------------------------
 ---- Call Expression -------------------
 expCall :: Joy -> Epilog Joy
 expCall Joy { jType, jPos, jInsts } =
-    return $ joy { jType, jPos, jExps = theExpCall }
+    pure $ joy { jType, jPos, jExp = theExpCall }
 
     where
-        theExpCall = Seq.singleton $ ECall instP callName callArgs
+        theExpCall = Just $ ECall instP callName callArgs
         ICall { instP, callName, callArgs } :< _ = Seq.viewl jInsts
 
 ---- Lval Expression -------------------
 expLval :: Joy -> Epilog Joy
-expLval Joy { jType, jPos, jLval = Just lval } =
-    return $ joy { jType, jPos, jExps = theExpLval }
+expLval Joy { jType, jPos, jLval }
+  | jType == None = pure noJoy { jPos }
+  | otherwise     = pure joy { jType, jPos, jExp = theExpLval }
 
-    where
-        theExpLval = Seq.singleton $ Lval jPos lval
+  where
+    theExpLval = Just $ Lval jPos (fromJust jLval)
 
 
 ---- Binary Expressions ----------------
 checkBinOp :: Position -> BinaryOp -> Joy -> Joy -> Epilog Joy
 checkBinOp p op = aux opTypes
-    where
-        aux _ Joy { jType = None } _ = return noJoy { jPos = p }
-        aux _ _ Joy { jType = None } = return noJoy { jPos = p }
-        aux [] Joy { jType = t1 } Joy { jType = t2 } = do
-            err $ BadBinaryExpression op (t1, t2) (domain opTypes) p
-            return $ noJoy { jPos = p }
-        aux ((et1, et2, rt) : ts) j1@Joy { jType = t1 } j2@Joy { jType = t2 } =
-            if t1 == et1 && t2 == et2
-                then return $ joy
-                    { jType = rt, jPos = p, jExps = theBinExp }
-                else aux ts j1 j2
-            where
-                theBinExp = Seq.singleton $
-                    Binary p op
-                        (jExps j1 `Seq.index` 0)
-                        (jExps j2 `Seq.index` 0)
-        opTypes = typeBinOp op
-        domain = fmap (\(a, b, _) -> (a, b))
+  where
+    aux _ Joy { jType = None } _ = pure noJoy { jPos = p }
+    aux _ _ Joy { jType = None } = pure noJoy { jPos = p }
+    aux [] Joy { jType = t1 } Joy { jType = t2 } = do
+      err $ BadBinaryExpression op (t1, t2) (domain opTypes) p
+      pure $ noJoy { jPos = p }
+    aux ((et1, et2, rt) : ts) j1@Joy { jType = t1 } j2@Joy { jType = t2 } =
+      if t1 == et1 && t2 == et2
+        then pure $ joy
+          { jType = rt, jPos = p, jExp = theBinExp }
+        else aux ts j1 j2
+      where
+        theBinExp = Just $
+          Binary p op
+            (fromJust $ jExp j1)
+            (fromJust $ jExp j2)
+    aux _ _ _ = error "internal error: compiler complained about missing cases"
+    opTypes = typeBinOp op
+    domain = fmap (\(a, b, _) -> (a, b))
 
 
 ---- Unary Expressions -----------------
 checkUnOp :: Position -> UnaryOp -> Joy -> Epilog Joy
 checkUnOp p op = aux opTypes
-    where
-        aux _ Joy { jType = None } = return $ noJoy { jPos = p }
-        aux [] Joy { jType = t1 } = do
-            err $ BadUnaryExpression op t1 (domain opTypes) p
-            return $ noJoy { jPos = p }
-        aux ((et, rt) : ts) j@Joy { jType = t } =
-            if t == et
-                then return $ joy
-                    { jType = rt, jPos = p, jExps = theUnExp }
-                else aux ts j
-            where
-                theUnExp = Seq.singleton $
-                    Unary p op (jExps j `Seq.index` 0)
-        opTypes = typeUnOp op
-        domain = fmap fst
+  where
+    aux _ Joy { jType = None } = pure $ noJoy { jPos = p }
+    aux [] Joy { jType = t1 } = do
+      err $ BadUnaryExpression op t1 (domain opTypes) p
+      pure $ noJoy { jPos = p }
+    aux ((et, rt) : ts) j@Joy { jType = t } =
+      if t == et
+        then pure $ joy
+          { jType = rt, jPos = p, jExp = theUnExp }
+        else aux ts j
+      where
+        theUnExp = Just .
+          Unary p op . fromJust . jExp $ j
+    aux _ _ = error "internal error: compiler complained about missing cases"
+    opTypes = typeUnOp op
+    domain = fmap fst
 
 
 

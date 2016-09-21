@@ -20,7 +20,7 @@ import           Numeric.Limits (maxValue, minValue)
 import           Control.Lens   ((^.), (.=), (+=), (-=), (<-=), _1, use)
 --------------------------------------------------------------------------------
 }
--- We don't use any wrapper because we want to use our own Monad
+-- We dont use any wrapper because we want to use our own Monad
 
 $octit       = [0-7]
 $digit       = [0-9]
@@ -37,7 +37,7 @@ $upper       = [A-Z]
 $lower       = [a-z]
 $alpha       = [$upper $lower]
 
-$idchar      = [$alpha $digit \']
+$idchar      = [$alpha $digit \'] --'
 
 @varid       = $upper $idchar*
 @genid       = $lower $idchar*
@@ -52,11 +52,9 @@ $charesc     = [0nt\\\'\"]
 @charval     = ($graphic | @escape)
 @stringval   = @charval*
 
-@char        = \' @charval \'
-@string      = \" @stringval \"
--- \\"
-@badstring   = \" @stringval
--- \\"
+@char        = \' @charval \'          -- '
+@string      = \" @stringval \"        -- \\"
+@badstring   = \" @stringval           -- \\"
 
 --------------------------------------------------------------------------------
 epilog :-
@@ -122,8 +120,8 @@ epilog :-
     <0> "if"                    { make TokenIf        }
     <0> "otherwise"             { make TokenOtherwise }
     <0> "while"                 { make TokenWhile     }
-    <0> "case"                  { make TokenCase      }
-    <0> "of"                    { make TokenOf        }
+    -- <0> "case"                  { make TokenCase      }
+    -- <0> "of"                    { make TokenOf        }
 
     -- Procedures
     <0> "procedure"             { make TokenProcedure }
@@ -211,9 +209,9 @@ alexGetByte :: LexerInput -> Maybe (Byte, LexerInput)
 alexGetByte (p,c,(b:bs),s) = Just (b,(p,c,bs,s))
 alexGetByte (p,c,[],[])    = Nothing
 alexGetByte (p,_,[],(c:s)) =
-    let p' = alexMove p c
+    let q = alexMove p c
         (b:bs) = utf8Encode c
-    in p' `seq` Just (b, (p', c, bs, s))
+    in q `seq` Just (b, (q, c, bs, s))
 
 -- | Ignores remaining bytes in current char
 ignorePendingBytes :: LexerInput -> LexerInput

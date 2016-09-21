@@ -36,7 +36,7 @@ data Token
 
     -- Control Structures
     | TokenEnd | TokenFor | TokenFrom | TokenTo | TokenIf | TokenOtherwise
-    | TokenWhile | TokenCase | TokenOf
+    | TokenWhile -- | TokenCase | TokenOf
 
     -- Procedures
     | TokenProcedure | TokenDefine | TokenFinish | TokenAnswer
@@ -139,8 +139,8 @@ instance Show Token where
         TokenIf        -> "if"
         TokenOtherwise -> "otherwise"
         TokenWhile     -> "while"
-        TokenCase      -> "case"
-        TokenOf        -> "of"
+        -- TokenCase      -> "case"
+        -- TokenOf        -> "of"
 
     -- Procedures
         TokenProcedure -> "procedure"
