@@ -87,24 +87,22 @@ data TAC
   | Operand :*= Operand
   -- ^ Pointer write, i.e. *a := b
 
-  | Param   Operand
+  | Param Operand
   -- ^ For storing procedure parameters
-  | Call    String
-  -- ^ Call a procedure
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 infix 8 :=, :=#, :#=, :=*, :*=
 
 instance Emit TAC where
   emit = \case
-    Comment s    -> ";" <> s
-    x := op      -> emit x <> " := " <> emit op
-    x :=# (a, i) -> emit x <> " := " <> emit a <> "[" <> emit i <> "]"
-    (a, i) :#= x -> emit a <> "[" <> emit i <> "]" <> " := " <> emit x
-    x :=* a      -> emit x <> " := *" <> emit a
-    x :*= a      -> "*" <> emit x <> " := " <> emit a
-    Param op     ->  "param " <> emit op
-    Call  f      -> "call" <> f
+    Comment s     -> ";" <> s
+    x := op       -> emit x <> " := " <> emit op
+    x :=# (a, i)  -> emit x <> " := " <> emit a <> "[" <> emit i <> "]"
+    (a, i) :#= x  -> emit a <> "[" <> emit i <> "]" <> " := " <> emit x
+    x :=* a       -> emit x <> " := *" <> emit a
+    x :*= a       -> "*" <> emit x <> " := " <> emit a
+    Param op      -> "param " <> emit op
+    CallThen  f l -> "call " <> f <> " link " <> show l
 
 data Operation
   = B  BOp Operand Operand
@@ -143,6 +141,10 @@ data Terminator
     , op2       :: Operand
     , trueDest  :: Label
     , falseDest :: Label }
+  | CallThen
+    { func :: String
+    , ret  :: Label }
+  -- ^ Call a procedure and then return to the given Label
   | Return
     { retVal :: Maybe Operand }
   | Exit
@@ -154,6 +156,7 @@ instance Emit Terminator where
     CondBr rel a b l1 l2 ->
       "if " <> fmap toLower (show rel) <> " " <> emit a <> " " <> emit b <>
       " goto " <> show l1 <> " else goto " <> show l2
+    CallThen func ret    -> "call " <> func <> " link " <> show ret
     Return op            -> "return" <> maybe "" ((" " <>) . emit) op
     Exit                 -> "exit"
 
@@ -167,5 +170,6 @@ targets :: Terminator -> [Label]
 targets = \case
   Br { dest } -> [dest]
   CondBr { trueDest, falseDest } -> [trueDest, falseDest]
+  CallThen { ret } -> [ret]
   Return {} -> [] -- FIXME
   Exit -> [-1]
