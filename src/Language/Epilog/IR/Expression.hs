@@ -9,8 +9,9 @@ module Language.Epilog.IR.Expression
   , irLval
   ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.AST.Expression hiding (Not)
+import           Language.Epilog.AST.Expression hiding (Not, VarKind)
 import qualified Language.Epilog.AST.Expression as E (UnaryOp (Not))
+import qualified Language.Epilog.AST.Expression as K (VarKind (..))
 import           Language.Epilog.Common
 import           Language.Epilog.IR.Monad
 import           Language.Epilog.IR.TAC
@@ -219,7 +220,7 @@ toIRRel atom = \case
 
 irLval :: Lval -> IRMonad Operand
 irLval Lval { lval' } = case lval' of
-  Variable name -> pure $ R name
+  Variable name _ _ -> pure $ R name
   -- Member   lval name ->
   --   pure ()
   -- Index    lval idx ->

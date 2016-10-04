@@ -2,14 +2,15 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Epilog.AST.Expression
-    ( Expression (..)
-    , Expression' (..)
-    , Lval (..)
-    , Lval' (..)
-    , BinaryOp (..)
-    , UnaryOp (..)
-    , Exps
-    ) where
+  ( Expression (..)
+  , Expression' (..)
+  , Lval (..)
+  , Lval' (..)
+  , VarKind (..)
+  , BinaryOp (..)
+  , UnaryOp (..)
+  , Exps
+  ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Position
 import           Language.Epilog.Treelike
@@ -22,6 +23,8 @@ import           Data.Sequence            (Seq)
 import           Data.Tree                (flatten)
 import           Data.Word                (Word8)
 --------------------------------------------------------------------------------
+data VarKind = Global | Param | Local deriving (Eq, Ord, Show)
+
 -- Useful synonyms ---------------------
 type Exps = Seq Expression
 type Name = String
@@ -140,19 +143,28 @@ data Lval = Lval
   deriving (Eq, Show)
 
 data Lval'
-  = Variable Name            -- AST built
-  | Member   Lval Name       -- AST built
-  | Index    Lval Expression -- AST built
-  | Deref    Lval            -- AST built
+  = Variable
+    { lName   :: Name
+    , lKind   :: VarKind
+    , lOffset :: Int }
+  | Member
+    { lInner  :: Lval
+    , mName   :: Name
+    , mOffset :: Int }
+  | Index
+    { lInner :: Lval
+    , lIdx   ::  Expression }
+  | Deref
+    { lInner :: Lval }
   deriving (Eq, Show)
 
 instance Treelike Lval where
   toTree = aux1 . reverse . aux0
     where
       aux0 Lval { lval' } = case lval' of
-        Variable name ->
+        Variable name _ _ ->
           [name]
-        Member lval member ->
+        Member lval member _ ->
           ('_': member) : aux0 lval
         Index lval index ->
           (show . flatten . toTree $ index) : aux0 lval

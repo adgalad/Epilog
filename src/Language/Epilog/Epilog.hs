@@ -25,6 +25,7 @@ module Language.Epilog.Epilog
     , structAlign, parameters, procedures, parseOK, entryKind
     ) where
 --------------------------------------------------------------------------------
+import           Language.Epilog.AST.Expression  (VarKind (..))
 import           Language.Epilog.AST.Instruction
 import           Language.Epilog.AST.Procedure
 import           Language.Epilog.At
@@ -89,7 +90,7 @@ mipsConfig = EpilogConfig
 -- | The state of the compiler monad. Includes the Lexer and Parser states.
 data EpilogState = EpilogState
   { _symbols      :: SymbolTable
-  , _entryKind    :: EntryKind
+  , _entryKind    :: VarKind
   , _parseOK      :: Bool
   , _strings      :: Strings
   , _pendProcs    :: Pending

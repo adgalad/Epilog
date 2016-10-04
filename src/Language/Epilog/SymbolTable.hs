@@ -3,7 +3,6 @@
 
 module Language.Epilog.SymbolTable
     ( Entry (..)
-    , EntryKind (..)
     , Scope (..)
     , SymbolTable
     , closeScope
@@ -45,8 +44,6 @@ import qualified Data.Sequence                   as Seq
 import           Prelude                         hiding (lookup)
 --------------------------------------------------------------------------------
 
-data EntryKind = Global | Param | Local deriving (Eq, Ord, Show)
-
 -- Symbol Table Entry ------------------
 data Entry = Entry
   { eName         :: String
@@ -55,7 +52,7 @@ data Entry = Entry
   , eInitialValue :: Maybe Expression
   , eOffset       :: !Int
   , eOperand      :: Maybe Operand
-  , eKind         :: EntryKind }
+  , eKind         :: VarKind }
   deriving (Eq)
 
 

@@ -6,7 +6,8 @@ module Language.Epilog.IR.Instruction
   ( irInstruction
   ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.AST.Expression
+import           Language.Epilog.AST.Expression  hiding (VarKind (..))
+import qualified Language.Epilog.AST.Expression  as K (VarKind (..))
 import           Language.Epilog.AST.Instruction
 import           Language.Epilog.Common
 import           Language.Epilog.IR.Expression
@@ -15,6 +16,7 @@ import           Language.Epilog.IR.TAC
 import           Language.Epilog.Position
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
+import           Control.Lens                    (use)
 import           Control.Monad                   (void)
 --------------------------------------------------------------------------------
 
@@ -26,31 +28,27 @@ irInstruction = \case
     r <- irLval assignTarget
     addTAC $ r :*= t
 
-  ICall { instP {-, callName-}, callArgs } -> do
+  ICall { instP {-, callName-}, callArgs } ->
     addTAC . Comment $ "Call args at " <> showP instP
-    mapM_ irExpression callArgs
+    -- mapM_ irExpression callArgs
 
   If { instP, ifGuards } -> do
-    ifNext <- newLabel
     addTAC . Comment $ "If at " <> showP instP
-
-    mapM_ (irGuard ifNext) ifGuards
-
-    terminate $ Br ifNext
-
-    (ifNext #)
+    mapM_ irGuard ifGuards
 
   For { instP {-, forVar, forRanges-} } -> -- TODO
     addTAC . Comment $ "For at " <> showP instP
 
   While { instP, whileGuards } -> do
-    whileNext <- newLabel
+    whileHeader <- newLabel
     addTAC . Comment $ "While at " <> showP instP
 
-    terminate $ Br whileNext
+    terminate $ Br whileHeader
 
-    (whileNext #)
-    mapM_ (irGuard whileNext) whileGuards
+    nextBlock <|= whileHeader
+
+    (whileHeader #)
+    mapM_ irGuard whileGuards
 
   Read { instP, readTarget } -> do
     addTAC . Comment $ "Read at " <> showP instP
@@ -86,10 +84,8 @@ irInstruction = \case
 
     addTAC $ Param t
 
-    after <- newLabel
+    after <- head <$> use nextBlock
     terminate $ CallThen writeFunc after
-
-    (after #)
 
   Answer { instP, answerVal } -> do
     addTAC . Comment $ "Answer at " <> showP instP
@@ -98,8 +94,8 @@ irInstruction = \case
   Finish { instP } ->
     addTAC . Comment $ "Finish at " <> showP instP
 
-irGuard :: Label -> (Position, Expression, Insts) -> IRMonad ()
-irGuard lbl (guardP, cond, insts) = do
+irGuard :: (Position, Expression, Insts) -> IRMonad ()
+irGuard (guardP, cond, insts) = do
   addTAC . Comment $ "Guard at " <> showP guardP
 
   true  <- newLabel
@@ -108,6 +104,7 @@ irGuard lbl (guardP, cond, insts) = do
 
   (true #)
   mapM_ irInstruction insts
-  terminate $ Br lbl
+  next <- head <$> use nextBlock
+  terminate $ Br next
 
   (false #)

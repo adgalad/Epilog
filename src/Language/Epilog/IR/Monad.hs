@@ -22,6 +22,7 @@ module Language.Epilog.IR.Monad
   , blocks
   , edges
   , currentBlock
+  , nextBlock
   , labelCount
   , tempCount
   , registerSupply
@@ -49,6 +50,7 @@ data IRState = IRState
   { _blocks         :: Map Label Block
   , _edges          :: [Edge]
   , _currentBlock   :: Maybe (Label, Seq TAC)
+  , _nextBlock      :: [Label]
   , _labelCount     :: Int
   , _tempCount      :: Int
   , _registerSupply :: Map String Int
@@ -60,6 +62,7 @@ initialIR = IRState
   { _blocks         = Map.empty
   , _edges          = []
   , _currentBlock   = Nothing
+  , _nextBlock      = []
   , _labelCount     = 1
   , _tempCount      = 0
   , _registerSupply = Map.empty
@@ -83,23 +86,29 @@ newRegister name = registerSupply %%= \supply -> case name `Map.lookup` supply o
   Just i  -> (R $ name <> "." <> show i, supply & at name ?~ i + 1)
 
 (#) :: Label -> IRMonad ()
-(#) label = use currentBlock >>= \case
-  Nothing -> currentBlock .= Just (label, Seq.empty)
-  Just cb -> internal $ "unterminated block \n" <> show cb
+(#) label = do
+  liftIO . putStrLn . (<> ":") . show $ label
+  use currentBlock >>= \case
+    Nothing -> currentBlock .= Just (label, Seq.empty)
+    Just cb -> internal $ "unterminated block \n" <> show cb
 
 addTAC :: TAC -> IRMonad ()
-addTAC tac = currentBlock %= \case
-  Nothing     -> internal "attempted to add instruction without a block"
-  cb@(Just _) -> (_Just . _2 |>~ tac) cb
+addTAC tac = do
+  liftIO . putStrLn . ("\t" <>) . emit $ tac
+  currentBlock %= \case
+    Nothing     -> internal "attempted to add instruction without a block"
+    cb@(Just _) -> (_Just . _2 |>~ tac) cb
 
 terminate :: Terminator -> IRMonad ()
-terminate term = use currentBlock >>= \case
-  Nothing        -> internal "attempted to terminate without a block"
-  Just (lbl, tacs) -> do
-    blocks . at lbl ?= Block
-      { lbl
-      , tacs
-      , term }
-    currentBlock .= Nothing
+terminate term = do
+  liftIO . putStrLn . ("\t" <>) . emit $ term
+  use currentBlock >>= \case
+    Nothing        -> internal $ "attempted to terminate without a block\n" <> emit term
+    Just (lbl, tacs) -> do
+      blocks . at lbl ?= Block
+        { lbl
+        , tacs
+        , term }
+      currentBlock .= Nothing
 
-    edges %= (fmap (lbl,) (targets term) <>)
+      edges %= (fmap (lbl,) (targets term) <>)
