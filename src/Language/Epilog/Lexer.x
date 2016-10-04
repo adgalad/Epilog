@@ -13,9 +13,11 @@ import           Language.Epilog.Token
 --------------------------------------------------------------------------------
 import           Control.Monad  (liftM, when)
 import qualified Data.Bits
+import           Data.Bits      ((.&.), shiftR)
 import           Data.Char      (ord)
 import           Data.Int       (Int32)
 import           Data.Maybe     (fromJust, isJust)
+import           Data.Word      (Word8)
 import           Numeric.Limits (maxValue, minValue)
 import           Control.Lens   ((^.), (.=), (+=), (-=), (<-=), _1, use)
 --------------------------------------------------------------------------------
@@ -157,7 +159,7 @@ epilog :-
     <0> "false"                 { make $ TokenBoolLit False }
 
     ---- Chars
-    <0> @char                   { make' $ TokenCharLit . read }
+    <0> @char                   { make' $ TokenCharLit . fromIntegral . ord .  read }
 
     ---- Floats
     <0> 0 \. 0+ @exponent ?     { make $ TokenFloatLit 0.0 }
@@ -189,20 +191,18 @@ utf8Encode = map fromIntegral . go . ord
             | oc <= 0x7f   =
                 [oc]
             | oc <= 0x7ff  =
-                [ 0xc0 + (oc `Data.Bits.shiftR` 6)
-                , 0x80 + oc Data.Bits..&. 0x3f
-                ]
+                [ 0xc0 + (oc `shiftR` 6)
+                , 0x80 + oc .&. 0x3f ]
             | oc <= 0xffff =
-                [ 0xe0 + (oc `Data.Bits.shiftR` 12)
-                , 0x80 + ((oc `Data.Bits.shiftR` 6) Data.Bits..&. 0x3f)
-                , 0x80 + oc Data.Bits..&. 0x3f
-                ]
+                [ 0xe0 + (oc `shiftR` 12)
+                , 0x80 + ((oc `shiftR` 6) .&. 0x3f)
+                , 0x80 + oc .&. 0x3f ]
             | otherwise    =
-                [ 0xf0 + (oc `Data.Bits.shiftR` 18)
-                , 0x80 + ((oc `Data.Bits.shiftR` 12) Data.Bits..&. 0x3f)
-                , 0x80 + ((oc `Data.Bits.shiftR` 6) Data.Bits..&. 0x3f)
-                , 0x80 + oc Data.Bits..&. 0x3f
-                ]
+                [ 0xf0 + (oc `shiftR` 18)
+                , 0x80 + ((oc `shiftR` 12) .&. 0x3f)
+                , 0x80 + ((oc `shiftR` 6) .&. 0x3f)
+                , 0x80 + oc .&. 0x3f ]
+
 
 -- | Gets the next Byte
 alexGetByte :: LexerInput -> Maybe (Byte, LexerInput)

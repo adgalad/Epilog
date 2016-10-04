@@ -10,6 +10,7 @@ module Language.Epilog.IR.Monad
   , runStateT
   , execStateT
   , evalStateT
+  , runIR
   , initialIR
   , newLabel
   , newRegister
@@ -17,19 +18,29 @@ module Language.Epilog.IR.Monad
   , (#)
   , addTAC
   , terminate
+  -- * State
+  , blocks
+  , edges
+  , currentBlock
+  , labelCount
+  , tempCount
+  , registerSupply
+  , global
+  , symbols
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
 import           Language.Epilog.IR.TAC
+import           Language.Epilog.SymbolTable (Scope, SymbolTable)
 --------------------------------------------------------------------------------
-import           Control.Lens              (at, makeLenses, use, (%%=), (%=),
-                                            (&), (.=), (<<+=), (?=), (?~), _2,
-                                            _Just)
-import           Control.Monad.Trans.State (StateT, evalStateT, execStateT,
-                                            runStateT)
-import           Data.Graph                (Edge)
-import qualified Data.Map                  as Map (empty, lookup)
-import           Data.Sequence             as Seq (empty)
+import           Control.Lens                (at, makeLenses, use, (%%=), (%=),
+                                              (&), (.=), (<<+=), (?=), (?~), _2,
+                                              _Just)
+import           Control.Monad.Trans.State   (StateT, evalStateT, execStateT,
+                                              runStateT)
+import           Data.Graph                  (Edge)
+import qualified Data.Map                    as Map (empty, lookup)
+import           Data.Sequence               as Seq (empty)
 --------------------------------------------------------------------------------
 
 type IRMonad a = StateT IRState IO a
@@ -40,8 +51,9 @@ data IRState = IRState
   , _currentBlock   :: Maybe (Label, Seq TAC)
   , _labelCount     :: Int
   , _tempCount      :: Int
-  , _registerSupply :: Map String Int }
-  deriving (Show)
+  , _registerSupply :: Map String Int
+  , _global         :: Scope
+  , _symbols        :: SymbolTable }
 
 initialIR :: IRState
 initialIR = IRState
@@ -50,9 +62,14 @@ initialIR = IRState
   , _currentBlock   = Nothing
   , _labelCount     = 1
   , _tempCount      = 0
-  , _registerSupply = Map.empty }
+  , _registerSupply = Map.empty
+  , _global         = undefined
+  , _symbols        = undefined }
 
 makeLenses ''IRState
+
+runIR :: (a -> IRMonad b) -> a -> IO (b, IRState)
+runIR x inp = runStateT (x inp) initialIR
 
 newLabel :: IRMonad Label
 newLabel = labelCount <<+= 1

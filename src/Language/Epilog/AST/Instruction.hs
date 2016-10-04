@@ -44,7 +44,7 @@ data Instruction
     { instP    :: Position
     , callName :: Name
     , callArgs :: Exps }
-  | If -- AST MISSING!!!
+  | If -- AST built
     { instP    :: Position
     , ifGuards :: Guards }
   -- | Case -- Removed from language :<
@@ -56,7 +56,7 @@ data Instruction
     { instP     :: Position
     , forVar    :: Name
     , forRanges :: Ranges }
-  | While -- AST MISSING!!!
+  | While -- AST built
     { instP       :: Position
     , whileGuards :: Guards }
   | Read -- AST built

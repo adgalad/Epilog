@@ -5,9 +5,10 @@ module Language.Epilog.Token
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
 --------------------------------------------------------------------------------
-import           Data.Char              (showLitChar)
+import           Data.Char              (chr, showLitChar)
 import           Data.Int               (Int32)
 import           Data.List              (intercalate)
+import           Data.Word              (Word8)
 import           GHC.Show               (showLitString)
 --------------------------------------------------------------------------------
 
@@ -59,7 +60,7 @@ data Token
 
     -- Literals
     | TokenBoolLit   { unTokenBoolLit :: Bool   }
-    | TokenCharLit   { unTokenCharLit :: Char   }
+    | TokenCharLit   { unTokenCharLit :: Word8   }
     | TokenIntLit    { unTokenIntLit :: Int32  }
     | TokenFloatLit  { unTokenFloatLit :: Float  }
     | TokenStringLit { unTokenStringLit :: String }
@@ -179,7 +180,7 @@ instance Show Token where
         TokenCharLit value ->
             intercalate "\n"
                 [ "Character Literal"
-                , "VALUE: " <> showLitChar value ""
+                , "VALUE: " <> showLitChar (chr . fromIntegral $ value) ""
                 ]
         TokenIntLit value ->
             intercalate "\n"

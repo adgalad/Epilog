@@ -3,19 +3,25 @@ module Language.Epilog.Common
   , Semigroup (..)
   , Map
   , Seq
+  , Int32
+  , Word8
   , toList
   , fromJust
   , (|>=)
   , (|>~)
   , (<|=)
   , (<|~)
+  , liftIO
   , internal
   ) where
 
 import           Data.Foldable   (toList)
 import           Data.Map.Strict (Map)
+import           Data.Int        (Int32)
+import           Data.Word       (Word8)
 import           Data.Maybe      (fromJust)
 import           Control.Monad.State.Class (MonadState)
+import           Control.Monad.IO.Class (liftIO)
 import           Data.Semigroup  (Semigroup (..))
 import           Data.Sequence   (Seq)
 import           Control.Lens    (ASetter, (%=), (|>), (%~), Snoc, Cons, (<|))

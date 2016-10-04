@@ -61,15 +61,14 @@ import           Language.Epilog.Lexer
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import           Control.Lens                    (at, use, (%%=), (%=), (.=),
-                                                  (?=), (|>))
+import           Control.Lens                    (at, use, (%%=), (%=), (&),
+                                                  (.=), (?=), (?~), (|>))
 import           Control.Monad                   (forM_, unless, when)
+import           Control.Monad.Reader            (asks)
 import           Data.Foldable                   (elem)
-import           Data.Int                        (Int32)
 import           Data.List                       (find, uncons)
-import qualified Data.Map                        as Map (insert, insertWith,
-                                                         lookup)
-import           Data.Sequence                   (ViewL ((:<)), (><))
+import qualified Data.Map                        as Map (insert, lookup, size)
+import           Data.Sequence                   (ViewL ((:<)))
 import qualified Data.Sequence                   as Seq (ViewL (EmptyL), empty,
                                                          singleton, viewl,
                                                          zipWith)
@@ -87,9 +86,11 @@ prepare = do
     types .= ts
 
 
-string :: At Token -> Epilog ()
-string (TokenStringLit s :@ p) =
-    strings %= Map.insertWith (flip (><)) s (Seq.singleton p)
+string :: At Token -> Epilog Int32
+string (TokenStringLit s :@ _) =
+  strings %%= \m -> case s `Map.lookup` m of
+    Just i  -> (i, m)
+    Nothing -> let i = fromIntegral (Map.size m) in (i, m & at s ?~ i)
 string _ = undefined
 
 
@@ -278,6 +279,7 @@ checkInitialization' (None :@ p) _ _ =
 checkInitialization' (t :@ _) (var :@ jPos) mj = do
   symbs <- use symbols
   offs  <- use offset
+  eKind <- use entryKind
   case var `local` symbs of
     Right Entry { eType, ePosition } -> do
       err $ DuplicateDeclaration var eType ePosition t jPos
@@ -287,6 +289,7 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
         Nothing -> do
           symbols %= insertSymbol var Entry
             { eName         = var
+            , eKind
             , eType         = t
             , ePosition     = jPos
             , eInitialValue = Nothing
@@ -299,6 +302,7 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
           | jType == t    -> do
             symbols %= insertSymbol var Entry
               { eName         = var
+              , eKind
               , eType         = t
               , ePosition     = jPos
               , eInitialValue = jExp
@@ -662,7 +666,7 @@ getField
       case tname `Map.lookup` ts of
         Just (Record { fields  }, _) -> checkField  fields
         Just (Either { members }, _) -> checkMember members
-        _                         -> err' InvalidAccess
+        _                            -> err' InvalidAccess
     None -> pure noJoy { jPos }
     _  -> err' InvalidAccess
 
@@ -698,7 +702,10 @@ expCall Joy { jType, jPos, jInsts } =
     pure $ joy { jType, jPos, jExp = theExpCall }
 
     where
-        theExpCall = Just $ ECall instP callName callArgs
+        theExpCall = Just Expression
+          { expPos = instP
+          , expType = jType
+          , exp' = ECall callName callArgs }
         ICall { instP, callName, callArgs } :< _ = Seq.viewl jInsts
 
 ---- Lval Expression -------------------
@@ -708,7 +715,10 @@ expLval Joy { jType, jPos, jLval }
   | otherwise     = pure joy { jType, jPos, jExp = theExpLval }
 
   where
-    theExpLval = Just $ Lval jPos (fromJust jLval)
+    theExpLval = Just Expression
+      { expPos = jPos
+      , expType = jType
+      , exp' = Lval (fromJust jLval) }
 
 
 ---- Binary Expressions ----------------
@@ -726,10 +736,10 @@ checkBinOp p op = aux opTypes
           { jType = rt, jPos = p, jExp = theBinExp }
         else aux ts j1 j2
       where
-        theBinExp = Just $
-          Binary p op
-            (fromJust $ jExp j1)
-            (fromJust $ jExp j2)
+        theBinExp = Just Expression
+          { expPos = p
+          , expType = rt
+          , exp' = Binary op (fromJust $ jExp j1) (fromJust $ jExp j2) }
     aux _ _ _ = error "internal error: compiler complained about missing cases"
     opTypes = typeBinOp op
     domain = fmap (\(a, b, _) -> (a, b))
@@ -743,14 +753,16 @@ checkUnOp p op = aux opTypes
     aux [] Joy { jType = t1 } = do
       err $ BadUnaryExpression op t1 (domain opTypes) p
       pure $ noJoy { jPos = p }
-    aux ((et, rt) : ts) j@Joy { jType = t } =
+    aux ((et, rt) : ts) j@Joy { jType = t, jExp } =
       if t == et
         then pure $ joy
           { jType = rt, jPos = p, jExp = theUnExp }
         else aux ts j
       where
-        theUnExp = Just .
-          Unary p op . fromJust . jExp $ j
+        theUnExp = Just Expression
+          { expPos = p
+          , expType = rt
+          , exp' = Unary op (fromJust jExp ) }
     aux _ _ = error "internal error: compiler complained about missing cases"
     opTypes = typeUnOp op
     domain = fmap fst

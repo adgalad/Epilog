@@ -1,7 +1,8 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric  #-}
-{-# LANGUAGE LambdaCase     #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE NamedFieldPuns    #-}
 
 module Language.Epilog.IR.TAC
   ( TAC (..)
@@ -23,9 +24,11 @@ import           Language.Epilog.Common
 import           Control.Lens           ((|>))
 import           Data.Char              (toLower)
 import           Data.Serialize         (Serialize)
-import           Data.Word              (Word8)
 import           GHC.Generics           (Generic)
 --------------------------------------------------------------------------------
+
+class Emit a where
+  emit :: a -> String
 
 type Label = Int
 --------------------------------------------------------------------------------
@@ -44,7 +47,7 @@ instance Emit Operand where
 
 data Constant
   = BC Bool
-  | IC Int
+  | IC Int32
   | FC Float
   | CC Word8
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
@@ -52,13 +55,9 @@ data Constant
 instance Emit Constant where
   emit = \case
     BC b -> show b
-    IC i -> "I" <> show i
-    FC f -> "F" <> show f
-    CC w -> "C" <> show w
---------------------------------------------------------------------------------
-
-class Emit a where
-  emit :: a -> String
+    IC i -> "i" <> show i
+    FC f -> "f" <> show f
+    CC w -> "c" <> show w
 --------------------------------------------------------------------------------
 
 data Block = Block
@@ -70,6 +69,10 @@ data Block = Block
 instance Emit Block where
   emit Block { lbl, tacs, term } = unlines . ((show lbl <> ":") :) . toList $
     fmap (("\t" <>) . emit) tacs |> (("\t" <>) . emit) term
+--------------------------------------------------------------------------------
+
+instance (Emit a, Foldable f) => Emit (f a) where
+  emit = unlines . fmap emit . toList
 --------------------------------------------------------------------------------
 
 data TAC
@@ -95,14 +98,13 @@ infix 8 :=, :=#, :#=, :=*, :*=
 
 instance Emit TAC where
   emit = \case
-    Comment s     -> ";" <> s
+    Comment s     -> "; " <> s
     x := op       -> emit x <> " := " <> emit op
     x :=# (a, i)  -> emit x <> " := " <> emit a <> "[" <> emit i <> "]"
     (a, i) :#= x  -> emit a <> "[" <> emit i <> "]" <> " := " <> emit x
     x :=* a       -> emit x <> " := *" <> emit a
     x :*= a       -> "*" <> emit x <> " := " <> emit a
     Param op      -> "param " <> emit op
-    CallThen  f l -> "call " <> f <> " link " <> show l
 
 data Operation
   = B  BOp Operand Operand
@@ -128,17 +130,21 @@ data BOp
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 data UOp
-  = UMinus | BNot | Not
+  = NegF | NegI | BNot
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 
 data Terminator
   = Br
     { dest :: Label}
+  | IfBr
+    { cond      :: Operand
+    , trueDest  :: Label
+    , falseDest :: Label }
   | CondBr
     { rel       :: Rel
+    , op0       :: Operand
     , op1       :: Operand
-    , op2       :: Operand
     , trueDest  :: Label
     , falseDest :: Label }
   | CallThen
@@ -153,6 +159,8 @@ data Terminator
 instance Emit Terminator where
   emit = \case
     Br l                 -> "goto " <> show l
+    IfBr cond l1 l2      -> "if " <> emit cond <> " goto " <> show l1 <>
+      " else goto " <> show l2
     CondBr rel a b l1 l2 ->
       "if " <> fmap toLower (show rel) <> " " <> emit a <> " " <> emit b <>
       " goto " <> show l1 <> " else goto " <> show l2
@@ -161,14 +169,20 @@ instance Emit Terminator where
     Exit                 -> "exit"
 
 data Rel
-  = LT | LE
-  | GT | GE
-  | EQ | NE
+  = LTF | LEF
+  | GTF | GEF
+  | EQF | NEF
+
+  | LTI | LEI
+  | GTI | GEI
+  | EQI | NEI
+  | FAI | NFI
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 targets :: Terminator -> [Label]
 targets = \case
   Br { dest } -> [dest]
+  IfBr { trueDest, falseDest } -> [trueDest, falseDest]
   CondBr { trueDest, falseDest } -> [trueDest, falseDest]
   CallThen { ret } -> [ret]
   Return {} -> [] -- FIXME

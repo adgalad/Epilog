@@ -1,27 +1,27 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Language.Epilog.Position
-    ( Position (..)
-    , P
-    , col
-    , pos
-    , row
-    , showP
-    ) where
+  ( Position (..)
+  , P
+  , col
+  , pos
+  , row
+  , showP
+  ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
 --------------------------------------------------------------------------------
 
 data Position = Position !Int !Int | Epilog | Code | EOFP
-    deriving (Eq, Ord)
+  deriving (Eq, Ord)
 
 instance Show Position where
-    show = \case
-        Position r 0 -> "in row " <> show r
-        Position r c -> "at row " <> show r <> ", col " <> show c
-        Epilog       -> "in epilog"
-        Code         -> "in the program code"
-        EOFP         -> "in the end of file"
+  show = \case
+    Position r 0 -> "in row " <> show r
+    Position r c -> "at row " <> show r <> ", col " <> show c
+    Epilog       -> "in epilog"
+    Code         -> "in the program code"
+    EOFP         -> "in the end of file"
 
 showP :: Position -> String
 showP (Position p q) = show (p,q)
@@ -40,4 +40,4 @@ col Code           = 0
 col EOFP           = 0
 
 class P a where
-    pos :: a -> Position
+  pos :: a -> Position

@@ -203,7 +203,7 @@ Procedure
     : Procedure1 Procedure2 Procedure3
     {% storeProcedure' $3 }
 Procedure1
-    : proc GenId OPENF( "(" ) Params0 ")"
+    : proc GenId OPENPARAMS OPENF( "(" ) Params0 ")" CLOSEPARAMS
     {% current .= Just (item $2 :@ pos $1) }
 Procedure2
     : {- lambda -}
@@ -211,9 +211,20 @@ Procedure2
     | "->" Type
     {% storeProcedure (item $2) }
 Procedure3
-    : ":-" Insts CLOSE( "." )
+    : ":-" Insts CLOSE( "." ) CLOSELOCAL
     { $2 { jPos = pos $3 } }
 
+OPENPARAMS
+  : {- lambda -}
+  {% entryKind .= Param }
+
+CLOSEPARAMS
+  : {- lambda -}
+  {% entryKind .= Local }
+
+CLOSELOCAL
+  : {- lambda -}
+  {% entryKind .= Global }
 
 OPENF(TOKEN)
     : TOKEN
@@ -504,39 +515,40 @@ While
 Exp
     : "(" Exp ")"
     { $2 }
+
     | Bool
     {% return $ joy
         { jType = boolT
         , jPos  = pos $1
-        , jExp  = Just $ LitBool (pos $1) (item $1)
+        , jExp  = Just . Expression (pos $1) boolT $ LitBool (item $1)
         }
     }
     | Char
     {% return $ joy
         { jType = charT
         , jPos  = pos $1
-        , jExp  = Just $ LitChar (pos $1) (item $1)
+        , jExp  = Just . Expression (pos $1) charT $ LitChar (item $1)
         }
     }
     | Int
     {% return $ joy
         { jType = intT
         , jPos  = pos $1
-        , jExp  = Just $ LitInt (pos $1) (item $1)
+        , jExp  = Just . Expression (pos $1) intT $ LitInt (item $1)
         }
     }
     | Float
     {% return $ joy
         { jType = floatT
         , jPos  = pos $1
-        , jExp  = Just $ LitFloat (pos $1) (item $1)
+        , jExp  = Just . Expression (pos $1) floatT $ LitFloat (item $1)
         }
     }
     | String
     {% return $ joy
         { jType = stringT
         , jPos  = pos $1
-        , jExp  = Just $ LitString (pos $1) (item $1)
+        , jExp  = Just . Expression (pos $1) stringT $ LitString (item $1)
         }
     }
 
@@ -599,8 +611,8 @@ Float
 String
     : stringLit
     {% do
-        string $1
-        return $ unTokenStringLit `fmap` $1
+        stringN <- string $1
+        return $ stringN :@ pos $1
     }
 
 { ------------------------------------------------------------------------------
