@@ -12,7 +12,6 @@ import           Language.Epilog.Token
 import           Language.Epilog.Type           hiding (name)
 --------------------------------------------------------------------------------
 import           Data.Function                  (on)
-import           Data.Int                       (Int32)
 --------------------------------------------------------------------------------
 type Errors = Seq EpilogError
 

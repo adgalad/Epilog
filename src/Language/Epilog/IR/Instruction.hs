@@ -13,15 +13,18 @@ import           Language.Epilog.IR.Expression
 import           Language.Epilog.IR.Monad
 import           Language.Epilog.IR.TAC
 import           Language.Epilog.Position
+import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Monad                   (void)
 --------------------------------------------------------------------------------
 
 irInstruction :: Instruction -> IRMonad ()
 irInstruction = \case
-  Assign { instP {-, assignTarget-}, assignVal } -> do
+  Assign { instP, assignTarget, assignVal } -> do
     addTAC . Comment $ "Assignment at " <> showP instP
-    void $ irExpression assignVal
+    t <- irExpression assignVal
+    r <- irLval assignTarget
+    addTAC $ r :*= t
 
   ICall { instP {-, callName-}, callArgs } -> do
     addTAC . Comment $ "Call args at " <> showP instP
@@ -49,12 +52,44 @@ irInstruction = \case
     (whileNext #)
     mapM_ (irGuard whileNext) whileGuards
 
-  Read { instP {-, readTarget-} } ->
+  Read { instP, readTarget } -> do
     addTAC . Comment $ "Read at " <> showP instP
+
+    let readFunc = case lvalType readTarget of
+          Basic { atom } -> case atom of
+            EpBoolean   -> "readBoolean"
+            EpFloat     -> "readFloat"
+            EpInteger   -> "readInteger"
+            EpCharacter -> "readChar"
+          _ -> internal "non-printable type"
+
+    t <- newTemp
+    after <- newLabel
+    terminate $ t :<- (readFunc, after)
+
+    (after #)
+    r <- irLval readTarget
+    addTAC $ r :*= t
 
   Write { instP, writeVal } -> do
     addTAC . Comment $ "Write at " <> showP instP
-    void $ irExpression writeVal
+
+    let writeFunc = case expType writeVal of
+          Basic { atom } -> case atom of
+            EpBoolean   -> "writeBoolean"
+            EpFloat     -> "writeFloat"
+            EpInteger   -> "writeInteger"
+            EpCharacter -> "writeChar"
+          _ -> internal "non-printable type"
+
+    t <- irExpression writeVal
+
+    addTAC $ Param t
+
+    after <- newLabel
+    terminate $ CallThen writeFunc after
+
+    (after #)
 
   Answer { instP, answerVal } -> do
     addTAC . Comment $ "Answer at " <> showP instP

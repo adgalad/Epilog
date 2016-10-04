@@ -150,7 +150,9 @@ data Terminator
   | CallThen
     { func :: String
     , ret  :: Label }
-  -- ^ Call a procedure and then return to the given Label
+    -- ^ Call a procedure and then return to the given Label
+  | Operand :<- (String, Label)
+  -- ^ Call a procedure, assign the operand, and then return to the given Label
   | Return
     { retVal :: Maybe Operand }
   | Exit
@@ -164,7 +166,8 @@ instance Emit Terminator where
     CondBr rel a b l1 l2 ->
       "if " <> fmap toLower (show rel) <> " " <> emit a <> " " <> emit b <>
       " goto " <> show l1 <> " else goto " <> show l2
-    CallThen func ret    -> "call " <> func <> " link " <> show ret
+    CallThen func ret    -> "call " <> func <> ", link " <> show ret
+    op :<- (func, ret)   -> emit op <> " := call " <> func <> ", link " <> show ret
     Return op            -> "return" <> maybe "" ((" " <>) . emit) op
     Exit                 -> "exit"
 
@@ -185,5 +188,6 @@ targets = \case
   IfBr { trueDest, falseDest } -> [trueDest, falseDest]
   CondBr { trueDest, falseDest } -> [trueDest, falseDest]
   CallThen { ret } -> [ret]
+  _ :<- (_, ret) -> [ret]
   Return {} -> [] -- FIXME
   Exit -> [-1]

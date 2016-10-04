@@ -1,3 +1,13 @@
 procedure main () :-
-  integer X,
-  X is 5 + 7.
+  ^ integer Y,
+  boolean X,
+
+  X is (8 > 5 andalso 5 = 4) orelse 8 > Y^,
+
+  if X    -> write X
+  ;  10 > 8 -> write Y^
+  end,
+  
+  if X    -> write X
+  ;  10 > 8 -> write Y^
+  end.

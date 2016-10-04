@@ -95,7 +95,7 @@ doParse :: FilePath -> Handle -> IO ()
 doParse filename handle  = do
   inp <- hGetContents handle
 
-  -- putStrLn $ unwords ["Parsing", filename]
+  putStrLn $ unwords ["Parsing", filename]
 
   (a, s, _w) <- runEpilog parse inp
 
@@ -132,6 +132,8 @@ doParse filename handle  = do
 doIR :: FilePath -> Handle -> IO ()
 doIR filename handle = do
   inp <- hGetContents handle
+
+  putStrLn $ unwords ["Generating IR for", filename]
 
   (ast, s, _w) <- runEpilog parse inp
 

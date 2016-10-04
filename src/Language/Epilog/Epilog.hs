@@ -33,7 +33,6 @@ import           Language.Epilog.SymbolTable     hiding (empty)
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                    (makeLenses, (.=))
-import           Control.Monad.IO.Class          (liftIO)
 import           Control.Monad.Trans.RWS.Strict  (RWST, get, gets, modify,
                                                   runRWST)
 import           System.IO                       (hPrint, stderr)

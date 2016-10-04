@@ -625,29 +625,33 @@ checkRead _ _ = error "internal error: non-none read without lval"
 -- Lvals -----------------------------------------------------------------------
 checkVariable :: At Name -> Epilog Joy
 checkVariable (name :@ p) = do
-    symbs <- use symbols
-    case name `lookup` symbs of
-        Right Entry { eType } ->
-            pure $ joy { jType = eType, jPos = p, jLval = Just theLval }
-        Left _ -> do
-            err $ OutOfScope name p
-            pure $ noJoy { jPos = Position 0 0 }
-
-    where
-        theLval = Variable name
+  symbs <- use symbols
+  case name `lookup` symbs of
+    Right Entry { eType } ->
+      pure $ joy { jType = eType, jPos = p, jLval = Just theLval }
+      where
+        theLval = Lval
+          { lvalType = eType
+          , lval' = Variable name }
+    Left _ -> do
+      err $ OutOfScope name p
+      pure $ noJoy { jPos = Position 0 0 }
 
 
 checkSubindex :: Joy -> Joy -> Epilog Joy
 checkSubindex
-    Joy { jType = Array { inner } , jPos, jLval = Just lval }
-    Joy { jType = indexT, jExp } =
-        if indexT == intT
-            then pure $ joy { jType = inner, jPos, jLval = Just theLval }
-            else do
-                err $ InvalidSubindex indexT jPos
-                pure $ noJoy { jPos }
-    where
-        theLval = Index lval . fromJust $ jExp
+  Joy { jType = Array { inner } , jPos, jLval = Just lval }
+  Joy { jType = indexT, jExp } =
+    if indexT == intT
+      then
+        let theLval = Lval
+              { lvalType = inner
+              , lval' = Index lval . fromJust $ jExp }
+        in pure $ joy { jType = inner, jPos, jLval = Just theLval }
+
+      else do
+        err $ InvalidSubindex indexT jPos
+        pure $ noJoy { jPos }
 
 checkSubindex j @ Joy { jType = None } _ =
     pure j
@@ -673,13 +677,15 @@ getField
   where
     checkField fields = case fieldname `Map.lookup` fields of
       Just t'  -> pure $
-        joy { jType = fst t', jPos = p, jLval = Just theLval }
+        joy { jType = fst t', jPos = p, jLval = Just . theLval $ fst t' }
       Nothing -> err' InvalidField
     checkMember members = case fieldname `Map.lookup` members of
       Just t'  -> pure $
-        joy { jType = fst t', jPos = p, jLval = Just theLval }
+        joy { jType = fst t', jPos = p, jLval = Just . theLval $ fst t' }
       Nothing -> err' InvalidMember
-    theLval = Member (fromJust jLval) fieldname
+    theLval t = Lval
+      { lvalType = t
+      , lval' = Member (fromJust jLval) fieldname }
     err' cons = do
       err $ cons fieldname (name jType) p
       pure $ noJoy { jPos = p }
@@ -687,7 +693,9 @@ getField
 
 deref :: Joy -> Epilog Joy
 deref Joy { jType = Pointer { pointed }, jPos, jLval = Just lval } =
-    pure $ joy { jType = pointed, jPos, jLval = Just (Deref lval) }
+    pure $ joy { jType = pointed, jPos, jLval = Just Lval
+      { lvalType = pointed
+      , lval' = Deref lval } }
 deref j @ Joy { jType = None } =
     pure j
 deref Joy { jType, jPos } = do
@@ -718,7 +726,7 @@ expLval Joy { jType, jPos, jLval }
     theExpLval = Just Expression
       { expPos = jPos
       , expType = jType
-      , exp' = Lval (fromJust jLval) }
+      , exp' = Rval (fromJust jLval) }
 
 
 ---- Binary Expressions ----------------

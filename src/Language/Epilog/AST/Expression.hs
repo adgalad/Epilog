@@ -5,6 +5,7 @@ module Language.Epilog.AST.Expression
     ( Expression (..)
     , Expression' (..)
     , Lval (..)
+    , Lval' (..)
     , BinaryOp (..)
     , UnaryOp (..)
     , Exps
@@ -41,7 +42,7 @@ data Expression'
 
   -- | Otherwise
 
-  | Lval      Lval
+  | Rval      Lval
 
   | ECall     Name     Exps
 
@@ -72,7 +73,7 @@ instance Treelike Expression where
     -- Otherwise ->
     --   leaf (unwords ["otherwise"])
 
-    Lval lval ->
+    Rval lval ->
       Node (unwords ["Lval"]) [toTree lval]
 
     ECall proc args ->
@@ -133,7 +134,12 @@ instance Show UnaryOp where
 
 -- Lval ------------------------------------------------------------------------
 
-data Lval
+data Lval = Lval
+  { lvalType :: Type
+  , lval'    :: Lval' }
+  deriving (Eq, Show)
+
+data Lval'
   = Variable Name            -- AST built
   | Member   Lval Name       -- AST built
   | Index    Lval Expression -- AST built
@@ -143,7 +149,7 @@ data Lval
 instance Treelike Lval where
   toTree = aux1 . reverse . aux0
     where
-      aux0 = \case
+      aux0 Lval { lval' } = case lval' of
         Variable name ->
           [name]
         Member lval member ->

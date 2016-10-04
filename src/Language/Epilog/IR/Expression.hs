@@ -6,7 +6,7 @@
 module Language.Epilog.IR.Expression
   ( irExpression
   , irBoolean
-  -- , irLval
+  , irLval
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression hiding (Not)
@@ -16,7 +16,7 @@ import           Language.Epilog.IR.Monad
 import           Language.Epilog.IR.TAC
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-
+import           Debug.Trace
 --------------------------------------------------------------------------------
 
 irExpression :: Expression -> IRMonad Operand
@@ -28,8 +28,13 @@ irExpression e@Expression { exp' } = case exp' of
 
   LitString _str -> internal "String literals are not implemented yet."
 
-  Lval _lval -> internal "LVals are not implemented yet."
+  Rval lval -> do
+    r <- irLval lval
 
+    t <- newTemp
+    addTAC $ t :=* r
+    pure t
+--
   ECall _procName _args -> internal "Procedure calls are not implemented yet."
 
   Binary op exp0 exp1 -> if
@@ -61,14 +66,21 @@ wrapBoolean :: Expression -> IRMonad Operand
 wrapBoolean e = do
   true <- newLabel
   false <- newLabel
+
   result <- newTemp
   irBoolean true false e
 
+  finish <- newLabel
+
   (true #)
   addTAC $ result := Id (C . BC $ True)
+  terminate $ Br finish
 
   (false #)
   addTAC $ result := Id (C . BC $ False)
+  terminate $ Br finish
+
+  (finish #)
 
   pure result
 
@@ -123,7 +135,9 @@ irBoolean true false e@Expression { exp' } = case exp' of
   LitFloat  _ -> internal "litFloat cannot be a boolean expression"
   LitString _ -> internal "litString cannot be a boolean expression"
 
-  Lval _lval -> internal "Lval not implemented yet"
+  Rval _lval -> do
+    t <- irExpression e
+    terminate $ IfBr t true false
 
   ECall _procName _args -> internal "Procedure calls are not implemented yet."
 
@@ -135,6 +149,7 @@ irBoolean true false e@Expression { exp' } = case exp' of
     Andalso -> do
       middle <- newLabel
       irBoolean middle false exp0
+
       (middle #)
       irBoolean true false exp1
 
@@ -202,13 +217,15 @@ toIRRel atom = \case
   NFop     -> NFI
   o        -> internal $ "Non relational operator `" <> show o <> "`"
 
--- irLval :: Lval -> IRMonad Operand
--- irLval = \case
---   Variable name ->
---     pure ()
---   Member   lval name ->
---     pure ()
---   Index    lval idx ->
---     pure ()
---   Deref    lval ->
---     pure ()
+irLval :: Lval -> IRMonad Operand
+irLval Lval { lval' } = case lval' of
+  Variable name -> pure $ R name
+  -- Member   lval name ->
+  --   pure ()
+  -- Index    lval idx ->
+  --   pure ()
+  Deref lval -> do
+    r <- irLval lval
+    t <- newTemp
+    addTAC $ t :=* r
+    pure t
