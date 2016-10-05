@@ -1,0 +1,128 @@
+Preprocessing executable 'Epilog' for Epilog-0.1.0.0...
+[19 of 24] Compiling Language.Epilog.IR.Monad ( Language/Epilog/IR/Monad.hs, dist/build/Epilog/Epilog-tmp/Language/Epilog/IR/Monad.o )
+[24 of 24] Compiling Main             ( Language/Epilog/Main.hs, dist/build/Epilog/Epilog-tmp/Main.o ) [TH]
+Linking dist/build/Epilog/Epilog ...
+Running Epilog...
+Generating IR for ../examples/easy.ep
+1:
+	; Main procedure at (1,1)
+	; Assignment at (5,3)
+	goto 5
+
+
+5:
+	goto 4
+
+
+4:
+	; Local variable `Y`
+	_t1 := addi @FramePointer #i0
+	_t2 := *_t1
+	_t3 := *_t2
+	if gti #i8 _t3 goto 2 else goto 3
+
+
+2:
+	_t0 := #True
+	goto 6
+
+
+3:
+	_t0 := #False
+	goto 6
+
+
+6:
+	; Local variable `X`
+	_t4 := addi @FramePointer #i4
+	*_t4 := _t0
+	; If at (7,3)
+	; Guard at (7,6)
+	; Local variable `X`
+	_t5 := addi @FramePointer #i4
+	_t6 := *_t5
+	if _t6 goto 8 else goto 9
+
+
+8:
+	; Write at (7,14)
+	; Local variable `X`
+	_t7 := addi @FramePointer #i4
+	_t8 := *_t7
+	param _t8
+	call writeBoolean, link 10
+
+
+10:
+	goto 7
+
+
+9:
+	; Guard at (8,9)
+	goto 11
+
+
+11:
+	; Write at (8,16)
+	; Local variable `Y`
+	_t9 := addi @FramePointer #i0
+	_t10 := *_t9
+	_t11 := *_t10
+	param _t11
+	call writeInteger, link 12
+
+
+12:
+	goto 7
+
+
+7:
+	; While at (11,3)
+	goto 13
+
+
+13:
+	; Guard at (11,9)
+	; Local variable `X`
+	_t12 := addi @FramePointer #i4
+	_t13 := *_t12
+	if _t13 goto 15 else goto 16
+
+
+15:
+	; Write at (11,17)
+	; Local variable `X`
+	_t14 := addi @FramePointer #i4
+	_t15 := *_t14
+	param _t15
+	call writeBoolean, link 17
+
+
+17:
+	goto 13
+
+
+16:
+	; Guard at (12,9)
+	goto 18
+
+
+18:
+	; Write at (12,16)
+	; Local variable `Y`
+	_t16 := addi @FramePointer #i0
+	_t17 := *_t16
+	_t18 := *_t17
+	param _t18
+	call writeInteger, link 19
+
+
+19:
+	goto 13
+
+
+14:
+	exit
+
+
+

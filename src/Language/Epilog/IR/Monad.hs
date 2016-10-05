@@ -37,7 +37,7 @@ import           Language.Epilog.IR.TAC
 import           Language.Epilog.SymbolTable (Scope, SymbolTable)
 --------------------------------------------------------------------------------
 import           Control.Lens                (at, makeLenses, use, (%%=), (%=),
-                                              (&), (.=), (<<+=), (?=), (?~), _2,
+                                              (&), (.=), (<<+=), (?~), _2,
                                               _Just)
 import           Control.Monad.Trans.State   (StateT, evalStateT, execStateT,
                                               runStateT)

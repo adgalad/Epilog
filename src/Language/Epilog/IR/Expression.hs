@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiWayIf       #-}
 {-# LANGUAGE NamedFieldPuns   #-}
 {-# LANGUAGE PostfixOperators #-}
+{-# LANGUAGE EmptyCase #-}
 
 module Language.Epilog.IR.Expression
   ( irExpression
@@ -17,6 +18,8 @@ import           Language.Epilog.IR.Monad
 import           Language.Epilog.IR.TAC
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
+import Data.Bits ((.&.), (.|.), shiftR, shiftL, xor, complement)
+--------------------------------------------------------------------------------
 
 irExpression :: Expression -> IRMonad Operand
 irExpression e@Expression { exp' } = case exp' of
@@ -29,7 +32,6 @@ irExpression e@Expression { exp' } = case exp' of
 
   Rval lval -> do
     r <- irLval lval
-
     t <- newTemp
     addTAC $ t :=* r
     pure t
@@ -37,29 +39,88 @@ irExpression e@Expression { exp' } = case exp' of
   ECall _procName _args -> internal "Procedure calls are not implemented yet."
 
   Binary op exp0 exp1 -> if
-    | op `elem` [Andalso, Orelse] -> wrapBoolean e
+    | op `elem` [Andalso, Orelse, LTop, LEop, GTop, GEop, EQop, NEop, FAop, NFop] ->
+      wrapBoolean e
 
     | otherwise -> do
       operand0 <- irExpression exp0
       operand1 <- irExpression exp1
-      result   <- newTemp
 
-      let Basic { atom } = expType exp0
+      case (operand0, operand1) of
+        (C (BC b0), C (BC b1)) -> pure . C . BC $ b0 `op'` b1
+          where
+            op' = case op of
+              And -> (&&)
+              Or  -> (||)
+              Xor -> (/=)
 
-      addTAC $ result := B (toIRBOp atom op) operand0 operand1
-      pure result
+        (C (IC i0), C (IC i1)) -> pure . C . IC $ i0 `op'` i1
+          where
+            op' = case op of
+              Band   -> (.&.)
+              Bor    -> (.|.)
+              Bsl    -> (. fromIntegral) . shiftL
+              Bsr    -> (. fromIntegral) . shiftR
+              Bxor   -> xor
+              Plus   -> (+)
+              Minus  -> (-)
+              Times  -> (*)
+              IntDiv -> div
+              Rem    -> mod
+
+        (C (FC f0), C (FC f1)) -> pure . C . FC $ f0 `op'` f1
+          where
+            op' = case op of
+              Plus     -> (+)
+              Minus    -> (-)
+              Times    -> (*)
+              FloatDiv -> (/)
+
+        (C (CC c0), C (CC c1)) -> pure . C . CC $ c0 `op'` c1
+          where op' = case op of
+
+        _ -> do
+          result   <- newTemp
+
+          let Basic { atom } = expType exp0
+
+          addTAC $ result := B (toIRBOp atom op) operand0 operand1
+          pure result
 
   Unary op exp0 -> if
     | op == E.Not -> wrapBoolean e -- do
 
     | otherwise -> do
       operand0 <- irExpression exp0
-      result   <- newTemp
 
-      let Basic { atom } = expType exp0
+      case operand0 of
+        C (BC b0) -> pure . C . BC $ op' b0
+          where
+            op' = case op of
+              E.Not -> not
 
-      addTAC $ result := U (toIRUOp atom op) operand0
-      pure result
+        C (IC i0) -> pure . C . IC $ op' i0
+          where
+            op' = case op of
+              Uminus -> negate
+              Bnot -> complement
+
+        C (FC f0) -> pure . C . FC $ op' f0
+          where
+            op' = case op of
+              Uminus -> negate
+
+        C (CC c0) -> pure . C . CC $ op' c0
+          where
+            op' = case op of
+
+        _ -> do
+          result   <- newTemp
+
+          let Basic { atom } = expType exp0
+
+          addTAC $ result := U (toIRUOp atom op) operand0
+          pure result
 
 wrapBoolean :: Expression -> IRMonad Operand
 wrapBoolean e = do
@@ -166,14 +227,59 @@ irBoolean true false e@Expression { exp' } = case exp' of
       op0 <- irExpression exp0
       op1 <- irExpression exp1
 
-      let Basic { atom } = expType exp0
+      case (op0, op1) of
+        (C (BC b0), C (BC b1)) -> terminate . Br $ if b0 `cond` b1 then true else false
+          where
+            cond = case op of
+              LTop -> (<)
+              LEop -> (<=)
+              GTop -> (>)
+              GEop -> (>=)
+              EQop -> (==)
+              NEop -> (/=)
 
-      terminate CondBr
-        { rel       = toIRRel atom op
-        , op0
-        , op1
-        , trueDest  = true
-        , falseDest = false }
+        (C (IC i0), C (IC i1)) -> terminate . Br $ if i0 `cond` i1 then true else false
+          where
+            cond = case op of
+              LTop -> (<)
+              LEop -> (<=)
+              GTop -> (>)
+              GEop -> (>=)
+              EQop -> (==)
+              NEop -> (/=)
+              FAop -> \x y -> x `mod` y == 0
+              NFop -> \x y -> x `mod` y /= 0
+
+        (C (FC f0), C (FC f1)) -> terminate . Br $ if f0 `cond` f1 then true else false
+          where
+            cond = case op of
+              LTop -> (<)
+              LEop -> (<=)
+              GTop -> (>)
+              GEop -> (>=)
+              EQop -> (==)
+              NEop -> (/=)
+
+        (C (CC c0), C (CC c1)) -> terminate . Br $ if c0 `cond` c1 then true else false
+          where
+            cond = case op of
+              LTop -> (<)
+              LEop -> (<=)
+              GTop -> (>)
+              GEop -> (>=)
+              EQop -> (==)
+              NEop -> (/=)
+
+        _ -> do
+
+          let Basic { atom } = expType exp0
+
+          terminate CondBr
+            { rel       = toIRRel atom op
+            , op0
+            , op1
+            , trueDest  = true
+            , falseDest = false }
 
   Unary op exp0 -> case op of
     E.Not -> irBoolean false true exp0
