@@ -30,11 +30,11 @@ irExpression e@Expression { exp' } = case exp' of
 
   LitString _str -> internal "String literals are not implemented yet."
 
-  Rval lval -> do
-    r <- irLval lval
-    t <- newTemp
-    addTAC $ t :=* r
-    pure t
+  Rval rval -> irRval rval-- do
+    -- r <- irLval lval
+    -- t <- newTemp
+    -- addTAC $ t :=* r
+    -- pure t
 --
   ECall _procName _args -> internal "Procedure calls are not implemented yet."
 
@@ -66,7 +66,7 @@ irExpression e@Expression { exp' } = case exp' of
               Minus  -> (-)
               Times  -> (*)
               IntDiv -> div
-              Rem    -> mod
+              Rem    -> rem
 
         (C (FC f0), C (FC f1)) -> pure . C . FC $ f0 `op'` f1
           where
@@ -326,40 +326,127 @@ irLval :: Lval -> IRMonad Operand
 irLval Lval { lvalType, lval' } = case lval' of
   Variable name k offset -> do
     comment $ show k <> " variable `" <> name <> "`"
-    let base = C . IC . fromIntegral $ offset
     case k of
-      Global -> pure base
+      Global ->  do
+        if offset == 0
+          then pure GP
+          else do
+            t <- newTemp
+            addTAC $ t := B AddI GP base
+            pure t
       Local -> do
-        t <- newTemp
-        addTAC $ t := B AddI FP base
-        pure t
+        if offset == 0
+          then pure FP
+          else do
+            t <- newTemp
+            addTAC $ t := B AddI FP base
+            pure t
       K.Param -> do
         t <- newTemp
-        addTAC $ t := B SubI FP base
+        addTAC $ t := B AddI FP negBase
         pure t
+    where
+      base = C . IC . fromIntegral $ offset
+      negBase = C . IC . fromIntegral . negate $ offset + (sizeT lvalType)
 
   Member lval _name offset -> do
     r <- irLval lval
-    t1 <- newTemp
-    addTAC $ t1 := B AddI r (C . IC . fromIntegral $ offset)
-    t2 <- newTemp
-    addTAC $ t2 :=* t1
-    pure t2
+    if offset == 0
+      then pure r
+      else do
+        t <- newTemp
+        addTAC $ t := B AddI r (C . IC . fromIntegral $ offset)
+        pure t
 
   Index lval idx -> do
     r <- irLval lval
     t <- irExpression idx
-    let sz = C . IC . fromIntegral . sizeT $ lvalType
-    t1 <- newTemp
-    addTAC $ t1 := B MulI sz t
-    t2 <- newTemp
-    addTAC $ t2 := B AddI r t1
-    t3 <- newTemp
-    addTAC $ t3 :=* t2
-    pure t3
+    case t of
+      C (IC 0) -> pure r
+      _ -> do
+        let sz = C . IC . fromIntegral . sizeT $ lvalType
+        t1 <- newTemp
+        addTAC $ t1 := B MulI sz t
+        t2 <- newTemp
+        addTAC $ t2 := B AddI r t1
+        pure t2
 
   Deref lval -> do
     r <- irLval lval
     t <- newTemp
     addTAC $ t :=* r
     pure t
+
+
+irRval :: Lval -> IRMonad Operand
+irRval Lval { lvalType, lval' } = case lval' of
+  Variable name k offset -> do
+    comment $ show k <> " variable `" <> name <> "`"
+    case k of
+      Global ->  do
+        if offset == 0
+          then do
+            t <- newTemp
+            addTAC $ t :=* GP
+            pure t
+          else do
+            t <- newTemp
+            addTAC $ t :=# (offset', GP)
+            pure t
+      Local -> do
+        if offset == 0
+          then do
+            t <- newTemp
+            addTAC $ t :=* FP
+            pure t
+          else do
+            t <- newTemp
+            addTAC $ t :=# (offset', FP)
+            pure t
+      K.Param -> do
+        t <- newTemp
+        addTAC $ t :=# (negOffset, FP)
+        pure t
+    where
+      negOffset = negate $ offset' + (fromIntegral $ sizeT lvalType)
+      offset' = fromIntegral offset
+
+  Member lval _name offset -> do
+    r <- irLval lval
+    if offset == 0
+      then do
+        t <- newTemp
+        addTAC $ t :=* r
+        pure t
+      else do
+        t1 <- newTemp
+        addTAC $ t1 := B AddI r (C . IC . fromIntegral $ offset)
+        t2 <- newTemp
+        addTAC $ t2 :=* t1
+        pure t2
+
+  Index lval idx -> do
+    r <- irLval lval
+    t <- irExpression idx
+    case t of
+      C (IC 0) -> do
+        t1 <- newTemp
+        addTAC $ t1 :=* r
+        pure r
+      _ -> do
+        let sz = C . IC . fromIntegral . sizeT $ lvalType
+        t1 <- newTemp
+        addTAC $ t1 := B MulI sz t
+        t2 <- newTemp
+        addTAC $ t2 := B AddI r t1
+        t3 <- newTemp
+        addTAC $ t3 :=* t2
+        pure t3
+
+  Deref lval -> do
+    r <- irLval lval
+    t1 <- newTemp
+    t2 <- newTemp
+    addTAC $ t1 :=* r
+    addTAC $ t2 :=* t1
+    pure t2

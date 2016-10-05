@@ -38,6 +38,7 @@ data Operand
   | T Int
   | C Constant
   | FP
+  | GP
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 instance Emit Operand where
@@ -46,6 +47,7 @@ instance Emit Operand where
     T i -> "_t" <> show i
     C c -> "#" <> emit c
     FP  -> "@FramePointer"
+    GP  -> "@GlobalPointer"
 
 data Constant
   = BC Bool
@@ -83,10 +85,10 @@ data TAC
 
   | Operand :=  Operation
   -- ^ Regular Op-assignment
-  | Operand :=# (Operand, Operand)
-  -- ^ Array reading, i.e. a := b[i]
-  | (Operand, Operand) :#= Operand
-  -- ^ Array write, i.e. a[i] := b
+  | Operand :=# (Int32, Operand)
+  -- ^ Array reading, i.e. a := const[i]
+  | (Int32, Operand) :#= Operand
+  -- ^ Array write, i.e. const[i] := a
   | Operand :=* Operand
   -- ^ Pointer read, i.e. a := *b
   | Operand :*= Operand
@@ -102,8 +104,8 @@ instance Emit TAC where
   emit = \case
     Comment s     -> "; " <> s
     x := op       -> emit x <> " := " <> emit op
-    x :=# (a, i)  -> emit x <> " := " <> emit a <> "[" <> emit i <> "]"
-    (a, i) :#= x  -> emit a <> "[" <> emit i <> "]" <> " := " <> emit x
+    x :=# (c, i)  -> emit x <> " := " <> show c <> "[" <> emit i <> "]"
+    (c, i) :#= x  -> show c <> "[" <> emit i <> "]" <> " := " <> emit x
     x :=* a       -> emit x <> " := *" <> emit a
     x :*= a       -> "*" <> emit x <> " := " <> emit a
     Param op      -> "param " <> emit op

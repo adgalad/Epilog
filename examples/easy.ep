@@ -1,13 +1,28 @@
+integer A.
+integer W.
+
+record cosa :-
+  integer A,
+  integer B.
+
+record beta :-
+  cosa C,
+  integer K.
+
 procedure main () :-
   ^ integer Y,
+  integer[5}[6} K,
+  integer T,
   boolean X,
+  cosa C,
+  beta B,
 
-  X is (8 > 5 andalso 5 = 4) orelse 8 > Y^,
+  write B_C_A,
+  write B_C_B,
+  write B_K,
 
-  if X    -> write X
-  ;  10 > 8 -> write Y^
-  end,
+  T is W + A rem K[0][2] + Y^ * (8 * 5) div (T - 4),
 
-  while X    -> write X
-  ;  10 > 8 -> write Y^
-  end.
+  X is 5 | T and (Y^ > 5 and A = 4) or 8 > Y^,
+
+  write A + Y^.
