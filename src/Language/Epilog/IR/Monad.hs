@@ -47,7 +47,7 @@ import           Data.Sequence               as Seq (empty)
 type IRMonad a = StateT IRState IO a
 
 data IRState = IRState
-  { _blocks         :: Map Label Block
+  { _blocks         :: Seq (Label, Block)
   , _edges          :: [Edge]
   , _currentBlock   :: Maybe (Label, Seq TAC)
   , _nextBlock      :: [Label]
@@ -59,7 +59,7 @@ data IRState = IRState
 
 initialIR :: IRState
 initialIR = IRState
-  { _blocks         = Map.empty
+  { _blocks         = Seq.empty
   , _edges          = []
   , _currentBlock   = Nothing
   , _nextBlock      = []
@@ -87,25 +87,25 @@ newRegister name = registerSupply %%= \supply -> case name `Map.lookup` supply o
 
 (#) :: Label -> IRMonad ()
 (#) label = do
-  liftIO . putStrLn . (<> ":") . show $ label
+  -- liftIO . putStrLn . (<> ":") . show $ label
   use currentBlock >>= \case
     Nothing -> currentBlock .= Just (label, Seq.empty)
     Just cb -> internal $ "unterminated block \n" <> show cb
 
 addTAC :: TAC -> IRMonad ()
 addTAC tac = do
-  liftIO . putStrLn . ("\t" <>) . emit $ tac
+  -- liftIO . putStrLn . ("\t" <>) . emit $ tac
   currentBlock %= \case
     Nothing     -> internal "attempted to add instruction without a block"
     cb@(Just _) -> (_Just . _2 |>~ tac) cb
 
 terminate :: Terminator -> IRMonad ()
 terminate term = do
-  liftIO . putStrLn . ("\t" <>) . emit $ term
+  -- liftIO . putStrLn . ("\t" <>) . emit $ term
   use currentBlock >>= \case
     Nothing        -> internal $ "attempted to terminate without a block\n" <> emit term
     Just (lbl, tacs) -> do
-      blocks . at lbl ?= Block
+      blocks |>= (lbl,) Block
         { lbl
         , tacs
         , term }

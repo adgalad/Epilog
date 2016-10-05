@@ -13,7 +13,7 @@ import           Language.Epilog.IR.TAC
 import           Control.Lens                 (use, (.=))
 --------------------------------------------------------------------------------
 
-irProgram :: Program -> IRMonad (Map Label Block)
+irProgram :: Program -> IRMonad (Seq (Label, Block))
 irProgram Program { procs, scope } = do
   global .= scope
   mapM_ irProcedure procs

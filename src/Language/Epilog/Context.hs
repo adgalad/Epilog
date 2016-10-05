@@ -627,12 +627,16 @@ checkVariable :: At Name -> Epilog Joy
 checkVariable (name :@ p) = do
   symbs <- use symbols
   case name `lookup` symbs of
-    Right Entry { eType } ->
+    Right Entry { eType, eOffset, eKind } ->
       pure $ joy { jType = eType, jPos = p, jLval = Just theLval }
       where
         theLval = Lval
           { lvalType = eType
-          , lval' = Variable name }
+          , lval' = Variable
+            { lName   = name
+            , lKind   = eKind
+            , lOffset = eOffset
+            }}
     Left _ -> do
       err $ OutOfScope name p
       pure $ noJoy { jPos = Position 0 0 }
@@ -677,15 +681,18 @@ getField
   where
     checkField fields = case fieldname `Map.lookup` fields of
       Just t'  -> pure $
-        joy { jType = fst t', jPos = p, jLval = Just . theLval $ fst t' }
+        joy { jType = fst t', jPos = p, jLval = Just . theLval $ t' }
       Nothing -> err' InvalidField
     checkMember members = case fieldname `Map.lookup` members of
       Just t'  -> pure $
-        joy { jType = fst t', jPos = p, jLval = Just . theLval $ fst t' }
+        joy { jType = fst t', jPos = p, jLval = Just . theLval $ t' }
       Nothing -> err' InvalidMember
-    theLval t = Lval
+    theLval (t, offset) = Lval
       { lvalType = t
-      , lval' = Member (fromJust jLval) fieldname }
+      , lval' = Member 
+        { lInner  = fromJust jLval
+        , mName   = fieldname
+        , mOffset = offset }}
     err' cons = do
       err $ cons fieldname (name jType) p
       pure $ noJoy { jPos = p }

@@ -16,7 +16,7 @@ import           Language.Epilog.IR.TAC
 import           Language.Epilog.Position
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import           Control.Lens                    (use)
+import           Control.Lens                    (use, (%=))
 import           Control.Monad                   (void)
 --------------------------------------------------------------------------------
 
@@ -34,7 +34,13 @@ irInstruction = \case
 
   If { instP, ifGuards } -> do
     addTAC . Comment $ "If at " <> showP instP
+    next <- newLabel
+    nextBlock <|= next
+
     mapM_ irGuard ifGuards
+    terminate $ Br next
+    (next #)
+    nextBlock %= tail
 
   For { instP {-, forVar, forRanges-} } -> -- TODO
     addTAC . Comment $ "For at " <> showP instP
@@ -84,8 +90,10 @@ irInstruction = \case
 
     addTAC $ Param t
 
-    after <- head <$> use nextBlock
+    after <- newLabel
+
     terminate $ CallThen writeFunc after
+    (after #)
 
   Answer { instP, answerVal } -> do
     addTAC . Comment $ "Answer at " <> showP instP

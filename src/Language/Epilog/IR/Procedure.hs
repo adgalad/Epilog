@@ -27,14 +27,10 @@ irProcedure Procedure { procName, procPos {-, procType-}
         let smbs = (\(Right x) -> x) . goDownFirst . insertST scope . focus $ g
         symbols .= smbs
 
-        exit <- newLabel
-        nextBlock <|= exit
-
         newLabel >>= (#)
         addTAC . Comment $ "Main procedure at " <> showP procPos
         mapM_ irInstruction insts
 
-        (exit #)
         terminate Exit
 
       _ -> liftIO . putStrLn $ "User-defined procedure `" <> procName <> "`"
