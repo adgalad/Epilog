@@ -49,7 +49,7 @@ import           Data.Sequence               as Seq (empty)
 type IRMonad a = StateT IRState IO a
 
 data IRState = IRState
-  { _blocks         :: Map Label Block
+  { _blocks         :: Seq (Label, Block)
   , _edges          :: [Edge]
   , _currentBlock   :: Maybe (Label, Seq TAC)
   , _nextBlock      :: [Label]
@@ -62,7 +62,7 @@ data IRState = IRState
 
 initialIR :: IRState
 initialIR = IRState
-  { _blocks         = Map.empty
+  { _blocks         = Seq.empty
   , _edges          = []
   , _currentBlock   = Nothing
   , _nextBlock      = []
@@ -112,7 +112,7 @@ terminate term = -- do
   use currentBlock >>= \case
     Nothing        -> internal $ "attempted to terminate without a block\n" <> emit term
     Just (lbl, tacs) -> do
-      blocks . at lbl ?= Block
+      blocks |>= (lbl,) Block
         { lbl
         , tacs
         , term }

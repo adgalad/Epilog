@@ -93,8 +93,10 @@ irInstruction = \case
 
     addTAC $ Param t
 
-    after <- head <$> use nextBlock
+    after <- newLabel
+
     terminate $ CallThen writeFunc after
+    (after #)
 
   Answer { instP, answerVal } -> do
     comment $ "Answer at " <> showP instP
