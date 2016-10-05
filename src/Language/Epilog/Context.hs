@@ -627,12 +627,15 @@ checkVariable :: At Name -> Epilog Joy
 checkVariable (name :@ p) = do
   symbs <- use symbols
   case name `lookup` symbs of
-    Right Entry { eType } ->
+    Right Entry { eType, eOffset, eKind } ->
       pure $ joy { jType = eType, jPos = p, jLval = Just theLval }
       where
         theLval = Lval
           { lvalType = eType
-          , lval' = Variable name }
+          , lval' = Variable
+            { lName = name
+            , lKind = eKind
+            , lOffset = eOffset }}
     Left _ -> do
       err $ OutOfScope name p
       pure $ noJoy { jPos = Position 0 0 }
@@ -661,31 +664,31 @@ checkSubindex Joy { jPos } _ = do
 
 
 getField :: Joy -> At Name -> Epilog Joy
-getField
-  Joy { jPos, jType, jLval }
-  (fieldname :@ p)
-  = case jType of
-    Alias tname _ _ -> do
-      ts <- use types
-      case tname `Map.lookup` ts of
-        Just (Record { fields  }, _) -> checkField  fields
-        Just (Either { members }, _) -> checkMember members
-        _                            -> err' InvalidAccess
-    None -> pure noJoy { jPos }
-    _  -> err' InvalidAccess
+getField Joy { jPos, jType, jLval } (fieldname :@ p) = case jType of
+  Alias tname _ _ -> do
+    ts <- use types
+    case tname `Map.lookup` ts of
+      Just (Record { fields  }, _) -> checkField  fields
+      Just (Either { members }, _) -> checkMember members
+      _                            -> err' InvalidAccess
+  None -> pure noJoy { jPos }
+  _  -> err' InvalidAccess
 
   where
     checkField fields = case fieldname `Map.lookup` fields of
-      Just t'  -> pure $
-        joy { jType = fst t', jPos = p, jLval = Just . theLval $ fst t' }
+      Just (t', offs)  -> pure $
+        joy { jType = t', jPos = p, jLval = Just $ theLval t' offs }
       Nothing -> err' InvalidField
     checkMember members = case fieldname `Map.lookup` members of
-      Just t'  -> pure $
-        joy { jType = fst t', jPos = p, jLval = Just . theLval $ fst t' }
+      Just (t', offs)  -> pure $
+        joy { jType = t', jPos = p, jLval = Just $ theLval t' offs }
       Nothing -> err' InvalidMember
-    theLval t = Lval
+    theLval t offs = Lval
       { lvalType = t
-      , lval' = Member (fromJust jLval) fieldname }
+      , lval' = Member
+        { lInner  = fromJust jLval
+        , mName   = fieldname
+        , mOffset = offs } }
     err' cons = do
       err $ cons fieldname (name jType) p
       pure $ noJoy { jPos = p }

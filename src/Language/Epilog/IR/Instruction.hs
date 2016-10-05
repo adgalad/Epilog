@@ -7,7 +7,6 @@ module Language.Epilog.IR.Instruction
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression  hiding (VarKind (..))
-import qualified Language.Epilog.AST.Expression  as K (VarKind (..))
 import           Language.Epilog.AST.Instruction
 import           Language.Epilog.Common
 import           Language.Epilog.IR.Expression
@@ -16,42 +15,52 @@ import           Language.Epilog.IR.TAC
 import           Language.Epilog.Position
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import           Control.Lens                    (use)
+import           Control.Lens                    (use, (%=))
 import           Control.Monad                   (void)
 --------------------------------------------------------------------------------
 
 irInstruction :: Instruction -> IRMonad ()
 irInstruction = \case
   Assign { instP, assignTarget, assignVal } -> do
-    addTAC . Comment $ "Assignment at " <> showP instP
+    comment $ "Assignment at " <> showP instP
     t <- irExpression assignVal
     r <- irLval assignTarget
     addTAC $ r :*= t
 
-  ICall { instP {-, callName-}, callArgs } ->
-    addTAC . Comment $ "Call args at " <> showP instP
+  ICall { instP {-, callName, callArgs-} } ->
+    comment $ "Call args at " <> showP instP
     -- mapM_ irExpression callArgs
 
   If { instP, ifGuards } -> do
-    addTAC . Comment $ "If at " <> showP instP
-    mapM_ irGuard ifGuards
+    comment $ "If at " <> showP instP
+
+    next <- newLabel
+    nextBlock <|= next
+
+    irGuards next . toList $ ifGuards
+
+    nextBlock %= tail
+
+    (next #)
 
   For { instP {-, forVar, forRanges-} } -> -- TODO
-    addTAC . Comment $ "For at " <> showP instP
+    comment $ "For at " <> showP instP
 
   While { instP, whileGuards } -> do
+    comment $ "While at " <> showP instP
+
     whileHeader <- newLabel
-    addTAC . Comment $ "While at " <> showP instP
-
     terminate $ Br whileHeader
-
     nextBlock <|= whileHeader
 
     (whileHeader #)
-    mapM_ irGuard whileGuards
+    next <- newLabel
+    irGuards next . toList $ whileGuards
+
+    (next #)
 
   Read { instP, readTarget } -> do
-    addTAC . Comment $ "Read at " <> showP instP
+    comment $ "Read at " <> showP instP
 
     let readFunc = case lvalType readTarget of
           Basic { atom } -> case atom of
@@ -70,7 +79,7 @@ irInstruction = \case
     addTAC $ r :*= t
 
   Write { instP, writeVal } -> do
-    addTAC . Comment $ "Write at " <> showP instP
+    comment $ "Write at " <> showP instP
 
     let writeFunc = case expType writeVal of
           Basic { atom } -> case atom of
@@ -88,23 +97,33 @@ irInstruction = \case
     terminate $ CallThen writeFunc after
 
   Answer { instP, answerVal } -> do
-    addTAC . Comment $ "Answer at " <> showP instP
+    comment $ "Answer at " <> showP instP
     void $ irExpression answerVal
 
   Finish { instP } ->
-    addTAC . Comment $ "Finish at " <> showP instP
+    comment $ "Finish at " <> showP instP
 
-irGuard :: (Position, Expression, Insts) -> IRMonad ()
-irGuard (guardP, cond, insts) = do
-  addTAC . Comment $ "Guard at " <> showP guardP
+irGuards :: Label -> [(Position, Expression, Insts)] -> IRMonad ()
+irGuards _ [] = internal "impossible call to irGuards"
+irGuards final ((guardP, cond, insts):gs) = do
+  comment $ "Guard at " <> showP guardP
 
   true  <- newLabel
-  false <- newLabel
+  false <- case gs of
+    [] -> pure final
+    _  -> newLabel
   irBoolean true false cond
 
   (true #)
   mapM_ irInstruction insts
-  next <- head <$> use nextBlock
-  terminate $ Br next
 
-  (false #)
+  next : _ <- use nextBlock
+  use currentBlock >>= \case
+    Nothing -> pure ()
+    Just _  -> terminate $ Br next
+
+  case gs of
+    [] -> pure ()
+    _  -> do
+      (false #)
+      irGuards final gs

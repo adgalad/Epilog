@@ -17,6 +17,7 @@ module Language.Epilog.IR.Monad
   , newTemp
   , (#)
   , addTAC
+  , comment
   , terminate
   -- * State
   , blocks
@@ -28,6 +29,7 @@ module Language.Epilog.IR.Monad
   , registerSupply
   , global
   , symbols
+  -- , types
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
@@ -56,6 +58,7 @@ data IRState = IRState
   , _registerSupply :: Map String Int
   , _global         :: Scope
   , _symbols        :: SymbolTable }
+  -- , _types          :: Types }
 
 initialIR :: IRState
 initialIR = IRState
@@ -68,6 +71,7 @@ initialIR = IRState
   , _registerSupply = Map.empty
   , _global         = undefined
   , _symbols        = undefined }
+  -- , _types          = undefined }
 
 makeLenses ''IRState
 
@@ -86,22 +90,25 @@ newRegister name = registerSupply %%= \supply -> case name `Map.lookup` supply o
   Just i  -> (R $ name <> "." <> show i, supply & at name ?~ i + 1)
 
 (#) :: Label -> IRMonad ()
-(#) label = do
-  liftIO . putStrLn . (<> ":") . show $ label
+(#) label = -- do
+  -- liftIO . putStrLn . (<> ":") . show $ label
   use currentBlock >>= \case
     Nothing -> currentBlock .= Just (label, Seq.empty)
     Just cb -> internal $ "unterminated block \n" <> show cb
 
 addTAC :: TAC -> IRMonad ()
-addTAC tac = do
-  liftIO . putStrLn . ("\t" <>) . emit $ tac
+addTAC tac = -- do
+  -- liftIO . putStrLn . ("\t" <>) . emit $ tac
   currentBlock %= \case
     Nothing     -> internal "attempted to add instruction without a block"
     cb@(Just _) -> (_Just . _2 |>~ tac) cb
 
+comment :: String -> IRMonad ()
+comment = addTAC . Comment
+
 terminate :: Terminator -> IRMonad ()
-terminate term = do
-  liftIO . putStrLn . ("\t" <>) . emit $ term
+terminate term = -- do
+  -- liftIO . putStrLn . ("\t" <>) . emit $ term
   use currentBlock >>= \case
     Nothing        -> internal $ "attempted to terminate without a block\n" <> emit term
     Just (lbl, tacs) -> do

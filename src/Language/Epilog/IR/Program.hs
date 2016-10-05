@@ -16,5 +16,6 @@ import           Control.Lens                 (use, (.=))
 irProgram :: Program -> IRMonad (Map Label Block)
 irProgram Program { procs, scope } = do
   global .= scope
+  -- types .= types
   mapM_ irProcedure procs
   use blocks

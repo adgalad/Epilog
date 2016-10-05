@@ -17,8 +17,6 @@ import           Language.Epilog.IR.Monad
 import           Language.Epilog.IR.TAC
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import           Debug.Trace
---------------------------------------------------------------------------------
 
 irExpression :: Expression -> IRMonad Operand
 irExpression e@Expression { exp' } = case exp' of
@@ -219,12 +217,41 @@ toIRRel atom = \case
   o        -> internal $ "Non relational operator `" <> show o <> "`"
 
 irLval :: Lval -> IRMonad Operand
-irLval Lval { lval' } = case lval' of
-  Variable name _ _ -> pure $ R name
-  -- Member   lval name ->
-  --   pure ()
-  -- Index    lval idx ->
-  --   pure ()
+irLval Lval { lvalType, lval' } = case lval' of
+  Variable name k offset -> do
+    comment $ show k <> " variable `" <> name <> "`"
+    let base = C . IC . fromIntegral $ offset
+    case k of
+      Global -> pure base
+      Local -> do
+        t <- newTemp
+        addTAC $ t := B AddI FP base
+        pure t
+      K.Param -> do
+        t <- newTemp
+        addTAC $ t := B SubI FP base
+        pure t
+
+  Member lval _name offset -> do
+    r <- irLval lval
+    t1 <- newTemp
+    addTAC $ t1 := B AddI r (C . IC . fromIntegral $ offset)
+    t2 <- newTemp
+    addTAC $ t2 :=* t1
+    pure t2
+
+  Index lval idx -> do
+    r <- irLval lval
+    t <- irExpression idx
+    let sz = C . IC . fromIntegral . sizeT $ lvalType
+    t1 <- newTemp
+    addTAC $ t1 := B MulI sz t
+    t2 <- newTemp
+    addTAC $ t2 := B AddI r t1
+    t3 <- newTemp
+    addTAC $ t3 :=* t2
+    pure t3
+
   Deref lval -> do
     r <- irLval lval
     t <- newTemp

@@ -37,6 +37,7 @@ data Operand
   = R String
   | T Int
   | C Constant
+  | FP
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 instance Emit Operand where
@@ -44,6 +45,7 @@ instance Emit Operand where
     R s -> s
     T i -> "_t" <> show i
     C c -> "#" <> emit c
+    FP  -> "@FramePointer"
 
 data Constant
   = BC Bool

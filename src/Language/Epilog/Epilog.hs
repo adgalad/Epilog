@@ -40,7 +40,6 @@ import           System.IO                       (hPrint, stderr)
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
 type Strings = Map String Int32
-type Types   = Map Name   (Type, Position)
 type Pending = Map Name   (Seq Position)
 type Byte    = Word8
 

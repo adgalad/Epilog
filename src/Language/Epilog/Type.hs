@@ -4,6 +4,7 @@
 module Language.Epilog.Type
     ( Atom (..)
     , Type (..)
+    , Types
     , StructKind (..)
     , toCons
     , showS
@@ -16,15 +17,18 @@ module Language.Epilog.Type
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
+import           Language.Epilog.Position (Position)
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
 import qualified Data.Foldable            as Foldable
-import           Data.Int                 (Int32)
 import           Data.List                (intercalate)
 import qualified Data.Map                 as Map
 import           Prelude                  hiding (Either)
 --------------------------------------------------------------------------------
+-- Synonyms ----------------------------
+type Types = Map Name (Type, Position)
 
+----------------------------------------
 data Atom
     = EpBoolean
     | EpCharacter
@@ -49,46 +53,38 @@ data Type
     = Basic
         { atom   :: !Atom
         , sizeT  :: !Int
-        , alignT :: !Int
-        }
+        , alignT :: !Int }
     | EpStr
         { sizeT  :: !Int
-        , alignT :: !Int
-        }
+        , alignT :: !Int }
     | EpVoid
     | Array
         { low    :: Int32
         , high   :: Int32
         , inner  :: Type
         , sizeT  :: !Int
-        , alignT :: !Int
-        }
+        , alignT :: !Int }
     | Record
         { name   :: String
         , fields :: Map Name (Type, Int)
         , sizeT  :: !Int
-        , alignT :: !Int
-        }
+        , alignT :: !Int }
     | Either
         { name    :: String
         , members :: Map Name (Type, Int)
         , sizeT   :: !Int
-        , alignT  :: !Int
-        }
+        , alignT  :: !Int }
     | (:->)
         { params  :: Seq Type
-        , returns :: Type
-        }
+        , returns :: Type }
     | Alias
         { name   :: !Name
         , sizeT  :: !Int
-        , alignT :: !Int
-        }
+        , alignT :: !Int }
     | Pointer
         { pointed :: !Type
         , sizeT   :: !Int
-        , alignT  :: !Int
-        }
+        , alignT  :: !Int }
     | OneOf { options :: [Type] }
     | Any
     | None
@@ -187,7 +183,7 @@ instance Treelike Type where
 
         where
             toTreeFs = Map.foldrWithKey aux []
-            aux k (t,offs) b = Node k [toTree t
+            aux k (t,offs) b = Node k [ toTree t
                                       , leaf ("Size: "   <> showS (sizeT t))
                                       , leaf ("Offset: " <> show offs)
                                       ] : b

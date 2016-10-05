@@ -153,7 +153,7 @@ data Lval'
     , mOffset :: Int }
   | Index
     { lInner :: Lval
-    , lIdx   ::  Expression }
+    , lIdx   :: Expression }
   | Deref
     { lInner :: Lval }
   deriving (Eq, Show)

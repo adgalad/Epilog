@@ -7,7 +7,7 @@ procedure main () :-
   if X    -> write X
   ;  10 > 8 -> write Y^
   end,
-  
-  if X    -> write X
+
+  while X    -> write X
   ;  10 > 8 -> write Y^
   end.

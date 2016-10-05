@@ -15,7 +15,7 @@ module Language.Epilog.Common
   , internal
   ) where
 
-import           Data.Foldable   (toList)
+import           Data.Foldable   (toList, foldrM, foldlM)
 import           Data.Map.Strict (Map)
 import           Data.Int        (Int32)
 import           Data.Word       (Word8)
