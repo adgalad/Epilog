@@ -5,6 +5,7 @@ module Language.Epilog.Common
   , Seq
   , Int32
   , Word8
+  , Word32
   , toList
   , fromJust
   , (|>=)
@@ -18,7 +19,7 @@ module Language.Epilog.Common
 import           Data.Foldable   (toList)
 import           Data.Map.Strict (Map)
 import           Data.Int        (Int32)
-import           Data.Word       (Word8)
+import           Data.Word       (Word8, Word32)
 import           Data.Maybe      (fromJust)
 import           Control.Monad.State.Class (MonadState)
 import           Control.Monad.IO.Class (liftIO)

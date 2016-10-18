@@ -153,11 +153,11 @@ data TAC
     -- ^ Call a procedure
   | Operand :<- Function
   -- ^ Call a procedure, assign the result to the operand
-  | Cleanup Int32
+  | Cleanup Word32
   -- ^ Cleanup the stack (n bytes) after a function call
-  | Prelude Int32
+  | Prelude Word32
   -- ^ Reserve space (n bytes) in the stack
-  | Epilog Int32
+  | Epilog Word32
   -- ^ Free space (n bytes) in the stack
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 

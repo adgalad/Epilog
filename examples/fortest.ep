@@ -8,5 +8,4 @@ procedure main () :-
                         integer WW is toInteger(W),
                         write W
                     end
-                ; from 'a' to 'z' -> write "hola"
     end.
