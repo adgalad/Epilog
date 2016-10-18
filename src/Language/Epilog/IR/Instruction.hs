@@ -71,10 +71,8 @@ irInstruction = \case
           _ -> internal "non-printable type"
 
     t <- newTemp
-    after <- newLabel
-    terminate $ t :<- (readFunc, after)
+    addTAC $ t :<- readFunc
 
-    (after #)
     r <- irLval readTarget
     addTAC $ r :*= t
 
@@ -92,11 +90,7 @@ irInstruction = \case
     t <- irExpression writeVal
 
     addTAC $ Param t
-
-    after <- newLabel
-
-    terminate $ CallThen writeFunc after
-    (after #)
+    addTAC $ Call writeFunc
 
   Answer { instP, answerVal } -> do
     comment $ "Answer at " <> showP instP

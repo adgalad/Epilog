@@ -19,22 +19,23 @@ type Params = Seq Parameter
 --------------------------------------------------------------------------------
 
 data Parameter = Parameter
-    { parName :: Name
-    , parType :: Type
-    , parPos  :: Position }
-    deriving (Eq, Show)
+  { parName :: Name
+  , parType :: Type
+  , parPos  :: Position }
+  deriving (Eq, Show)
 
 instance Treelike Parameter where
-    toTree Parameter { parPos, parType, parName } =
-        Node (unwords [parName, showP parPos]) [toTree parType]
+  toTree Parameter { parPos, parType, parName } =
+      Node (unwords [parName, showP parPos]) [toTree parType]
 --------------------------------------------------------------------------------
 
 data Procedure = Procedure
-  { procName   :: Name
-  , procPos    :: Position
-  , procType   :: Type
-  , procParams :: Params
-  , procDef    :: Maybe (Insts, Scope) }
+  { procName      :: Name
+  , procPos       :: Position
+  , procType      :: Type
+  , procParams    :: Params
+  , procDef       :: Maybe (Insts, Scope)
+  , procStackSize :: Int32 }
   deriving (Eq)
 
 instance Treelike Procedure where

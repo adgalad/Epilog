@@ -5,17 +5,15 @@ module Language.Epilog.IR.Program
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Program
-import           Language.Epilog.Common
 import           Language.Epilog.IR.Monad
 import           Language.Epilog.IR.Procedure (irProcedure)
-import           Language.Epilog.IR.TAC
+import qualified Language.Epilog.IR.TAC       as TAC (Program (..))
 --------------------------------------------------------------------------------
 import           Control.Lens                 (use, (.=))
 --------------------------------------------------------------------------------
 
-irProgram :: Program -> IRMonad (Seq (Label, Block))
-irProgram Program { procs, scope } = do
+irProgram :: Program -> IRMonad TAC.Program
+irProgram Program { procs, scope {-, strings-} } = do
   global .= scope
-  -- types .= types
   mapM_ irProcedure procs
-  use blocks
+  TAC.Program <$> use dataSegment <*> use modules

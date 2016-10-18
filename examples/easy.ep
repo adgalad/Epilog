@@ -1,28 +1,16 @@
-integer A.
-integer W.
+procedure uno () :-
+  integer P,
+  integer Y,
+  integer Z.
 
-record cosa :-
-  integer A,
-  integer B.
+procedure dos () :-
+  integer Q.
 
-record beta :-
-  cosa C,
-  integer K.
-
-procedure main () :-
-  ^ integer Y,
-  integer[5}[6} K,
-  integer T,
-  boolean X,
-  cosa C,
-  beta B,
-
-  write B_C_A,
-  write B_C_B,
-  write B_K,
-
-  T is W + A rem K[0][2] + Y^ * (8 * 5) div (T - 4),
-
-  X is 5 | T and (Y^ > 5 and A = 4) or 8 > Y^,
-
-  write A + Y^.
+procedure main ()
+  :- integer A
+  ,  while A > 1 -> write A
+                  , A is A - 1
+         ; true  -> read A
+         ; true  -> write 3333
+     end
+  .

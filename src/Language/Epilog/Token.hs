@@ -6,9 +6,7 @@ module Language.Epilog.Token
 import           Language.Epilog.Common
 --------------------------------------------------------------------------------
 import           Data.Char              (chr, showLitChar)
-import           Data.Int               (Int32)
 import           Data.List              (intercalate)
-import           Data.Word              (Word8)
 import           GHC.Show               (showLitString)
 --------------------------------------------------------------------------------
 

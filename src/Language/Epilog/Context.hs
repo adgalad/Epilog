@@ -212,6 +212,7 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
     t <- use curProcType
 
     scope <- symbols %%= extractScope
+    ssize <- head <$> use offset
 
     if blockType == None
       then
@@ -220,7 +221,8 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
           , procPos    = p
           , procType   = t
           , procParams = Seq.empty
-          , procDef    = Nothing }
+          , procDef    = Nothing
+          , procStackSize = fromIntegral ssize }
 
       else do
         params <- use parameters
@@ -230,7 +232,8 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
           , procPos    = p
           , procType   = t
           , procParams = params
-          , procDef    = Just (jInsts, scope) }
+          , procDef    = Just (jInsts, scope)
+          , procStackSize = fromIntegral ssize }
 
     current .= Nothing
     curProcType .= None

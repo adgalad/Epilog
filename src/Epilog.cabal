@@ -31,6 +31,7 @@ executable Epilog
         , base           >= 4.8  && < 4.9
         , cereal         >= 0.5  && < 0.6
         , containers     >= 0.5  && < 0.6
+        , ghc-prim       >= 0.4  && < 0.5
         , lens           >= 4.14 && < 4.15
         , mtl            >= 2.2  && < 2.3
         , numeric-limits >= 0.1  && < 0.2

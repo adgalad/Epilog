@@ -1,144 +1,49 @@
+main
 1:
-	; Main procedure at (12,1)
-	; Write at (20,3)
-	; Local variable `B`
-	_t0 := addi @FramePointer #i140
-	_t1 := *_t0
-	param _t1
-	call writeInteger, link 2
-
+	; Main procedure at (1,1)
+	; While at (3,6)
+	goto 2
 
 2:
-	; Write at (21,3)
-	; Local variable `B`
-	_t2 := addi @FramePointer #i140
-	_t3 := addi _t2 #i4
-	_t4 := *_t3
-	param _t4
-	call writeInteger, link 3
-
-
-3:
-	; Write at (22,3)
-	; Local variable `B`
-	_t5 := addi @FramePointer #i140
-	_t6 := addi _t5 #i8
-	_t7 := *_t6
-	param _t7
-	call writeInteger, link 4
-
+	; Guard at (3,14)
+	; Local variable `A`
+	_t0 := *@FramePointer
+	if gti _t0 #i1 goto 4 else goto 5
 
 4:
-	; Assignment at (24,3)
-	; Global variable `W`
-	_t8 := 4[@GlobalPointer]
-	; Global variable `A`
-	_t9 := *@GlobalPointer
-	; Local variable `K`
-	_t10 := addi @FramePointer #i4
-	_t11 := muli #i4 #i2
-	_t12 := addi _t10 _t11
-	_t13 := *_t12
-	_t14 := remi _t9 _t13
-	_t15 := addi _t8 _t14
-	; Local variable `Y`
-	_t16 := *@FramePointer
-	_t17 := *_t16
-	_t18 := muli _t17 #i40
-	; Local variable `T`
-	_t19 := 124[@FramePointer]
-	_t20 := subi _t19 #i4
-	_t21 := divi _t18 _t20
-	_t22 := addi _t15 _t21
-	; Local variable `T`
-	_t23 := addi @FramePointer #i124
-	*_t23 := _t22
-	; Assignment at (26,3)
-	; Local variable `T`
-	_t25 := 124[@FramePointer]
-	if fai #i5 _t25 goto 5 else goto 6
-
+	; Write at (3,21)
+	; Local variable `A`
+	_t1 := *@FramePointer
+	param _t1
+	call "writeInteger"
+	; Assignment at (4,21)
+	; Local variable `A`
+	_t2 := *@FramePointer
+	_t3 := subi _t2 #i1
+	; Local variable `A`
+	*@FramePointer := _t3
+	goto 2
 
 5:
-	_t24 := #True
-	goto 7
-
+	; Guard at (5,12)
+	goto 6
 
 6:
-	_t24 := #False
-	goto 7
-
+	; Read at (5,21)
+	_t4 := call "readInteger"
+	; Local variable `A`
+	*@FramePointer := _t4
+	goto 2
 
 7:
-	; Local variable `Y`
-	_t27 := *@FramePointer
-	_t28 := *_t27
-	if gti _t28 #i5 goto 8 else goto 9
-
+	; Guard at (6,12)
+	goto 8
 
 8:
-	_t26 := #True
-	goto 10
+	; Write at (6,21)
+	param #i3333
+	call "writeInteger"
+	goto 2
 
-
-9:
-	_t26 := #False
-	goto 10
-
-
-10:
-	; Global variable `A`
-	_t30 := *@GlobalPointer
-	if eqi _t30 #i4 goto 11 else goto 12
-
-
-11:
-	_t29 := #True
-	goto 13
-
-
-12:
-	_t29 := #False
-	goto 13
-
-
-13:
-	_t31 := band _t26 _t29
-	_t32 := band _t24 _t31
-	; Local variable `Y`
-	_t34 := *@FramePointer
-	_t35 := *_t34
-	if gti #i8 _t35 goto 14 else goto 15
-
-
-14:
-	_t33 := #True
-	goto 16
-
-
-15:
-	_t33 := #False
-	goto 16
-
-
-16:
-	_t36 := bor _t32 _t33
-	; Local variable `X`
-	_t37 := addi @FramePointer #i128
-	*_t37 := _t36
-	; Write at (28,3)
-	; Global variable `A`
-	_t38 := *@GlobalPointer
-	; Local variable `Y`
-	_t39 := *@FramePointer
-	_t40 := *_t39
-	_t41 := addi _t38 _t40
-	param _t41
-	call writeInteger, link 17
-
-
-17:
+3:
 	exit
-
-
-

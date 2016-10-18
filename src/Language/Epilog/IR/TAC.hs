@@ -13,6 +13,9 @@ module Language.Epilog.IR.TAC
   , UOp (..)
   , Rel (..)
   , Block (..)
+  , Module (..)
+  , Data (..)
+  , Program (..)
   , Operand (..)
   , Constant (..)
   , Label
@@ -20,11 +23,14 @@ module Language.Epilog.IR.TAC
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
+import           Language.Epilog.Unsafe (encodeIEEEFloat)
 --------------------------------------------------------------------------------
 import           Control.Lens           ((|>))
 import           Data.Char              (toLower)
+import           Data.Graph             (Graph)
 import           Data.Serialize         (Serialize)
 import           GHC.Generics           (Generic)
+import           Numeric                (showHex)
 --------------------------------------------------------------------------------
 
 class Emit a where
@@ -71,13 +77,60 @@ data Block = Block
   deriving (Read, Show, Generic, Serialize)
 
 instance Emit Block where
-  emit Block { lbl, tacs, term } = unlines . ((show lbl <> ":") :) . toList $
-    fmap (("\t" <>) . emit) tacs |> (("\t" <>) . emit) term
+  emit Block { lbl, tacs, term } =
+    (<> "\n") . unlines . ((show lbl <> ":") :) . toList $
+      fmap (("\t" <>) . emit) tacs |> (("\t" <>) . emit) term
+--------------------------------------------------------------------------------
+
+data Module = Module
+  { mName   :: Name
+  , mBlocks :: Seq Block
+  , mGraph  :: Graph }
+  deriving (Read, Show, Generic, Serialize)
+
+instance Emit Module where
+  emit Module { mName, mBlocks {-, mGraph-} } =
+    "; Module " <> mName <> "\n" <> emit mBlocks
+--------------------------------------------------------------------------------
+
+data Data
+  = VarData
+    { dName :: Name
+    , dVar  :: Either Int32 Constant }
+  | StringData
+    { dName   :: Name
+    , dString :: String }
+  deriving (Read, Show, Generic, Serialize)
+
+instance Emit Data where
+  emit = \case
+    VarData { dName, dVar } -> dName <> ": " <> case dVar of
+      Left size -> "space " <> show size
+      Right ctt -> case ctt of
+        BC b -> "byte "   <> if b then "1" else "0"
+        IC i -> "word "   <> show i
+        FC f -> "word 0x" <> (\x -> showHex x "") (encodeIEEEFloat f)
+        CC c -> "byte "   <> show c
+
+    StringData { dName, dString } ->
+      dName <> ": " <> show dString
+--------------------------------------------------------------------------------
+
+data Program = Program
+  { datas   :: Seq Data
+  , modules :: Seq Module }
+
+instance Emit Program where
+  emit Program { datas, modules } =
+    (if null datas then "" else ("\t.data\n" <> emit datas <> "\n")) <>
+    "\t.text\n" <> emit modules
 --------------------------------------------------------------------------------
 
 instance (Emit a, Foldable f) => Emit (f a) where
-  emit = unlines . fmap emit . toList
+  emit = concat . fmap emit . toList
 --------------------------------------------------------------------------------
+
+type Function = String
 
 data TAC
   = Comment String
@@ -96,6 +149,16 @@ data TAC
 
   | Param Operand
   -- ^ For storing procedure parameters
+  | Call Function
+    -- ^ Call a procedure
+  | Operand :<- Function
+  -- ^ Call a procedure, assign the result to the operand
+  | Cleanup Int32
+  -- ^ Cleanup the stack (n bytes) after a function call
+  | Prelude Int32
+  -- ^ Reserve space (n bytes) in the stack
+  | Epilog Int32
+  -- ^ Free space (n bytes) in the stack
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 infix 8 :=, :=#, :#=, :=*, :*=
@@ -109,6 +172,11 @@ instance Emit TAC where
     x :=* a       -> emit x <> " := *" <> emit a
     x :*= a       -> "*" <> emit x <> " := " <> emit a
     Param op      -> "param " <> emit op
+    Call func     -> "call " <> show func
+    x :<- func    -> emit x <> " := call " <> show func
+    Cleanup i     -> "cleanup " <> show i
+    Prelude i     -> "prelude " <> show i
+    Epilog i      -> "epilog "  <> show i
 
 data Operation
   = B  BOp Operand Operand
@@ -151,12 +219,6 @@ data Terminator
     , op1       :: Operand
     , trueDest  :: Label
     , falseDest :: Label }
-  | CallThen
-    { func :: String
-    , ret  :: Label }
-    -- ^ Call a procedure and then return to the given Label
-  | Operand :<- (String, Label)
-  -- ^ Call a procedure, assign the operand, and then return to the given Label
   | Return
     { retVal :: Maybe Operand }
   | Exit
@@ -169,9 +231,7 @@ instance Emit Terminator where
       " else goto " <> show l2
     CondBr rel a b l1 l2 ->
       "if " <> fmap toLower (show rel) <> " " <> emit a <> " " <> emit b <>
-      " goto " <> show l1 <> " else goto " <> show l2
-    CallThen func ret    -> "call " <> func <> ", link " <> show ret
-    op :<- (func, ret)   -> emit op <> " := call " <> func <> ", link " <> show ret
+      " goto " <> show l1 <> "\n\tgoto " <> show l2
     Return op            -> "return" <> maybe "" ((" " <>) . emit) op
     Exit                 -> "exit"
 
@@ -191,7 +251,5 @@ targets = \case
   Br { dest } -> [dest]
   IfBr { trueDest, falseDest } -> [trueDest, falseDest]
   CondBr { trueDest, falseDest } -> [trueDest, falseDest]
-  CallThen { ret } -> [ret]
-  _ :<- (_, ret) -> [ret]
-  Return {} -> [] -- FIXME
+  Return {} -> []
   Exit -> [-1]

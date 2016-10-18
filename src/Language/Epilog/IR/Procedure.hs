@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE NamedFieldPuns   #-}
 {-# LANGUAGE PostfixOperators #-}
 
@@ -10,7 +11,7 @@ import           Language.Epilog.Common
 import           Language.Epilog.IR.Instruction
 import           Language.Epilog.IR.Monad
 import           Language.Epilog.IR.TAC
-import           Language.Epilog.Position
+import           Language.Epilog.Position       hiding (Position (Epilog))
 import           Language.Epilog.SymbolTable
 --------------------------------------------------------------------------------
 import           Control.Lens                   (use, (.=))
@@ -18,19 +19,30 @@ import           Control.Lens                   (use, (.=))
 
 irProcedure :: Procedure -> IRMonad ()
 irProcedure Procedure { procName, procPos {-, procType-}
-                      {-, procParams-}, procDef } =
+                      {-, procParams-}, procDef, procStackSize } =
   case procDef of
     Nothing -> liftIO . putStrLn $ "Epilog native procedure `" <> procName <> "`"
-    Just (insts, scope) -> case procName of
-      "main" -> do
-        g <- use global
-        let smbs = (\(Right x) -> x) . goDownFirst . insertST scope . focus $ g
-        symbols .= smbs
+    Just (insts, scope) -> do
+      g <- use global
+      let smbs = (\(Right x) -> x) . goDownFirst . insertST scope . focus $ g
+      symbols .= smbs
 
-        newLabel >>= (#)
-        addTAC . Comment $ "Main procedure at " <> showP procPos
-        mapM_ irInstruction insts
+      newLabel >>= (#)
+      addTAC . Comment $ "Procedure at " <> showP procPos
+      addTAC $ Prelude procStackSize
 
-        terminate Exit
+      mapM_ irInstruction insts
 
-      _ -> liftIO . putStrLn $ "User-defined procedure `" <> procName <> "`"
+      addTAC $ Epilog procStackSize
+
+      case procName of
+        "main" -> terminate Exit
+        _      -> use currentBlock >>= \case
+          Nothing -> pure ()
+          Just _  -> terminate $ Return Nothing
+
+      closeModule procName
+
+
+        -- case procName of
+        --   "main" -> do

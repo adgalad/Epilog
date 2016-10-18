@@ -53,6 +53,7 @@ irExpression e@Expression { exp' } = case exp' of
               And -> (&&)
               Or  -> (||)
               Xor -> (/=)
+              _ -> internal "badOp"
 
         (C (IC i0), C (IC i1)) -> pure . C . IC $ i0 `op'` i1
           where
@@ -67,6 +68,7 @@ irExpression e@Expression { exp' } = case exp' of
               Times  -> (*)
               IntDiv -> div
               Rem    -> rem
+              _ -> internal "badOp"
 
         (C (FC f0), C (FC f1)) -> pure . C . FC $ f0 `op'` f1
           where
@@ -75,6 +77,7 @@ irExpression e@Expression { exp' } = case exp' of
               Minus    -> (-)
               Times    -> (*)
               FloatDiv -> (/)
+              _ -> internal "badOp"
 
         (C (CC c0), C (CC c1)) -> pure . C . CC $ c0 `op'` c1
           where op' = case op of
@@ -98,17 +101,20 @@ irExpression e@Expression { exp' } = case exp' of
           where
             op' = case op of
               E.Not -> not
+              _ -> internal "badOp"
 
         C (IC i0) -> pure . C . IC $ op' i0
           where
             op' = case op of
               Uminus -> negate
               Bnot -> complement
+              _ -> internal "badOp"
 
         C (FC f0) -> pure . C . FC $ op' f0
           where
             op' = case op of
               Uminus -> negate
+              _ -> internal "badOp"
 
         C (CC c0) -> pure . C . CC $ op' c0
           where
@@ -237,6 +243,7 @@ irBoolean true false e@Expression { exp' } = case exp' of
               GEop -> (>=)
               EQop -> (==)
               NEop -> (/=)
+              _ -> internal "badOp"
 
         (C (IC i0), C (IC i1)) -> terminate . Br $ if i0 `cond` i1 then true else false
           where
@@ -249,6 +256,7 @@ irBoolean true false e@Expression { exp' } = case exp' of
               NEop -> (/=)
               FAop -> \x y -> x `mod` y == 0
               NFop -> \x y -> x `mod` y /= 0
+              _ -> internal "badOp"
 
         (C (FC f0), C (FC f1)) -> terminate . Br $ if f0 `cond` f1 then true else false
           where
@@ -259,6 +267,7 @@ irBoolean true false e@Expression { exp' } = case exp' of
               GEop -> (>=)
               EQop -> (==)
               NEop -> (/=)
+              _ -> internal "badOp"
 
         (C (CC c0), C (CC c1)) -> terminate . Br $ if c0 `cond` c1 then true else false
           where
@@ -269,6 +278,7 @@ irBoolean true false e@Expression { exp' } = case exp' of
               GEop -> (>=)
               EQop -> (==)
               NEop -> (/=)
+              _ -> internal "badOp"
 
         _ -> do
 

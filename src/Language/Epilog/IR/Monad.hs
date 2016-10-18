@@ -19,7 +19,10 @@ module Language.Epilog.IR.Monad
   , addTAC
   , comment
   , terminate
+  , closeModule
   -- * State
+  , dataSegment
+  , modules
   , blocks
   , edges
   , currentBlock
@@ -33,7 +36,7 @@ module Language.Epilog.IR.Monad
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
-import           Language.Epilog.IR.TAC
+import           Language.Epilog.IR.TAC      hiding (modules)
 import           Language.Epilog.SymbolTable (Scope, SymbolTable)
 --------------------------------------------------------------------------------
 import           Control.Lens                (at, makeLenses, use, (%%=), (%=),
@@ -41,7 +44,7 @@ import           Control.Lens                (at, makeLenses, use, (%%=), (%=),
                                               _Just)
 import           Control.Monad.Trans.State   (StateT, evalStateT, execStateT,
                                               runStateT)
-import           Data.Graph                  (Edge)
+import           Data.Graph                  (Edge, buildG)
 import qualified Data.Map                    as Map (empty, lookup)
 import           Data.Sequence               as Seq (empty)
 --------------------------------------------------------------------------------
@@ -49,7 +52,9 @@ import           Data.Sequence               as Seq (empty)
 type IRMonad a = StateT IRState IO a
 
 data IRState = IRState
-  { _blocks         :: Seq (Label, Block)
+  { _dataSegment    :: Seq Data
+  , _modules        :: Seq Module
+  , _blocks         :: Seq (Label, Block)
   , _edges          :: [Edge]
   , _currentBlock   :: Maybe (Label, Seq TAC)
   , _nextBlock      :: [Label]
@@ -58,11 +63,12 @@ data IRState = IRState
   , _registerSupply :: Map String Int
   , _global         :: Scope
   , _symbols        :: SymbolTable }
-  -- , _types          :: Types }
 
 initialIR :: IRState
 initialIR = IRState
-  { _blocks         = Seq.empty
+  { _dataSegment    = Seq.empty
+  , _modules        = Seq.empty
+  , _blocks         = Seq.empty
   , _edges          = []
   , _currentBlock   = Nothing
   , _nextBlock      = []
@@ -71,7 +77,6 @@ initialIR = IRState
   , _registerSupply = Map.empty
   , _global         = undefined
   , _symbols        = undefined }
-  -- , _types          = undefined }
 
 makeLenses ''IRState
 
@@ -119,3 +124,22 @@ terminate term = -- do
       currentBlock .= Nothing
 
       edges %= (fmap (lbl,) (targets term) <>)
+
+closeModule :: Name -> IRMonad ()
+closeModule mName = do
+  use currentBlock >>= \case
+    Just _ -> internal $
+      "attempted to close a module with pending block\n" <> mName
+    Nothing -> do
+      mBlocks <- fmap snd <$> use blocks
+      mEdges <- use edges
+      modules |>= Module
+        { mName
+        , mBlocks
+        , mGraph = buildG (-1, length mBlocks) mEdges }
+
+      dataSegment .= Seq.empty
+      blocks      .= Seq.empty
+      edges       .= []
+      nextBlock   .= []
+      symbols     .= undefined

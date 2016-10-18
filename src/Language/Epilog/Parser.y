@@ -4,7 +4,7 @@
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
-import           Language.Epilog.AST.Program     hiding (types)
+import           Language.Epilog.AST.Program     hiding (types, strings)
 import           Language.Epilog.Type
 import           Language.Epilog.At
 import           Language.Epilog.Lexer
@@ -153,7 +153,8 @@ Program
     : PREPARE OPEN TopDefs CLOSE
     {% Program `fmap` use types
                   <*> use procedures
-                  <*> (defocus `fmap` use symbols) }
+                  <*> (defocus `fmap` use symbols)
+                  <*> use strings }
 
 PREPARE
     : {- lambda -}
