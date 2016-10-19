@@ -206,6 +206,7 @@ stringT = EpStr             0 0
 
 scalar :: Type -> Bool
 scalar Basic{} = True
+scalar Pointer = True
 scalar _       = False
 
 data StructKind = EitherK | RecordK deriving (Eq)
