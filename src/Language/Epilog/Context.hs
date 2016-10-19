@@ -207,7 +207,7 @@ verifyField f@(n :@ p) t = do
 storeProcedure' :: Joy -> Epilog ()
 storeProcedure' Joy { jType = blockType, jInsts } = do
     Just (n :@ p) <- use current
-    t <- use curProcType
+    t@(_ :-> retType)<- use curProcType
 
     scope <- symbols %%= extractScope
     ssize <- head <$> use offset
@@ -222,28 +222,24 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
           , procDef    = Nothing
           , procStackSize = fromIntegral ssize }
 
-      else if blockType `elem` ([ EpVoid, boolT, charT, floatT, intT ] :: [Type]) || ptr blockType
-        then do
-          params <- use parameters
+      else
+        if scalar retType || retType == EpVoid
+          then do
+            params <- use parameters
 
-          procedures . at n ?= Procedure
-            { procName   = n
-            , procPos    = p
-            , procType   = t
-            , procParams = params
-            , procDef    = Just (jInsts, scope)
-            , procStackSize = fromIntegral ssize }
+            procedures . at n ?= Procedure
+              { procName   = n
+              , procPos    = p
+              , procType   = t
+              , procParams = params
+              , procDef    = Just (jInsts, scope)
+              , procStackSize = fromIntegral ssize }
 
-        else do
-          err $ BadReturnType blockType p
+          else err $ BadReturnType retType n p
 
     current .= Nothing
     curProcType .= None
     parameters .= Seq.empty
-
-  where
-    ptr Pointer {} = True
-    ptr _ = False
 
 storeProcedure :: Type -> Epilog ()
 storeProcedure t = do
@@ -267,6 +263,8 @@ checkParam att@(parType :@ _) atn@(parName :@ parPos) = do
   case jType of
     None -> pure j
     _ -> do
+      when (not $ scalar jType) . err $ BadParamType parName jType parPos
+
       parameters |>= Parameter
         { parName
         , parType

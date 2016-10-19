@@ -46,8 +46,10 @@ irInstruction = \case
 
     (next #)
 
-  For { instP {-, forVar, forRanges-} } -> -- TODO
+  For { instP , forVar, forRanges } -> do
     comment $ "For at " <> showP instP
+
+    irRange forVar $ toList forRanges
 
   While { instP, whileGuards } -> do
     comment $ "While at " <> showP instP
@@ -149,3 +151,42 @@ irGuards final ((guardP, cond, insts):gs) = do
     _  -> do
       (false #)
       irGuards final gs
+
+irRange :: Name -> [Range] -> IRMonad ()
+irRange _  [] = pure ()
+irRange var ((_, low, high, insts):rs) = do
+  lOp <- irExpression low
+  hOp <- irExpression high
+
+  addTAC $ R var := Id lOp
+
+  gHeader <- newLabel
+  gBody   <- newLabel
+  next    <- newLabel
+  terminate $ Br gHeader
+
+  (gHeader #)
+  terminate $ CondBr LEF (R var) hOp gBody next
+
+  (gBody #)
+  mapM_ irInstruction insts
+  let 
+    plusOne = case expType low of 
+      Basic { atom } | atom == EpCharacter -> C $ CC 1
+                     | atom == EpInteger   -> C $ IC 1
+      _ -> internal "bad type in for bounds"
+
+  addTAC $ R var := B AddI (R var) plusOne
+
+
+  terminate $ Br gHeader
+
+  (next #)
+  irRange var rs
+
+  
+
+
+
+
+
