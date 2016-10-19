@@ -43,10 +43,11 @@ data Procedure
   deriving (Eq)
 
 instance Treelike Procedure where
-  toTree Procedure { procName, procPos, procType, procParams, procDef } =
+  toTree Procedure { procName, procPos, procType, procParams, procDef, procStackSize } =
     Node ("`" <> procName <> "`") $
       leaf ("Declared " <> show procPos) :
       leaf ("Type: " <> show procType) :
+      leaf ("Stack Size: " <> show procStackSize) :
       Node "Parameters" (toForest procParams) :
       case procDef of
         Nothing -> []

@@ -16,7 +16,6 @@ import           Language.Epilog.Position
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                    (use, (%=))
-import           Control.Monad                   (void)
 --------------------------------------------------------------------------------
 
 irInstruction :: Instruction -> IRMonad ()
@@ -48,8 +47,8 @@ irInstruction = \case
 
   For { instP , forVar, forRanges } -> do
     comment $ "For at " <> showP instP
-
-    irRange forVar $ toList forRanges
+    iterator <- irLval forVar
+    irRange iterator $ toList forRanges
 
   While { instP, whileGuards } -> do
     comment $ "While at " <> showP instP
@@ -122,10 +121,21 @@ irInstruction = \case
 
   Answer { instP, answerVal } -> do
     comment $ "Answer at " <> showP instP
-    void $ irExpression answerVal
+    t0 <- irExpression answerVal
 
-  Finish { instP } ->
+    use retTemp >>= \case
+      Nothing -> internal "nowhere to answer"
+      Just t1 -> addTAC $ t1 := Id t0
+
+    use retLabel >>= \case
+      Nothing -> internal "nowhere to return after answer"
+      Just l  -> terminate $ Br l
+
+  Finish { instP } -> do
     comment $ "Finish at " <> showP instP
+    use retLabel >>= \case
+      Nothing -> internal "nowhere to return after finish"
+      Just l  -> terminate $ Br l
 
 irGuards :: Label -> [(Position, Expression, Insts)] -> IRMonad ()
 irGuards _ [] = internal "impossible call to irGuards"
@@ -152,13 +162,13 @@ irGuards final ((guardP, cond, insts):gs) = do
       (false #)
       irGuards final gs
 
-irRange :: Name -> [Range] -> IRMonad ()
-irRange _  [] = pure ()
-irRange var ((_, low, high, insts):rs) = do
+irRange :: Operand -> [Range] -> IRMonad ()
+irRange _ [] = pure ()
+irRange iterator ((_, low, high, insts) : rs) = do
   lOp <- irExpression low
   hOp <- irExpression high
 
-  addTAC $ R var := Id lOp
+  addTAC $ iterator :*= lOp
 
   gHeader <- newLabel
   gBody   <- newLabel
@@ -166,27 +176,25 @@ irRange var ((_, low, high, insts):rs) = do
   terminate $ Br gHeader
 
   (gHeader #)
-  terminate $ CondBr LEF (R var) hOp gBody next
+  t0 <- newTemp
+  addTAC $ t0 :=* iterator
+  terminate $ CondBr LEI t0 hOp gBody next
 
   (gBody #)
   mapM_ irInstruction insts
-  let 
-    plusOne = case expType low of 
+  let
+    one = case expType low of
       Basic { atom } | atom == EpCharacter -> C $ CC 1
                      | atom == EpInteger   -> C $ IC 1
       _ -> internal "bad type in for bounds"
 
-  addTAC $ R var := B AddI (R var) plusOne
-
+  t1 <- newTemp
+  t2 <- newTemp
+  addTAC $ t1 :=* iterator
+  addTAC $ t2 := B AddI t1 one
+  addTAC $ iterator :*= t2
 
   terminate $ Br gHeader
 
   (next #)
-  irRange var rs
-
-  
-
-
-
-
-
+  irRange iterator rs

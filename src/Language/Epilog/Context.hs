@@ -64,15 +64,16 @@ import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                    (at, use, (%%=), (%=), (&),
-                                                  (.=), (?=), (?~), (|>))
+                                                  (.=), (<>=), (?=), (?~), (|>))
 import           Control.Monad.Reader            (asks)
 import           Data.Foldable                   (elem)
-import           Data.List                       (find, uncons)
+import           Data.List                       (find)
 import qualified Data.Map                        as Map (insert, lookup, size)
 import           Data.Sequence                   (ViewL ((:<)))
 import qualified Data.Sequence                   as Seq (ViewL (EmptyL), empty,
                                                          singleton, viewl,
                                                          zipWith)
+import           Data.Semigroup                  (Max (..))
 import           Prelude                         hiding (Either, elem, lookup)
 --------------------------------------------------------------------------------
 
@@ -210,7 +211,7 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
     t@(_ :-> retType)<- use curProcType
 
     scope <- symbols %%= extractScope
-    ssize <- head <$> use offset
+    ssize <- getMax <$> use curStackSize
 
     if blockType == None
       then
@@ -220,7 +221,7 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
           , procType   = t
           , procParams = Seq.empty
           , procDef    = Nothing
-          , procStackSize = fromIntegral ssize }
+          , procStackSize = ssize }
 
       else
         if scalar retType || retType == EpVoid
@@ -233,7 +234,7 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
               , procType   = t
               , procParams = params
               , procDef    = Just (jInsts, scope)
-              , procStackSize = fromIntegral ssize }
+              , procStackSize = ssize }
 
           else err $ BadReturnType retType n p
 
@@ -243,6 +244,7 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
 
 storeProcedure :: Type -> Epilog ()
 storeProcedure t = do
+  curStackSize .= Max 0
   params <- fmap parType <$> use parameters
   curProcType .= params :-> t
 
@@ -270,7 +272,6 @@ checkParam att@(parType :@ _) atn@(parName :@ parPos) = do
         , parType
         , parPos }
       pure j
-
 
 ---- Initialization and Declaration ----
 checkDeclaration :: At Type -> At Name -> Epilog Joy
@@ -301,7 +302,10 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
             , eInitialValue = Nothing
             , eOffset       = padded (alignT t) (head offs)
             , eOperand      = Nothing }
-          offset  %= \(x:xs) -> (padded (alignT t) x + sizeT t : xs)
+          off' <- offset %%= \(x:xs) ->
+            let off' = padded (alignT t) x + sizeT t
+            in (off', off' : xs)
+          curStackSize <>= Max (fromIntegral off')
           pure joy { jPos }
         Just Joy { jType, jExp }
           | jType == None -> pure noJoy { jPos }
@@ -314,8 +318,19 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
               , eInitialValue = jExp
               , eOffset       = padded (alignT t) (head offs)
               , eOperand      = Nothing }
-            offset  %= \(x:xs) -> (padded (alignT t) x + sizeT t : xs)
-            pure joy { jPos }
+            (off, off') <- offset %%= \(x:xs) ->
+              let off' = padded (alignT t) x + sizeT t
+              in ((x, off'), off' : xs)
+            curStackSize <>= Max (fromIntegral off')
+            pure joy { jPos, jInsts = Seq.singleton Assign
+              { instP        = jPos
+              , assignTarget = Lval
+                { lvalType   = t
+                , lval'      = Variable
+                  { lName    = var
+                  , lKind    = Local
+                  , lOffset  = off } }
+              , assignVal    = fromJust jExp }}
           | otherwise    -> do
             err AssignMismatch { amFstT = t, amSndT = jType, amP = jPos}
             pure noJoy { jPos }
@@ -489,18 +504,20 @@ checkGuardCond Joy { jPos, jType } = do
 
 ---- For -------------------------------
 checkFor :: Position -> Joy -> Joy -> Epilog Joy
-checkFor p Joy { jType = itT } Joy { jType = rngsT, jRanges }
+checkFor p Joy { jType = itT, jLval } Joy { jType = rngsT, jRanges }
   | itT == None || rngsT == None = do
     forVars %= tail
     pure noJoy { jPos = p }
-  | otherwise = do
-    (var :@ _, _) <- forVars %%= fromJust . uncons
-    pure joy
-      { jPos = p
-      , jInsts = Seq.singleton For
-        { instP     = p
-        , forVar    = var
-        , forRanges = jRanges } }
+  | otherwise = case jLval of
+    Nothing -> internal "catastrophic for"
+    Just lval -> do
+      forVars %= tail
+      pure joy
+        { jPos = p
+        , jInsts = Seq.singleton For
+          { instP     = p
+          , forVar    = lval
+          , forRanges = jRanges } }
 
 
 -- checkForD :: At Type -> At Name -> Epilog Joy
@@ -524,11 +541,11 @@ checkFor p Joy { jType = itT } Joy { jType = rngsT, jRanges }
 
 checkForV :: At Name -> Epilog Joy
 checkForV var@(n :@ p) = do
-  Joy { jType = t, jPos = pdec } <- checkVariable var
+  Joy { jType = t, jPos = pdec, jLval } <- checkVariable var
   if t `elem` ([intT, charT] :: [Type])
     then do
       forVars %= ((var, t):)
-      pure $ joy { jPos = pdec }
+      pure $ joy { jPos = pdec, jLval }
     else do
       err $ BadForVar n t pdec p
       forVars %= ((var, None):)

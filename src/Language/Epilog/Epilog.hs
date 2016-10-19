@@ -22,7 +22,7 @@ module Language.Epilog.Epilog
     , symbols, strings, pendProcs, types, position, input
     , prevChar, bytes, scanCode, commentDepth, current, curfields
     , curkind, forVars, caseTypes, offset, curProcType, structSize
-    , structAlign, parameters, procedures, parseOK, entryKind
+    , structAlign, parameters, procedures, parseOK, entryKind, curStackSize
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression  (VarKind (..))
@@ -36,6 +36,7 @@ import           Language.Epilog.Type
 import           Control.Lens                    (makeLenses, (.=))
 import           Control.Monad.Trans.RWS.Strict  (RWST, get, gets, modify,
                                                   runRWST)
+import           Data.Semigroup                  (Max (..))
 import           System.IO                       (hPrint, stderr)
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
@@ -96,6 +97,7 @@ data EpilogState = EpilogState
   , _caseTypes    :: [At Type]
   , _offset       :: [Int]
   , _curProcType  :: Type
+  , _curStackSize :: Max Word32
 
   , _procedures   :: Map String Procedure
   , _parameters   :: Params
@@ -127,6 +129,7 @@ initialState inp = EpilogState
   , _caseTypes    = []
   , _offset       = [0]
   , _curProcType  = None
+  , _curStackSize = Max 0
 
   , _procedures   = []
   , _parameters   = []

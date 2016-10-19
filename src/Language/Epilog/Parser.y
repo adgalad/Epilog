@@ -7,6 +7,7 @@ import           Language.Epilog.AST.Instruction
 import           Language.Epilog.AST.Program     hiding (types, strings)
 import           Language.Epilog.Type
 import           Language.Epilog.At
+import           Language.Epilog.Common
 import           Language.Epilog.Lexer
 import           Language.Epilog.Context
 import           Language.Epilog.Epilog
@@ -152,11 +153,15 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
 %% -----------------------------------------------------------------------------
 -- Program -----------------------------
 Program
-    : PREPARE OPEN TopDefs CLOSE
-    {% Program `fmap` use types
-                  <*> use procedures
-                  <*> (defocus `fmap` use symbols)
-                  <*> use strings }
+    : Program1 CLOSE
+    { $1 }
+
+Program1
+  : PREPARE OPEN TopDefs
+  {% Program `fmap` use types
+                <*> use procedures
+                <*> (defocus `fmap` use symbols)
+                <*> use strings }
 
 PREPARE
     : {- lambda -}

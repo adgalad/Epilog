@@ -1,5 +1,7 @@
+integer WWW is 999.
+
 procedure uno () :-
-  integer P,
+  integer P is 8,
   integer Y,
   integer Z.
 
@@ -7,15 +9,23 @@ record a :-
   integer X,
   character C.
 
-procedure dos () -> a :-
-  integer Q.
+procedure dos () -> integer :-
+  integer Q,
+  ^ integer Pointy,
+  make Pointy,
+  Pointy^ is 5,
+  answer 666.
 
 procedure main ()
   :- integer A
-  , for integer i
+  , for A from 1 to 10 -> write A
+    end
+
+
+
   ,  while A > 1 -> write A
                   , A is A - 1
-         ; true  -> read A
+         ; true  -> read WWW
          ; true  -> write dos()
      end
   .

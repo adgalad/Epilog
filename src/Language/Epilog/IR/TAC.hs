@@ -23,14 +23,12 @@ module Language.Epilog.IR.TAC
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
-import           Language.Epilog.Unsafe (encodeIEEEFloat)
 --------------------------------------------------------------------------------
 import           Control.Lens           ((|>))
 import           Data.Char              (toLower)
 import           Data.Graph             (Graph)
 import           Data.Serialize         (Serialize)
 import           GHC.Generics           (Generic)
-import           Numeric                (showHex)
 --------------------------------------------------------------------------------
 
 class Emit a where
@@ -95,8 +93,8 @@ instance Emit Module where
 
 data Data
   = VarData
-    { dName :: Name
-    , dVar  :: Either Int32 Constant }
+    { dName  :: Name
+    , dSpace :: Int32 }
   | StringData
     { dName   :: Name
     , dString :: String }
@@ -104,14 +102,7 @@ data Data
 
 instance Emit Data where
   emit = \case
-    VarData { dName, dVar } -> dName <> ": " <> case dVar of
-      Left size -> "space " <> show size
-      Right ctt -> case ctt of
-        BC b -> "byte "   <> if b then "1" else "0"
-        IC i -> "word "   <> show i
-        FC f -> "word 0x" <> (\x -> showHex x "") (encodeIEEEFloat f)
-        CC c -> "byte "   <> show c
-
+    VarData { dName, dSpace } -> dName <> ": space " <> show dSpace
     StringData { dName, dString } ->
       dName <> ": " <> show dString
 --------------------------------------------------------------------------------

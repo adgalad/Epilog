@@ -54,7 +54,7 @@ data Instruction
   --     }
   | For -- AST built
     { instP     :: Position
-    , forVar    :: Name
+    , forVar    :: Lval
     , forRanges :: Ranges }
   | While -- AST built
     { instP       :: Position
@@ -105,7 +105,7 @@ instance Treelike Instruction where
 
     For p var ranges ->
       Node (unwords ["For", showP p]) $
-        leaf ("Variable " <> var) :
+        Node "Variable" [toTree var] :
         (toList . fmap rangeTree $ ranges)
 
     While p guards ->
