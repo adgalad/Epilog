@@ -65,6 +65,14 @@ data EpilogError
         { bwType :: Type
         , bwP    :: Position
         }
+    | BadMake
+        { bmType :: Type
+        , bmP    :: Position
+        }
+    | BadEkam
+        { beType :: Type
+        , beP    :: Position
+        }
     | BadFinish
         { bfERet  :: Type
         , bfProcP :: Position
@@ -172,6 +180,9 @@ data EpilogError
         { bdT :: Type
         , bdP :: Position
         }
+    | BadReturnType
+        { brtT :: Type
+        , brtP :: Position }
     deriving (Eq)
 
 instance P EpilogError where
@@ -198,6 +209,8 @@ instance P EpilogError where
         BadCall                _ _ _ p -> p
         BadRead                    _ p -> p
         BadWrite                   _ p -> p
+        BadMake                    _ p -> p
+        BadEkam                    _ p -> p
         BadFinish                _ _ p -> p
         BadAnswer              _ _ _ p -> p
         UndefinedType              _ p -> p
@@ -209,6 +222,7 @@ instance P EpilogError where
         BadCaseIntElem           _ _ p -> p
         BadCaseCharElem          _ _ p -> p
         BadDeref                   _ p -> p
+        BadReturnType              _ p -> p
 
 instance Ord EpilogError where
     compare = compare `on` pos
@@ -319,6 +333,16 @@ instance Show EpilogError where
             "`; only booleans, chars, floats, integers and strings " <>
             "can be written"
 
+        BadMake t p ->
+            "Bad make " <> show p <>
+            " attempted to make variable of type `" <> show t <>
+            "`; only pointers can be made"
+
+        BadEkam t p ->
+            "Bad ekam " <> show p <>
+            " attempted to ekam variable of type `" <> show t <>
+            "`; only pointers can be edam"
+
         BadFinish eret procp retp ->
             "Bad finish " <> show retp <>
             ", used finish in a procedure declared as answering `" <>
@@ -372,3 +396,9 @@ instance Show EpilogError where
             "Bad dereference " <> show p <>
             ", attempted to dereference lval of type `" <> show t <>
             "`, but only Pointer types can be dereferenced"
+
+        BadReturnType t p ->
+            "Bad return type " <> show p <>
+            ", attempted to declare a function returning a value of type `" <>
+            show t <> "`, but only basic types or pointer types can be \
+            \returned."

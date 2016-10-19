@@ -152,6 +152,8 @@ epilog :-
     -- IO
     <0> "read"                  { make TokenRead  }
     <0> "write"                 { make TokenWrite }
+    <0> "make"                  { make TokenMake }
+    <0> "ekam"                  { make TokenEkam }
 
     -- Literals
     ---- Bools

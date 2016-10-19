@@ -27,6 +27,8 @@ module Language.Epilog.Context
     , checkRangeLimits
     , checkRanges
     , checkRead
+    , checkMake
+    , checkEkam
     -- , checkSet
     -- , checkSetElems
     -- , checkSets
@@ -63,7 +65,6 @@ import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                    (at, use, (%%=), (%=), (&),
                                                   (.=), (?=), (?~), (|>))
-import           Control.Monad                   (forM_, unless, when)
 import           Control.Monad.Reader            (asks)
 import           Data.Foldable                   (elem)
 import           Data.List                       (find, uncons)
@@ -78,10 +79,7 @@ import           Prelude                         hiding (Either, elem, lookup)
 prepare :: Epilog ()
 prepare = do
     procs <- asks predefinedProcs
-
-    forM_ procs $ \proc @ Entry { eName } ->
-        symbols %= insertSymbol eName proc
-
+    procedures .= procs
     ts <- asks basicTypes
     types .= ts
 
@@ -224,21 +222,28 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
           , procDef    = Nothing
           , procStackSize = fromIntegral ssize }
 
-      else do
-        params <- use parameters
+      else if blockType `elem` ([ EpVoid, boolT, charT, floatT, intT ] :: [Type]) || ptr blockType
+        then do
+          params <- use parameters
 
-        procedures . at n ?= Procedure
-          { procName   = n
-          , procPos    = p
-          , procType   = t
-          , procParams = params
-          , procDef    = Just (jInsts, scope)
-          , procStackSize = fromIntegral ssize }
+          procedures . at n ?= Procedure
+            { procName   = n
+            , procPos    = p
+            , procType   = t
+            , procParams = params
+            , procDef    = Just (jInsts, scope)
+            , procStackSize = fromIntegral ssize }
+
+        else do
+          err $ BadReturnType blockType p
 
     current .= Nothing
     curProcType .= None
     parameters .= Seq.empty
 
+  where
+    ptr Pointer {} = True
+    ptr _ = False
 
 storeProcedure :: Type -> Epilog ()
 storeProcedure t = do
@@ -339,20 +344,23 @@ checkAssign
 ---- Call ------------------------------
 checkCall :: At Name -> Seq Joy -> Epilog Joy
 checkCall (pname :@ callP) js = do
-  symbs <- use symbols
+  procs <- use procedures
   Just (n :@ p) <- use current
   (ets :-> ret) <- use curProcType
   if pname == n
     then compareArgs p ets ret
-    else case pname `lookup` symbs of
-      Right Entry { eType = ets' :-> ret' } ->
+    else case pname `Map.lookup` procs of
+      Just Procedure { procType = ets' :-> ret' } ->
         compareArgs p ets' ret'
 
-      Right _ -> do
+      Just EpiProc { procType = ets' :-> ret' } ->
+        compareArgs p ets' ret'
+
+      Just _ -> do
         err $ UndefinedProcedure pname p
         pure $ noJoy { jPos = p }
 
-      Left _ -> do
+      Nothing -> do
         err $ UndefinedProcedure pname p
         pure $ noJoy { jPos = p }
 
@@ -625,6 +633,38 @@ checkRead p Joy { jType = t, jLval = Just lval } =
 
 checkRead _ _ = error "internal error: non-none read without lval"
 
+---- Make ------------------------------
+checkMake :: Position -> Joy -> Epilog Joy
+checkMake p Joy { jType = None } = pure $ noJoy { jPos = p }
+checkMake p Joy { jType = t, jLval = Just lval } =
+  case t of
+    Pointer {} -> pure $ joy { jPos = p, jInsts = theMake }
+    _ -> do
+      err $ BadMake t p
+      pure $ noJoy { jPos = p }
+  where
+    theMake = Seq.singleton Make
+      { instP      = p
+      , makeTarget = lval }
+
+checkMake _ _ = error "internal error: non-none read without lval"
+
+---- Ekam ------------------------------
+checkEkam :: Position -> Joy -> Epilog Joy
+checkEkam p Joy { jType = None } = pure $ noJoy { jPos = p }
+checkEkam p Joy { jType = t, jLval = Just lval } =
+  if t `elem` ([boolT, charT, intT, floatT] :: [Type])
+    then pure $ joy { jPos = p, jInsts = theEkam }
+    else do
+      err $ BadEkam t p
+      pure $ noJoy { jPos = p }
+  where
+    theEkam = Seq.singleton Ekam
+      { instP      = p
+      , ekamTarget = lval }
+
+checkEkam _ _ = error "internal error: non-none read without lval"
+
 -- Lvals -----------------------------------------------------------------------
 checkVariable :: At Name -> Epilog Joy
 checkVariable (name :@ p) = do
@@ -713,14 +753,14 @@ deref Joy { jType, jPos } = do
 ---- Call Expression -------------------
 expCall :: Joy -> Epilog Joy
 expCall Joy { jType, jPos, jInsts } =
-    pure $ joy { jType, jPos, jExp = theExpCall }
+  pure $ joy { jType, jPos, jExp = theExpCall }
 
-    where
-        theExpCall = Just Expression
-          { expPos = instP
-          , expType = jType
-          , exp' = ECall callName callArgs }
-        ICall { instP, callName, callArgs } :< _ = Seq.viewl jInsts
+  where
+    theExpCall = Just Expression
+      { expPos = instP
+      , expType = jType
+      , exp' = ECall callName callArgs }
+    ICall { instP, callName, callArgs } :< _ = Seq.viewl jInsts
 
 ---- Lval Expression -------------------
 expLval :: Joy -> Epilog Joy

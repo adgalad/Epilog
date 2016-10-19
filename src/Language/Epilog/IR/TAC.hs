@@ -40,11 +40,11 @@ type Label = Int
 --------------------------------------------------------------------------------
 
 data Operand
-  = R String
+  = R Name
   | T Int
   | C Constant
   | FP
-  | GP
+  -- | GP
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 instance Emit Operand where
@@ -53,7 +53,7 @@ instance Emit Operand where
     T i -> "_t" <> show i
     C c -> "#" <> emit c
     FP  -> "@FramePointer"
-    GP  -> "@GlobalPointer"
+    -- GP  -> "@GlobalPointer"
 
 data Constant
   = BC Bool
@@ -122,7 +122,7 @@ data Program = Program
 
 instance Emit Program where
   emit Program { datas, modules } =
-    (if null datas then "" else ("\t.data\n" <> emit datas <> "\n")) <>
+    (if null datas then "" else ("\t.data\n" <> emit datas <> "\n\n")) <>
     "\t.text\n" <> emit modules
 --------------------------------------------------------------------------------
 

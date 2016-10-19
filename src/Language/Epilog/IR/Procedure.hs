@@ -43,6 +43,4 @@ irProcedure Procedure { procName, procPos {-, procType-}
 
       closeModule procName
 
-
-        -- case procName of
-        --   "main" -> do
+irProcedure _ = pure ()

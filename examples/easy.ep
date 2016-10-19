@@ -3,7 +3,7 @@ procedure uno () :-
   integer Y,
   integer Z.
 
-procedure dos () :-
+procedure dos () -> integer :-
   integer Q.
 
 procedure main ()
@@ -11,6 +11,6 @@ procedure main ()
   ,  while A > 1 -> write A
                   , A is A - 1
          ; true  -> read A
-         ; true  -> write 3333
+         ; true  -> write dos()
      end
   .

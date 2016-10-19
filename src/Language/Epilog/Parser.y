@@ -113,6 +113,8 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
     -- IO
     read            { TokenRead  :@ _ }
     write           { TokenWrite :@ _ }
+    make            { TokenMake  :@ _ }
+    ekam            { TokenEkam  :@ _ }
 
     -- Literals
     boolLit         { TokenBoolLit   _ :@ _ }
@@ -313,6 +315,12 @@ Inst
 
     | read Lval
     {% checkRead (pos $1) $2  }
+
+    | make Lval
+    {% checkMake (pos $1) $2  }
+
+    | ekam Lval
+    {% checkEkam (pos $1) $2  }
 
 ------ Declaration and Initialization ----
 Declaration

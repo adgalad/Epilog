@@ -1,19 +1,21 @@
 # TODO
 
- * Poner strings en .data
+ [x] Poner strings en .data
 
- * Return de procedimientos - con y sin valor
+ [ ] Return de procedimientos - con y sin valor
 
- * Verificar en el analizador sintáctico si el tipo de retorno de un procedimiento es escalar o apuntador (también aplica para parámetros)
+ [x] Verificar en el analizador sintáctico si el tipo de retorno de un procedimiento es escalar o apuntador (también aplica para parámetros)
 
- * iteración For (?)
+ [ ] iteración For (?)
 
- * Poner Cleanup en Write/OTRASFUNCIONES
+ [x] Poner Cleanup en Write/OTRASFUNCIONES
 
- * Rehabilitar funciones predefinidas
+ [x] Rehabilitar funciones predefinidas
 
- * Make/Ekam -> Sintaxis (como Read/Write)
+ [x] Make/Ekam -> Sintaxis (como Read/Write)
 
- * Programas de prueba
+ [ ] Programas de prueba
 
- * revisar a fondo while/if, especialmente interacción de ambos
+ [ ] revisar a fondo while/if, especialmente interacción de ambos
+
+ [ ] Prohibir parámetros no-básicos

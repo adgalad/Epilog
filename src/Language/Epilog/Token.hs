@@ -54,7 +54,7 @@ data Token
     | TokenIs
 
     -- IO
-    |  TokenRead | TokenWrite
+    |  TokenRead | TokenWrite | TokenMake | TokenEkam
 
     -- Literals
     | TokenBoolLit   { unTokenBoolLit :: Bool   }
@@ -168,6 +168,8 @@ instance Show Token where
     -- IO
         TokenRead  -> "read"
         TokenWrite -> "write"
+        TokenMake  -> "make"
+        TokenEkam  -> "ekam"
 
     -- Literals
         TokenBoolLit value ->

@@ -65,6 +65,12 @@ data Instruction
   | Write -- AST built
     { instP    :: Position
     , writeVal :: Expression }
+  | Make -- AST built
+    { instP      :: Position
+    , makeTarget :: Lval }
+  | Ekam -- AST built
+    { instP      :: Position
+    , ekamTarget :: Lval }
   | Answer -- AST built
     { instP     :: Position
     , answerVal :: Expression }
@@ -113,6 +119,14 @@ instance Treelike Instruction where
     Write p expr ->
       Node (unwords ["Write", showP p])
         [toTree expr]
+
+    Make p lval ->
+      Node (unwords ["Make", showP p])
+        [toTree lval]
+
+    Ekam p lval ->
+      Node (unwords ["Ekam", showP p])
+        [toTree lval]
 
     Answer p expr ->
       Node (unwords ["Answer", showP p])

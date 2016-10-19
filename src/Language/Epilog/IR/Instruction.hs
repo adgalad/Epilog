@@ -27,9 +27,12 @@ irInstruction = \case
     r <- irLval assignTarget
     addTAC $ r :*= t
 
-  ICall { instP {-, callName, callArgs-} } ->
-    comment $ "Call args at " <> showP instP
-    -- mapM_ irExpression callArgs
+  ICall { instP , callName, callArgs } -> do
+    comment $ "Call at " <> showP instP
+    args <- mapM irExpression callArgs
+    mapM_ (addTAC . Param) args
+    addTAC $ Call callName
+    addTAC . Cleanup . (*4) . fromIntegral . length $ callArgs
 
   If { instP, ifGuards } -> do
     comment $ "If at " <> showP instP
@@ -68,7 +71,7 @@ irInstruction = \case
             EpFloat     -> "readFloat"
             EpInteger   -> "readInteger"
             EpCharacter -> "readChar"
-          _ -> internal "non-printable type"
+          _ -> internal "non-readable type"
 
     t <- newTemp
     addTAC $ t :<- readFunc
@@ -85,12 +88,35 @@ irInstruction = \case
             EpFloat     -> "writeFloat"
             EpInteger   -> "writeInteger"
             EpCharacter -> "writeChar"
+          EpStr _ _     -> "writeStr"
           _ -> internal "non-printable type"
 
     t <- irExpression writeVal
 
     addTAC $ Param t
     addTAC $ Call writeFunc
+    addTAC $ Cleanup 4
+
+  Make { instP, makeTarget } -> do
+    comment $ "Make at " <> showP instP
+
+    t <- newTemp
+    addTAC . Param . C . IC . fromIntegral . sizeT . lvalType $ makeTarget
+    addTAC $ t :<- "_make"
+    addTAC $ Cleanup 4
+
+    r <- irLval makeTarget
+    addTAC $ r :*= t
+
+  Ekam { instP, ekamTarget } -> do
+    comment $ "Ekam at " <> showP instP
+
+    r <- irLval ekamTarget
+    addTAC $ Param r
+    addTAC $ Call "_ekam"
+    addTAC $ Cleanup 4
+
+    addTAC $ r :*= C (IC 0)
 
   Answer { instP, answerVal } -> do
     comment $ "Answer at " <> showP instP

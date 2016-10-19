@@ -13,19 +13,24 @@ module Language.Epilog.Common
   , (<|=)
   , (<|~)
   , liftIO
+  , forM_
+  , unless
+  , when
   , internal
   ) where
 
-import           Data.Foldable   (toList)
-import           Data.Map.Strict (Map)
-import           Data.Int        (Int32)
-import           Data.Word       (Word8, Word32)
-import           Data.Maybe      (fromJust)
+import           Control.Lens              (ASetter, Cons, Snoc, (%=), (%~),
+                                            (<|), (|>))
+import           Control.Monad             (forM_, unless, when)
+import           Control.Monad.IO.Class    (liftIO)
 import           Control.Monad.State.Class (MonadState)
-import           Control.Monad.IO.Class (liftIO)
-import           Data.Semigroup  (Semigroup (..))
-import           Data.Sequence   (Seq)
-import           Control.Lens    (ASetter, (%=), (|>), (%~), Snoc, Cons, (<|))
+import           Data.Foldable             (toList)
+import           Data.Int                  (Int32)
+import           Data.Map.Strict           (Map)
+import           Data.Maybe                (fromJust)
+import           Data.Semigroup            (Semigroup (..))
+import           Data.Sequence             (Seq)
+import           Data.Word                 (Word32, Word8)
 
 type Name = String
 

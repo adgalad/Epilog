@@ -15,7 +15,6 @@ import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens                (makeLenses, (.~), (^.))
-import           Control.Monad               (forM_, unless, when)
 import qualified Data.Map                    as Map
 import           System.Console.GetOpt       (ArgDescr (..), ArgOrder (..),
                                               OptDescr (..), getOpt, usageInfo)

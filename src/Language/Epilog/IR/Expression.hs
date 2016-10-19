@@ -10,7 +10,7 @@ module Language.Epilog.IR.Expression
   , irLval
   ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.AST.Expression hiding (Not, VarKind)
+import           Language.Epilog.AST.Expression hiding (Not, VarKind(..))
 import qualified Language.Epilog.AST.Expression as E (UnaryOp (Not))
 import qualified Language.Epilog.AST.Expression as K (VarKind (..))
 import           Language.Epilog.Common
@@ -28,15 +28,20 @@ irExpression e@Expression { exp' } = case exp' of
   LitInt   i -> pure . C . IC $ i
   LitFloat f -> pure . C . FC $ f
 
-  LitString _str -> internal "String literals are not implemented yet."
+  LitString idx -> pure $ R ("_str" <> show idx)
 
-  Rval rval -> irRval rval-- do
-    -- r <- irLval lval
-    -- t <- newTemp
-    -- addTAC $ t :=* r
-    -- pure t
---
-  ECall _procName _args -> internal "Procedure calls are not implemented yet."
+  Rval rval -> irRval rval
+
+  ECall callName callArgs -> do
+    args <- mapM irExpression callArgs
+    mapM_ (addTAC . Param) args
+
+    t <- newTemp
+    addTAC $ t :<- callName
+
+    addTAC . Cleanup . (*4) . fromIntegral . length $ callArgs
+
+    pure t
 
   Binary op exp0 exp1 -> if
     | op `elem` [Andalso, Orelse, LTop, LEop, GTop, GEop, EQop, NEop, FAop, NFop] ->
@@ -91,7 +96,7 @@ irExpression e@Expression { exp' } = case exp' of
           pure result
 
   Unary op exp0 -> if
-    | op == E.Not -> wrapBoolean e -- do
+    | op == E.Not -> wrapBoolean e 
 
     | otherwise -> do
       operand0 <- irExpression exp0
@@ -337,14 +342,14 @@ irLval Lval { lvalType, lval' } = case lval' of
   Variable name k offset -> do
     comment $ show k <> " variable `" <> name <> "`"
     case k of
-      Global ->  do
-        if offset == 0
-          then pure GP
-          else do
-            t <- newTemp
-            addTAC $ t := B AddI GP base
-            pure t
-      Local -> do
+      K.Global -> pure $ R name
+        -- if offset == 0
+        --   then pure GP
+        --   else do
+        --     t <- newTemp
+        --     addTAC $ t := B AddI GP base
+        --     pure t
+      K.Local -> do
         if offset == 0
           then pure FP
           else do
@@ -393,17 +398,17 @@ irRval Lval { lvalType, lval' } = case lval' of
   Variable name k offset -> do
     comment $ show k <> " variable `" <> name <> "`"
     case k of
-      Global ->  do
-        if offset == 0
-          then do
-            t <- newTemp
-            addTAC $ t :=* GP
-            pure t
-          else do
-            t <- newTemp
-            addTAC $ t :=# (offset', GP)
-            pure t
-      Local -> do
+      K.Global -> pure $ R name
+        -- if offset == 0
+        --   then do
+        --     t <- newTemp
+        --     addTAC $ t :=* GP
+        --     pure t
+        --   else do
+        --     t <- newTemp
+        --     addTAC $ t :=# (offset', GP)
+        --     pure t
+      K.Local -> do
         if offset == 0
           then do
             t <- newTemp

@@ -26,16 +26,20 @@ data Parameter = Parameter
 
 instance Treelike Parameter where
   toTree Parameter { parPos, parType, parName } =
-      Node (unwords [parName, showP parPos]) [toTree parType]
+    Node (unwords [parName, showP parPos]) [toTree parType]
 --------------------------------------------------------------------------------
 
-data Procedure = Procedure
-  { procName      :: Name
-  , procPos       :: Position
-  , procType      :: Type
-  , procParams    :: Params
-  , procDef       :: Maybe (Insts, Scope)
-  , procStackSize :: Int32 }
+data Procedure
+  = Procedure
+    { procName      :: Name
+    , procPos       :: Position
+    , procType      :: Type
+    , procParams    :: Params
+    , procDef       :: Maybe (Insts, Scope)
+    , procStackSize :: Word32 }
+  | EpiProc
+    { procName      :: Name
+    , procType      :: Type }
   deriving (Eq)
 
 instance Treelike Procedure where
@@ -49,3 +53,6 @@ instance Treelike Procedure where
         Just (insts, scope) ->
           [ Node "Scope" [toTree scope]
           , Node "Insts" [toTree insts] ]
+  toTree EpiProc { procName, procType } =
+    Node ("Native procedure `" <> procName <> "`")
+      [leaf ("Type: " <> show procType)]

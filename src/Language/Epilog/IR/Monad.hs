@@ -96,14 +96,12 @@ newRegister name = registerSupply %%= \supply -> case name `Map.lookup` supply o
 
 (#) :: Label -> IRMonad ()
 (#) label = -- do
-  -- liftIO . putStrLn . (<> ":") . show $ label
   use currentBlock >>= \case
     Nothing -> currentBlock .= Just (label, Seq.empty)
     Just cb -> internal $ "unterminated block \n" <> show cb
 
 addTAC :: TAC -> IRMonad ()
 addTAC tac = -- do
-  -- liftIO . putStrLn . ("\t" <>) . emit $ tac
   currentBlock %= \case
     Nothing     -> internal "attempted to add instruction without a block"
     cb@(Just _) -> (_Just . _2 |>~ tac) cb
@@ -113,7 +111,6 @@ comment = addTAC . Comment
 
 terminate :: Terminator -> IRMonad ()
 terminate term = -- do
-  -- liftIO . putStrLn . ("\t" <>) . emit $ term
   use currentBlock >>= \case
     Nothing        -> internal $ "attempted to terminate without a block\n" <> emit term
     Just (lbl, tacs) -> do
@@ -138,7 +135,6 @@ closeModule mName = do
         , mBlocks
         , mGraph = buildG (-1, length mBlocks) mEdges }
 
-      dataSegment .= Seq.empty
       blocks      .= Seq.empty
       edges       .= []
       nextBlock   .= []

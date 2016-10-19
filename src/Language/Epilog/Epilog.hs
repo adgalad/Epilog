@@ -46,12 +46,11 @@ type Byte    = Word8
 -- | The configuration of the compiler monad.
 data EpilogConfig = EpilogConfig
   { basicTypes      :: Map Name (Type, Position)
-  , predefinedProcs :: [Entry]
+  , predefinedProcs :: Map String Procedure
   , pointerSize     :: Int
   , pointerAlign    :: Int }
 
 makeLenses ''EpilogConfig
-
 
 mipsConfig :: EpilogConfig
 mipsConfig = EpilogConfig
@@ -67,22 +66,16 @@ mipsConfig = EpilogConfig
       , ("integer"  , ( Basic EpInteger   4 4, Epilog ))
       , ("string"   , ( EpStr             0 1, Epilog ))
       , ("void"     , ( EpVoid               , Epilog )) ]
-    mipsProcs = []
-        -- [ func "toBoolean"
-        --     ([OneOf [        charT, floatT, intT ]] :-> boolT ) Epilog 0
-        -- , func "toCharacter"
-        --     ([OneOf [ boolT,        floatT, intT ]] :-> charT ) Epilog 0
-        -- , func "toFloat"
-        --     ([OneOf [ boolT, charT,         intT ]] :-> floatT) Epilog 0
-        -- , func "toInteger"
-        --     ([OneOf [ boolT, charT, floatT       ]] :-> intT  ) Epilog 0
-        -- , func "length"
-        --     ([Array 0 0 Any 4 0]                    :-> intT  ) Epilog 0
-        -- , func "make"
-        --     ([Pointer Any 0 0]                      :-> EpVoid) Epilog 0
-        -- , func "ekam"
-        --     ([Pointer Any 0 0]                      :-> EpVoid) Epilog 0
-        -- ]
+    mipsProcs =
+      [ ("toBoolean"   , EpiProc "toBoolean"
+        ([OneOf [        charT, floatT, intT ]] :-> boolT ))
+      , ("toCharacter" , EpiProc "toCharacter"
+        ([OneOf [ boolT,        floatT, intT ]] :-> charT ))
+      , ("toFloat"     , EpiProc "toFloat"
+        ([OneOf [ boolT, charT,         intT ]] :-> floatT))
+      , ("toInteger"   , EpiProc "toInteger"
+        ([OneOf [ boolT, charT, floatT       ]] :-> intT  )) ]
+
     mipsPointerSize  = 4
     mipsPointerAlign = 4
 
