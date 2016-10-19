@@ -3,11 +3,16 @@ procedure uno () :-
   integer Y,
   integer Z.
 
-procedure dos () :-
+record a :-
+  integer X,
+  character C.
+
+procedure dos () -> a :-
   integer Q.
 
 procedure main ()
   :- integer A
+  , for integer i 
   ,  while A > 1 -> write A
                   , A is A - 1
          ; true  -> read A

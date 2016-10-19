@@ -209,7 +209,7 @@ verifyField f@(n :@ p) t = do
 storeProcedure' :: Joy -> Epilog ()
 storeProcedure' Joy { jType = blockType, jInsts } = do
     Just (n :@ p) <- use current
-    t <- use curProcType
+    t@(_ :-> retType)<- use curProcType
 
     scope <- symbols %%= extractScope
     ssize <- head <$> use offset
@@ -225,6 +225,9 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
           , procStackSize = fromIntegral ssize }
 
       else do
+        when (not $ scalar retType || retType == EpVoid) . 
+          err $ BadReturnType t n p
+
         params <- use parameters
 
         procedures . at n ?= Procedure
@@ -262,6 +265,8 @@ checkParam att@(parType :@ _) atn@(parName :@ parPos) = do
   case jType of
     None -> pure j
     _ -> do
+      when (not $ scalar jType) . err $ BadParamType parName jType parPos
+
       parameters |>= Parameter
         { parName
         , parType

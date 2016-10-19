@@ -14,6 +14,7 @@ module Language.Epilog.Type
     , intT
     , floatT
     , stringT
+    , scalar
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
@@ -203,6 +204,9 @@ floatT  = Basic EpFloat     0 0
 intT    = Basic EpInteger   0 0
 stringT = EpStr             0 0
 
+scalar :: Type -> Bool
+scalar Basic{} = True
+scalar _       = False
 
 data StructKind = EitherK | RecordK deriving (Eq)
 

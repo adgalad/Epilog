@@ -57,6 +57,16 @@ data EpilogError
         , bcEArgs :: Seq Type
         , bcP     :: Position
         }
+    | BadParamType
+        { bptParamName :: Name
+        , bptParamType :: Type
+        , bptP         :: Position
+        }
+    | BadReturnType
+        { brtType      :: Type
+        , brtProcName  :: Name
+        , brtP         :: Position
+        }
     | BadRead
         { brType :: Type
         , brP    :: Position
@@ -209,6 +219,8 @@ instance P EpilogError where
         BadCaseIntElem           _ _ p -> p
         BadCaseCharElem          _ _ p -> p
         BadDeref                   _ p -> p
+        BadParamType             _ _ p -> p
+        BadReturnType            _ _ p -> p
 
 instance Ord EpilogError where
     compare = compare `on` pos
@@ -307,6 +319,14 @@ instance Show EpilogError where
             "Bad call to procedure " <> show p <> " named `" <>
             name <> "`, expected args of types " <> show (toList expArgs) <>
             ", but instead received " <> show (toList args)
+
+        BadParamType paramName t p ->
+            "Bad parameter type `" <> show p <> "`. Parameter `" <> paramName <>
+            "`has type " <> show t <> " parameter must have an scalar type"
+
+        BadReturnType (_ :-> retType) procName p -> 
+            "Bad return type `" <> show retType <> " " <> show p <> 
+            "in procedure `" <> procName <> "`. Only scalar types can be returned"
 
         BadRead t p ->
             "Bad read " <> show p <>

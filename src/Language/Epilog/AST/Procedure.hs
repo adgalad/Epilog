@@ -35,7 +35,7 @@ data Procedure = Procedure
   , procType      :: Type
   , procParams    :: Params
   , procDef       :: Maybe (Insts, Scope)
-  , procStackSize :: Int32 }
+  , procStackSize :: Word32 }
   deriving (Eq)
 
 instance Treelike Procedure where
