@@ -102,9 +102,9 @@ data Data
 
 instance Emit Data where
   emit = \case
-    VarData { dName, dSpace } -> dName <> ": space " <> show dSpace
+    VarData { dName, dSpace } -> dName <> ": space " <> show dSpace <> "\n"
     StringData { dName, dString } ->
-      dName <> ": " <> show dString
+      dName <> ": " <> show dString <> "\n"
 --------------------------------------------------------------------------------
 
 data Program = Program
@@ -113,7 +113,7 @@ data Program = Program
 
 instance Emit Program where
   emit Program { datas, modules } =
-    (if null datas then "" else ("\t.data\n" <> emit datas <> "\n\n")) <>
+    (if null datas then "" else ("\t.data\n" <> emit datas <> "\n")) <>
     "\t.text\n" <> emit modules
 --------------------------------------------------------------------------------
 
@@ -146,7 +146,7 @@ data TAC
   -- ^ Call a procedure, assign the result to the operand
   | Cleanup Word32
   -- ^ Cleanup the stack (n bytes) after a function call
-  | Prelude Word32
+  | Prolog Word32
   -- ^ Reserve space (n bytes) in the stack
   | Epilog Word32
   -- ^ Free space (n bytes) in the stack
@@ -166,8 +166,8 @@ instance Emit TAC where
     Call func     -> "call " <> show func
     x :<- func    -> emit x <> " := call " <> show func
     Cleanup i     -> "cleanup " <> show i
-    Prelude i     -> "prelude " <> show i
-    Epilog i      -> "epilog "  <> show i
+    Prolog i      -> "prolog " <> show i
+    Epilog i      -> "epilog " <> show i
 
 data Operation
   = B  BOp Operand Operand

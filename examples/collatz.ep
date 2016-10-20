@@ -1,50 +1,17 @@
-procedure collatz (integer X, integer N) :-
-    for X from 1 to 10 -> write X
-    end,
-
-    while true -> write X, N is N + 1
-        ; X = 2 -> write N
-        ; 2 | X -> write X
-        ; 2 !| X -> X is X * 3 + 1
+procedure collatz (integer A, integer B) :-
+    integer N,
+    for N from A to B ->
+        boolean Exit is false,
+        write N, write "\n",
+        integer X is N,
+        while X = 2                -> write "\t", write X, X is 1
+            ; 2 | X                -> write "\t", write X, X is X div 2
+            ; 2 !| X andalso X > 1 -> X is X * 3 + 1
+        end,
+        write "\n"
     end.
 
-%%procedure collatz (integer X, integer N) :-
-%%    while true     -> write X, N is N + 1
-%%        ; X  = 1 -> finish
-%%        ; 2  | X -> X is X div 2
-%%        ; 2 !| X -> X is X * 3 + 1
-%%    end.
-
-record p :-
-    (^integer)[40}{3, 10] Q.
-
 procedure main () :-
-    integer X,
-    integer N,
-    read X,
-%%    collatz(X, N),
-    write N,
-    write "Chau",
-    write "Chau".
-
-/%
-int collatz(int x) {
-    int n = 0;
-    for (;;) {
-        printf("%d", x);
-        if (x == 1)
-            return n;
-        if (x % 2 == 0)
-            x /= 2
-        else
-            x = x*3+1
-    }
-}
-
-int main() {
-    int x, n;
-    scanf(&x);
-    n = collatz(x);
-    printf("%d", n);
-}
-%/
+    integer A, integer B,
+    read A, read B,
+    collatz (A, B).

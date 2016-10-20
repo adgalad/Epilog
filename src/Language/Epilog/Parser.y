@@ -19,6 +19,7 @@ import           Control.Monad.Trans.RWS.Strict (RWS, execRWS, get, gets,
                                                  modify, put, tell)
 import           Control.Monad                  (unless)
 import           Data.Int                       (Int32)
+import           Data.Semigroup                 (Max (..))
 import           Data.Maybe                     (fromJust)
 import           Data.Sequence                  (Seq, ViewL ((:<)), (<|), (><),
                                                  (|>))
@@ -92,6 +93,7 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
 
     -- Procedures
     proc            { TokenProcedure :@ _ }
+    ref             { TokenRef       :@ _ }
     ":-"            { TokenDefine    :@ _ }
     finish          { TokenFinish    :@ _ }
     answer          { TokenAnswer    :@ _ }
@@ -209,17 +211,19 @@ StructKind
 
 Procedure
     : Procedure1 Procedure2 Procedure3
-    {% storeProcedure' $3 }
+    {% storeProcedure' $1 $3 }
 Procedure1
     : proc GenId OPENPARAMS OPENF( "(" ) Params0 ")" CLOSEPARAMS
-    {% current .= Just (item $2 :@ pos $1) }
+    {% do
+      current .= Just (item $2 :@ pos $1)
+      pure $7 }
 Procedure2
     : {- lambda -}
-    {% storeProcedure EpVoid }
+    {% storeProcedure voidT }
     | "->" Type
     {% storeProcedure (item $2) }
 Procedure3
-    : ":-" Insts CLOSE( "." ) CLOSELOCAL
+    : OPENF( ":-" ) Insts CLOSE(CLOSE( "." )) CLOSELOCAL
     { $2 { jPos = pos $3 } }
 
 OPENPARAMS
@@ -228,7 +232,9 @@ OPENPARAMS
 
 CLOSEPARAMS
   : {- lambda -}
-  {% entryKind .= Local }
+  {% do
+    entryKind .= Local
+    getMax `fmap` use curStackSize }
 
 CLOSELOCAL
   : {- lambda -}
@@ -239,6 +245,7 @@ OPENF(TOKEN)
     {% do
         symbols %= openScope (pos $1)
         offset %= (0:)
+        curStackSize .= Max 0
         return $1
     }
 
@@ -278,8 +285,14 @@ Params
     {}
 
 Param
-    : Type VarId
-    {% checkParam $1 $2 }
+    : Mode Type VarId
+    {% checkParam $1 $2 $3 }
+
+Mode
+    : {- lambda -}
+    { ValMode }
+    | ref
+    { RefMode }
 
 Conts
     : Cont
@@ -566,7 +579,7 @@ Exp
         }
     }
 
-    -- | otherwise                  { EpVoid   }
+    -- | otherwise                  { voidT   }
 
     | Lval
     {% expLval $1 }

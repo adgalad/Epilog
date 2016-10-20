@@ -41,9 +41,10 @@ data Instruction
     , assignTarget :: Lval
     , assignVal    :: Expression }
   | ICall -- AST built
-    { instP    :: Position
-    , callName :: Name
-    , callArgs :: Exps }
+    { instP       :: Position
+    , callName    :: Name
+    , callArgs    :: Seq (Either Lval Expression)
+    , callRetType :: Type }
   | If -- AST built
     { instP    :: Position
     , ifGuards :: Guards }
@@ -90,9 +91,9 @@ instance Treelike Instruction where
       Node (unwords ["Assign", showP p])
         [toTree lval, toTree expr]
 
-    ICall p proc args ->
+    ICall p proc args _ ->
       Node (unwords ["Instruction Call", proc, showP p])
-        [Node "Arguments" (toList . fmap toTree $ args)]
+        [Node "Arguments" (toList . fmap (either toTree toTree) $ args)]
 
     If p guards ->
       Node (unwords ["If", showP p])

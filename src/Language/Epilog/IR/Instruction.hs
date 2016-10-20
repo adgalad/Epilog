@@ -16,6 +16,7 @@ import           Language.Epilog.Position
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                    (use, (%=))
+import qualified Data.Sequence                   as Seq (reverse)
 --------------------------------------------------------------------------------
 
 irInstruction :: Instruction -> IRMonad ()
@@ -26,12 +27,13 @@ irInstruction = \case
     r <- irLval assignTarget
     addTAC $ r :*= t
 
-  ICall { instP , callName, callArgs } -> do
+  ICall { instP , callName, callArgs, callRetType } -> do
     comment $ "Call at " <> showP instP
-    args <- mapM irExpression callArgs
-    mapM_ (addTAC . Param) args
+    args <- mapM (either irLval irExpression) callArgs
+    mapM_ (addTAC . Param) (Seq.reverse args)
     addTAC $ Call callName
-    addTAC . Cleanup . (*4) . fromIntegral . length $ callArgs
+    -- addTAC . Cleanup . (*4) . fromIntegral . length $ callArgs
+    addTAC . Cleanup . fromIntegral . sizeT $ callRetType
 
   If { instP, ifGuards } -> do
     comment $ "If at " <> showP instP
@@ -72,6 +74,7 @@ irInstruction = \case
             EpFloat     -> "readFloat"
             EpInteger   -> "readInteger"
             EpCharacter -> "readChar"
+            _           -> internal "non-readable type"
           _ -> internal "non-readable type"
 
     t <- newTemp
@@ -89,6 +92,7 @@ irInstruction = \case
             EpFloat     -> "writeFloat"
             EpInteger   -> "writeInteger"
             EpCharacter -> "writeChar"
+            _           -> internal "non-printable type"
           EpStr _ _     -> "writeStr"
           _ -> internal "non-printable type"
 
@@ -96,7 +100,6 @@ irInstruction = \case
 
     addTAC $ Param t
     addTAC $ Call writeFunc
-    addTAC $ Cleanup 4
 
   Make { instP, makeTarget } -> do
     comment $ "Make at " <> showP instP
@@ -164,7 +167,9 @@ irGuards final ((guardP, cond, insts):gs) = do
 
 irRange :: Operand -> [Range] -> IRMonad ()
 irRange _ [] = pure ()
-irRange iterator ((_, low, high, insts) : rs) = do
+irRange iterator ((rangeP, low, high, insts) : rs) = do
+  comment $ "Range at " <> showP rangeP
+
   lOp <- irExpression low
   hOp <- irExpression high
 

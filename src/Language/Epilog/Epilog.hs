@@ -66,16 +66,16 @@ mipsConfig = EpilogConfig
       , ("float"    , ( Basic EpFloat     4 4, Epilog ))
       , ("integer"  , ( Basic EpInteger   4 4, Epilog ))
       , ("string"   , ( EpStr             0 1, Epilog ))
-      , ("void"     , ( EpVoid               , Epilog )) ]
+      , ("void"     , ( Basic EpVoid      0 0, Epilog )) ]
     mipsProcs =
       [ ("toBoolean"   , EpiProc "toBoolean"
-        ([OneOf [        charT, floatT, intT ]] :-> boolT ))
+        ([(ValMode, OneOf [   charT, floatT, intT ])] :-> boolT ))
       , ("toCharacter" , EpiProc "toCharacter"
-        ([OneOf [ boolT,        floatT, intT ]] :-> charT ))
+        ([(ValMode, OneOf [ boolT,   floatT, intT ])] :-> charT ))
       , ("toFloat"     , EpiProc "toFloat"
-        ([OneOf [ boolT, charT,         intT ]] :-> floatT))
+        ([(ValMode, OneOf [ boolT, charT,    intT ])] :-> floatT))
       , ("toInteger"   , EpiProc "toInteger"
-        ([OneOf [ boolT, charT, floatT       ]] :-> intT  )) ]
+        ([(ValMode, OneOf [ boolT, charT, floatT  ])] :-> intT  )) ]
 
     mipsPointerSize  = 4
     mipsPointerAlign = 4

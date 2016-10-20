@@ -23,7 +23,7 @@ import           Data.Sequence            (Seq)
 import           Data.Tree                (flatten)
 import           Data.Word                (Word8)
 --------------------------------------------------------------------------------
-data VarKind = Global | Param | Local deriving (Eq, Ord, Show)
+data VarKind = Global | RefParam | Param | Local deriving (Eq, Ord, Show)
 
 -- Useful synonyms ---------------------
 type Exps = Seq Expression
@@ -47,7 +47,7 @@ data Expression'
 
   | Rval      Lval
 
-  | ECall     Name     Exps
+  | ECall     Name     (Seq (Either Lval Expression))
 
   | Binary    BinaryOp Expression Expression
   | Unary     UnaryOp  Expression
@@ -81,7 +81,7 @@ instance Treelike Expression where
 
     ECall proc args ->
       Node (unwords ["Expression Call", proc])
-        [Node "Arguments" (toList . fmap toTree $ args)]
+        [Node "Arguments" (toList . fmap (either toTree toTree) $ args)]
 
     Binary op exp0 exp1 ->
       Node (unwords [show op]) (toForest [exp0, exp1])
@@ -162,8 +162,8 @@ instance Treelike Lval where
   toTree = aux1 . reverse . aux0
     where
       aux0 Lval { lval' } = case lval' of
-        Variable name _ _ ->
-          [name]
+        Variable { lName, lKind } ->
+          [lName <> "<" <> show lKind <> ">"]
         Member lval member _ ->
           ('_': member) : aux0 lval
         Index lval index ->

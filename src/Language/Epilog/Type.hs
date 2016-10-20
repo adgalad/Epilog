@@ -4,6 +4,7 @@
 module Language.Epilog.Type
     ( Atom (..)
     , Type (..)
+    , Mode (..)
     , Types
     , StructKind (..)
     , toCons
@@ -14,6 +15,7 @@ module Language.Epilog.Type
     , intT
     , floatT
     , stringT
+    , voidT
     , scalar
     ) where
 --------------------------------------------------------------------------------
@@ -35,6 +37,7 @@ data Atom
     | EpCharacter
     | EpInteger
     | EpFloat
+    | EpVoid
     deriving (Eq)
 
 
@@ -44,11 +47,21 @@ instance Show Atom where
         EpCharacter -> "character"
         EpInteger   -> "integer"
         EpFloat     -> "float"
+        EpVoid      -> "void"
 
 
 instance Treelike Atom where
     toTree = leaf . show
 
+data Mode
+    = RefMode
+    | ValMode
+    deriving (Eq)
+
+instance Show Mode where
+    show = \case
+        RefMode -> "ref"
+        ValMode -> "val"
 
 data Type
     = Basic
@@ -58,7 +71,6 @@ data Type
     | EpStr
         { sizeT  :: !Int
         , alignT :: !Int }
-    | EpVoid
     | Array
         { low    :: Int32
         , high   :: Int32
@@ -76,7 +88,7 @@ data Type
         , sizeT   :: !Int
         , alignT  :: !Int }
     | (:->)
-        { params  :: Seq Type
+        { params  :: Seq (Mode, Type)
         , returns :: Type }
     | Alias
         { name   :: !Name
@@ -96,8 +108,6 @@ instance Eq Type where
     Basic { atom = a } == Basic { atom = b } =
         a == b
     EpStr _ _ == EpStr _ _ =
-        True
-    EpVoid == EpVoid =
         True
     Array { inner = a } == Array { inner = b } =
         a == b
@@ -127,7 +137,6 @@ instance Show Type where
     show = \case
         Basic   { atom }             -> show atom
         EpStr   {}                   -> "string"
-        EpVoid                       -> "void"
         Pointer { pointed }          -> "pointer to " <> show pointed
         Array   { low, high, inner } ->
             "array [" <> show low <> "," <> show high <> "] of " <> show inner
@@ -155,7 +164,6 @@ instance Treelike Type where
     toTree = \case
         Basic   { atom }             -> leaf . show $ atom
         EpStr   {}                   -> leaf "string"
-        EpVoid                       -> leaf "void"
         Pointer { pointed }          -> Node "pointer to" [ toTree pointed ]
         Array   { low, high, inner } ->
             Node ("array [" <> show low <> "," <> show high <> "] of")
@@ -188,7 +196,8 @@ instance Treelike Type where
                                       , leaf ("Size: "   <> showS (sizeT t))
                                       , leaf ("Offset: " <> show offs)
                                       ] : b
-            toTreePs = Foldable.toList . fmap toTree
+            toTreePs = Foldable.toList . fmap toTreeP
+            toTreeP (m, t) = Node (show m) [toTree t]
 
 
 showS :: (Eq a, Num a, Show a) => a -> String
@@ -197,12 +206,13 @@ showS t = show t <> case t of
     _ -> " bytes"
 
 
-boolT, charT, intT, floatT, stringT :: Type
+boolT, charT, intT, floatT, stringT, voidT :: Type
 boolT   = Basic EpBoolean   0 0
 charT   = Basic EpCharacter 0 0
 floatT  = Basic EpFloat     0 0
 intT    = Basic EpInteger   0 0
 stringT = EpStr             0 0
+voidT   = Basic EpVoid      0 0
 
 scalar :: Type -> Bool
 scalar Basic {}   = True

@@ -7,7 +7,7 @@ module Language.Epilog.Joy
 import           Language.Epilog.AST.Expression  (Expression, Lval)
 import           Language.Epilog.AST.Instruction (Guards, Insts, Ranges)
 import           Language.Epilog.Position        (Position (..))
-import           Language.Epilog.Type            (Type (..))
+import           Language.Epilog.Type            (Type (..), voidT)
 --------------------------------------------------------------------------------
 import           Data.Sequence                   as Seq (empty)
 --------------------------------------------------------------------------------
@@ -26,7 +26,7 @@ data Joy = Joy
 joy :: Joy
 joy = Joy
   { jPos    = Code
-  , jType   = EpVoid
+  , jType   = voidT
   , jInsts  = Seq.empty
   , jExp    = Nothing
   , jExp'   = Nothing

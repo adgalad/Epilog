@@ -1,0 +1,155 @@
+	.text
+; Module _entry
+1:
+	call "main"
+	exit
+
+; Module lcd
+3:
+	; Procedure at (6,1)
+	prolog 4
+	; Write at (7,5)
+	; Lval RefParam variable `P`
+	_t1 := 4[@FramePointer]
+	_t2 := addi _t1 #i4
+	_t3 := *_t2
+	param _t3
+	call "writeChar"
+	; If at (9,5)
+	; Guard at (9,10)
+	; Rval Param variable `A`
+	_t4 := 8[@FramePointer]
+	; Rval RefParam variable `B`
+	_t5 := 12[@FramePointer]
+	_t6 := *_t5
+	if gti _t4 _t6 goto 5
+	goto 6
+
+5:
+	; Assignment at (9,17)
+	; Rval Param variable `A`
+	_t7 := 8[@FramePointer]
+	; Rval RefParam variable `B`
+	_t8 := 12[@FramePointer]
+	_t9 := *_t8
+	_t10 := subi _t7 _t9
+	; Lval Local variable `X`
+	*@FramePointer := _t10
+	; Answer at (9,27)
+	; Lval RefParam variable `P`
+	_t11 := 4[@FramePointer]
+	; Rval Local variable `X`
+	_t12 := *@FramePointer
+	; Lval RefParam variable `B`
+	_t13 := 12[@FramePointer]
+	param _t13
+	param _t12
+	param _t11
+	_t14 := call "lcd"
+	cleanup 4
+	_t0 := _t14
+	goto 2
+
+6:
+	; Guard at (10,10)
+	; Rval Param variable `A`
+	_t15 := 8[@FramePointer]
+	; Rval RefParam variable `B`
+	_t16 := 12[@FramePointer]
+	_t17 := *_t16
+	if lti _t15 _t17 goto 7
+	goto 8
+
+7:
+	; Assignment at (10,17)
+	; Rval RefParam variable `B`
+	_t18 := 12[@FramePointer]
+	_t19 := *_t18
+	; Rval Param variable `A`
+	_t20 := 8[@FramePointer]
+	_t21 := subi _t19 _t20
+	; Lval Local variable `X`
+	*@FramePointer := _t21
+	; Answer at (10,27)
+	; Lval RefParam variable `P`
+	_t22 := 4[@FramePointer]
+	; Rval Param variable `A`
+	_t23 := 8[@FramePointer]
+	; Lval Local variable `X`
+	param @FramePointer
+	param _t23
+	param _t22
+	_t24 := call "lcd"
+	cleanup 4
+	_t0 := _t24
+	goto 2
+
+8:
+	; Guard at (11,10)
+	; Rval Param variable `A`
+	_t25 := 8[@FramePointer]
+	; Rval RefParam variable `B`
+	_t26 := 12[@FramePointer]
+	_t27 := *_t26
+	if eqi _t25 _t27 goto 9
+	goto 4
+
+9:
+	; Answer at (11,17)
+	; Rval Param variable `A`
+	_t28 := 8[@FramePointer]
+	_t0 := _t28
+	goto 2
+
+4:
+	_t0 := #i0
+	goto 2
+
+2:
+	; Epilog for procedure lcd
+	epilog 16
+	return _t0
+
+; Module main
+11:
+	; Procedure at (14,1)
+	prolog 20
+	; Read at (17,5)
+	_t29 := call "readInteger"
+	; Lval Local variable `X`
+	_t30 := addi @FramePointer #i-12
+	*_t30 := _t29
+	; Write at (17,13)
+	; Rval Local variable `X`
+	_t31 := -12[@FramePointer]
+	param _t31
+	call "writeInteger"
+	; Read at (18,5)
+	_t32 := call "readInteger"
+	; Lval Local variable `Y`
+	_t33 := addi @FramePointer #i-16
+	*_t33 := _t32
+	; Write at (18,13)
+	; Rval Local variable `Y`
+	_t34 := -16[@FramePointer]
+	param _t34
+	call "writeInteger"
+	; Write at (19,5)
+	; Lval Local variable `Q`
+	; Rval Local variable `X`
+	_t35 := -12[@FramePointer]
+	; Lval Local variable `Y`
+	_t36 := addi @FramePointer #i-16
+	param _t36
+	param _t35
+	param @FramePointer
+	_t37 := call "lcd"
+	cleanup 4
+	param _t37
+	call "writeInteger"
+	goto 10
+
+10:
+	; Epilog for procedure main
+	epilog 20
+	return

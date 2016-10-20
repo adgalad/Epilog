@@ -54,7 +54,7 @@ data EpilogError
     | BadCall
         { bcName  :: Name
         , bcArgs  :: Seq Type
-        , bcEArgs :: Seq Type
+        , bcEArgs :: Seq (Mode, Type)
         , bcP     :: Position
         }
     | BadParamType
@@ -332,7 +332,8 @@ instance Show EpilogError where
 
         BadParamType paramName t p ->
             "Bad parameter type " <> show p <> ". Parameter `" <> paramName <>
-            "`has type " <> show t <> " parameter must have an scalar type"
+            "`has type " <> show t <> ", but it must have a scalar type\
+            \ unless declared as `ref` parameter"
 
         BadReturnType retType procName p ->
             "Bad return type `" <> show retType <> "` " <> show p <>
@@ -368,7 +369,7 @@ instance Show EpilogError where
             "Bad answer " <> show retp <>
             ", attempted to answer with an expression of type `" <>
             show aret <>
-            "` in a procedure declared " <> (if eret == EpVoid
+            "` in a procedure declared " <> (if eret == voidT
                 then "without an answer type"
                 else "as answering `" <> show eret <> "`"
             ) <> " " <> show procp

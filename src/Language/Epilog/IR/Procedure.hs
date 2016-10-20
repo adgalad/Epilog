@@ -13,14 +13,14 @@ import           Language.Epilog.IR.Monad
 import           Language.Epilog.IR.TAC
 import           Language.Epilog.Position       hiding (Position (Epilog))
 import           Language.Epilog.SymbolTable
-import           Language.Epilog.Type           (Type (..), Atom (..))
+import           Language.Epilog.Type           (Type (..), Atom (..), voidT)
 --------------------------------------------------------------------------------
 import           Control.Lens                   (use, (.=), (<~))
 --------------------------------------------------------------------------------
 
 irProcedure :: Procedure -> IRMonad ()
 irProcedure Procedure { procName, procPos, procType = _ :-> retType
-                      {-, procParams-}, procDef, procStackSize } =
+                      {-, procParams-}, procDef, procStackSize, procParamsSize } =
   case procDef of
     Nothing -> liftIO . putStrLn $ "Epilog native procedure `" <> procName <> "`"
     Just (insts, scope) -> do
@@ -29,12 +29,12 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
       symbols .= smbs
 
       retLabel <~ Just <$> newLabel
-      when (retType /= EpVoid) $
+      when (retType /= voidT) $
         retTemp <~ Just <$> newTemp
 
       newLabel >>= (#)
       addTAC . Comment $ "Procedure at " <> showP procPos
-      addTAC $ Prelude procStackSize
+      addTAC $ Prolog procStackSize
 
       mapM_ irInstruction insts
 
@@ -50,6 +50,7 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
                   EpBoolean    -> C (BC False)
                   EpFloat      -> C (FC 0.0)
                   EpCharacter  -> C (CC 0)
+                  _ -> internal $ "bad return type " <> show t
                 Pointer {}     -> C (IC 0)
                 _ -> internal $ "bad return type " <> show t
           use retLabel >>= \case
@@ -59,7 +60,8 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
       use retLabel >>= \case
         Nothing  -> internal "no return label"
         Just lbl -> (lbl #)
-      addTAC $ Epilog procStackSize
+      addTAC . Comment $ "Epilog for procedure " <> procName
+      addTAC $ Epilog (procStackSize + procParamsSize)
       use retTemp >>= terminate . Return
 
       retLabel .= Nothing

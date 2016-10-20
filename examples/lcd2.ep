@@ -1,0 +1,19 @@
+record person :-
+  integer Cedula,
+  character NameInitial,
+  character LastInitial.
+
+procedure lcd (ref person P, integer A, ref integer B) -> integer :-
+    write P_NameInitial,
+    integer X,
+    if A > B -> X is A-B, answer lcd (P, X, B)
+     ; A < B -> X is B-A, answer lcd (P, A, X)
+     ; A = B -> answer A
+    end.
+
+procedure main () :-
+    person Q,
+    integer X, integer Y,
+    read X, write X,
+    read Y, write Y,
+    write lcd (Q, X, Y).

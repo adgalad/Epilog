@@ -21,7 +21,8 @@ type Params = Seq Parameter
 data Parameter = Parameter
   { parName :: Name
   , parType :: Type
-  , parPos  :: Position }
+  , parPos  :: Position
+  , parRef  :: Bool }
   deriving (Eq, Show)
 
 instance Treelike Parameter where
@@ -31,23 +32,25 @@ instance Treelike Parameter where
 
 data Procedure
   = Procedure
-    { procName      :: Name
-    , procPos       :: Position
-    , procType      :: Type
-    , procParams    :: Params
-    , procDef       :: Maybe (Insts, Scope)
-    , procStackSize :: Word32 }
+    { procName       :: Name
+    , procPos        :: Position
+    , procType       :: Type
+    , procParams     :: Params
+    , procDef        :: Maybe (Insts, Scope)
+    , procStackSize  :: Word32
+    , procParamsSize :: Word32}
   | EpiProc
     { procName      :: Name
     , procType      :: Type }
   deriving (Eq)
 
 instance Treelike Procedure where
-  toTree Procedure { procName, procPos, procType, procParams, procDef, procStackSize } =
+  toTree Procedure { procName, procPos, procType, procParams, procDef, procStackSize, procParamsSize } =
     Node ("`" <> procName <> "`") $
       leaf ("Declared " <> show procPos) :
       leaf ("Type: " <> show procType) :
       leaf ("Stack Size: " <> show procStackSize) :
+      leaf ("Params Size: " <> show procParamsSize) :
       Node "Parameters" (toForest procParams) :
       case procDef of
         Nothing -> []

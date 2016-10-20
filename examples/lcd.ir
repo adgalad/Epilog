@@ -1,0 +1,121 @@
+Preprocessing executable 'Epilog' for Epilog-0.1.0.0...
+Running Epilog...
+Generating IR for ../examples/lcd.ep
+	.text
+; Module _entry
+1:
+	call "main"
+	exit
+
+; Module lcd
+3:
+	; Procedure at (1,1)
+	prolog 0
+	; If at (3,5)
+	; Guard at (3,10)
+	; Param variable `A`
+	_t1 := 4[@FramePointer]
+	; Param variable `B`
+	_t2 := 8[@FramePointer]
+	if gti _t1 _t2 goto 5
+	goto 6
+
+5:
+	; Answer at (3,17)
+	; Param variable `A`
+	_t3 := 4[@FramePointer]
+	; Param variable `B`
+	_t4 := 8[@FramePointer]
+	_t5 := subi _t3 _t4
+	; Param variable `B`
+	_t6 := 8[@FramePointer]
+	param _t5
+	param _t6
+	_t7 := call "lcd"
+	cleanup 4
+	_t0 := _t7
+	goto 2
+
+6:
+	; Guard at (4,10)
+	; Param variable `A`
+	_t8 := 4[@FramePointer]
+	; Param variable `B`
+	_t9 := 8[@FramePointer]
+	if lti _t8 _t9 goto 7
+	goto 8
+
+7:
+	; Answer at (4,17)
+	; Param variable `A`
+	_t10 := 4[@FramePointer]
+	; Param variable `B`
+	_t11 := 8[@FramePointer]
+	; Param variable `A`
+	_t12 := 4[@FramePointer]
+	_t13 := subi _t11 _t12
+	param _t10
+	param _t13
+	_t14 := call "lcd"
+	cleanup 4
+	_t0 := _t14
+	goto 2
+
+8:
+	; Guard at (5,10)
+	; Param variable `A`
+	_t15 := 4[@FramePointer]
+	; Param variable `B`
+	_t16 := 8[@FramePointer]
+	if eqi _t15 _t16 goto 9
+	goto 4
+
+9:
+	; Answer at (5,17)
+	; Param variable `A`
+	_t17 := 4[@FramePointer]
+	_t0 := _t17
+	goto 2
+
+4:
+	_t0 := #i0
+	goto 2
+
+2:
+	; Epilog for procedure lcd
+	epilog 8
+	return _t0
+
+; Module main
+11:
+	; Procedure at (8,1)
+	prolog 8
+	; Read at (10,5)
+	_t18 := call "readInteger"
+	; Local variable `X`
+	*@FramePointer := _t18
+	; Read at (11,5)
+	_t19 := call "readInteger"
+	; Local variable `Y`
+	_t20 := addi @FramePointer #i-4
+	*_t20 := _t19
+	; Write at (12,5)
+	; Local variable `X`
+	_t21 := *@FramePointer
+	; Local variable `Y`
+	_t22 := -8[@FramePointer]
+	param _t21
+	param _t22
+	_t23 := call "lcd"
+	cleanup 4
+	param _t23
+	call "writeInteger"
+	cleanup 4
+	goto 10
+
+10:
+	; Epilog for procedure main
+	epilog 8
+	return
+
+

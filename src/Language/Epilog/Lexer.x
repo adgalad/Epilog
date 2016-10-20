@@ -127,6 +127,7 @@ epilog :-
 
     -- Procedures
     <0> "procedure"             { make TokenProcedure }
+    <0> "ref"                   { make TokenRef       }
     <0> ":-"                    { make TokenDefine    }
     <0> "finish"                { make TokenFinish    }
     <0> "answer"                { make TokenAnswer    }

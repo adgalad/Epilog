@@ -13,6 +13,7 @@ module Language.Epilog.Common
   , (<|=)
   , (<|~)
   , liftIO
+  , foldM
   , forM_
   , unless
   , when
@@ -21,7 +22,7 @@ module Language.Epilog.Common
 
 import           Control.Lens              (ASetter, Cons, Snoc, (%=), (%~),
                                             (<|), (|>))
-import           Control.Monad             (forM_, unless, when)
+import           Control.Monad             (foldM, forM_, unless, when)
 import           Control.Monad.IO.Class    (liftIO)
 import           Control.Monad.State.Class (MonadState)
 import           Data.Foldable             (toList)

@@ -18,7 +18,9 @@ import           Language.Epilog.IR.Monad
 import           Language.Epilog.IR.TAC
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import Data.Bits ((.&.), (.|.), shiftR, shiftL, xor, complement)
+import           Data.Bits                      ((.&.), (.|.), shiftR, shiftL,
+                                                 xor, complement)
+import qualified Data.Sequence                  as Seq (reverse)
 --------------------------------------------------------------------------------
 
 irExpression :: Expression -> IRMonad Operand
@@ -33,13 +35,13 @@ irExpression e@Expression { exp' } = case exp' of
   Rval rval -> irRval rval
 
   ECall callName callArgs -> do
-    args <- mapM irExpression callArgs
-    mapM_ (addTAC . Param) args
+    args <- mapM (either irLval irExpression) callArgs
+    mapM_ (addTAC . Param) (Seq.reverse args)
 
     t <- newTemp
     addTAC $ t :<- callName
 
-    addTAC . Cleanup . (*4) . fromIntegral . length $ callArgs
+    addTAC $ Cleanup 4
 
     pure t
 
@@ -96,7 +98,7 @@ irExpression e@Expression { exp' } = case exp' of
           pure result
 
   Unary op exp0 -> if
-    | op == E.Not -> wrapBoolean e 
+    | op == E.Not -> wrapBoolean e
 
     | otherwise -> do
       operand0 <- irExpression exp0
@@ -340,29 +342,30 @@ toIRRel atom = \case
 irLval :: Lval -> IRMonad Operand
 irLval Lval { lvalType, lval' } = case lval' of
   Variable name k offset -> do
-    comment $ show k <> " variable `" <> name <> "`"
+    comment $ "Lval " <> show k <> " variable `" <> name <> "`"
     case k of
       K.Global -> pure $ R name
-        -- if offset == 0
-        --   then pure GP
-        --   else do
-        --     t <- newTemp
-        --     addTAC $ t := B AddI GP base
-        --     pure t
       K.Local -> do
         if offset == 0
           then pure FP
           else do
             t <- newTemp
-            addTAC $ t := B AddI FP base
+            addTAC $ t := B AddI FP negBase
             pure t
       K.Param -> do
         t <- newTemp
-        addTAC $ t := B AddI FP negBase
+        addTAC $ t := B AddI FP base
+        pure t
+      K.RefParam -> do
+        t <- newTemp
+        addTAC $ t :=# (offset', FP)
         pure t
     where
-      base = C . IC . fromIntegral $ offset
-      negBase = C . IC . fromIntegral . negate $ offset + (sizeT lvalType)
+      offset' = fromIntegral $ offset + (case k of
+        K.RefParam -> 4
+        _ -> sizeT lvalType)
+      base = C . IC $ offset'
+      negBase = C . IC . fromIntegral . negate $ offset
 
   Member lval _name offset -> do
     r <- irLval lval
@@ -396,18 +399,9 @@ irLval Lval { lvalType, lval' } = case lval' of
 irRval :: Lval -> IRMonad Operand
 irRval Lval { lvalType, lval' } = case lval' of
   Variable name k offset -> do
-    comment $ show k <> " variable `" <> name <> "`"
+    comment $ "Rval " <> show k <> " variable `" <> name <> "`"
     case k of
       K.Global -> pure $ R name
-        -- if offset == 0
-        --   then do
-        --     t <- newTemp
-        --     addTAC $ t :=* GP
-        --     pure t
-        --   else do
-        --     t <- newTemp
-        --     addTAC $ t :=# (offset', GP)
-        --     pure t
       K.Local -> do
         if offset == 0
           then do
@@ -416,15 +410,21 @@ irRval Lval { lvalType, lval' } = case lval' of
             pure t
           else do
             t <- newTemp
-            addTAC $ t :=# (offset', FP)
+            addTAC $ t :=# (negOffset, FP)
             pure t
       K.Param -> do
         t <- newTemp
-        addTAC $ t :=# (negOffset, FP)
+        addTAC $ t :=# (offset', FP)
         pure t
+      K.RefParam -> do
+        t1 <- newTemp
+        t2 <- newTemp
+        addTAC $ t1 :=# (offset', FP)
+        addTAC $ t2 :=* t1
+        pure t2
     where
-      negOffset = negate $ offset' + (fromIntegral $ sizeT lvalType)
-      offset' = fromIntegral offset
+      negOffset = negate . fromIntegral $ offset
+      offset' = fromIntegral $ offset + (fromIntegral $ sizeT lvalType)
 
   Member lval _name offset -> do
     r <- irLval lval

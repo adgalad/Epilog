@@ -1,0 +1,12 @@
+procedure lcd (integer A, integer B) -> integer :-
+
+    if A > B -> answer lcd (A-B, B)
+     ; A < B -> answer lcd (A, B-A)
+     ; A = B -> answer A
+    end.
+
+procedure main () :-
+    integer X, integer Y,
+    read X,
+    read Y,
+    write lcd (X, Y).

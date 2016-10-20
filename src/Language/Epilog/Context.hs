@@ -3,53 +3,53 @@
 {-# LANGUAGE OverloadedLists #-}
 
 module Language.Epilog.Context
-    ( buildArray
-    , buildPointers
-    , checkAnswer
-    , checkAssign
-    , checkBinOp
-    , checkCall
-    -- , checkCase
-    -- , checkCaseExp
-    -- , checkCharElem
-    , checkDeclaration
-    , checkFor
-    -- , checkForD
-    , checkForV
-    , checkGuard
-    , checkGuardCond
-    , checkGuards
-    , checkIf
-    , checkInitialization
-    -- , checkIntElem
-    , checkParam
-    , checkRange
-    , checkRangeLimits
-    , checkRanges
-    , checkRead
-    , checkMake
-    , checkEkam
-    -- , checkSet
-    -- , checkSetElems
-    -- , checkSets
-    , checkSubindex
-    , checkUnOp
-    , checkVariable
-    , checkWhile
-    , checkWrite
-    , declStruct
-    , deref
-    , expCall
-    , expLval
-    , getField
-    , instructions
-    , lookupType
-    , prepare
-    , storeProcedure
-    , storeProcedure'
-    , string
-    , verifyField
-    ) where
+  ( buildArray
+  , buildPointers
+  , checkAnswer
+  , checkAssign
+  , checkBinOp
+  , checkCall
+  -- , checkCase
+  -- , checkCaseExp
+  -- , checkCharElem
+  , checkDeclaration
+  , checkFor
+  -- , checkForD
+  , checkForV
+  , checkGuard
+  , checkGuardCond
+  , checkGuards
+  , checkIf
+  , checkInitialization
+  -- , checkIntElem
+  , checkParam
+  , checkRange
+  , checkRangeLimits
+  , checkRanges
+  , checkRead
+  , checkMake
+  , checkEkam
+  -- , checkSet
+  -- , checkSetElems
+  -- , checkSets
+  , checkSubindex
+  , checkUnOp
+  , checkVariable
+  , checkWhile
+  , checkWrite
+  , declStruct
+  , deref
+  , expCall
+  , expLval
+  , getField
+  , instructions
+  , lookupType
+  , prepare
+  , storeProcedure
+  , storeProcedure'
+  , string
+  , verifyField
+  ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
 import           Language.Epilog.AST.Instruction
@@ -69,12 +69,12 @@ import           Control.Monad.Reader            (asks)
 import           Data.Foldable                   (elem)
 import           Data.List                       (find)
 import qualified Data.Map                        as Map (insert, lookup, size)
+import           Data.Semigroup                  (Max (..))
 import           Data.Sequence                   (ViewL ((:<)))
 import qualified Data.Sequence                   as Seq (ViewL (EmptyL), empty,
-                                                         singleton, viewl,
-                                                         zipWith)
-import           Data.Semigroup                  (Max (..))
+                                                         singleton, viewl, zip)
 import           Prelude                         hiding (Either, elem, lookup)
+import qualified Prelude                         as P (Either (..))
 --------------------------------------------------------------------------------
 
 prepare :: Epilog ()
@@ -205,8 +205,8 @@ verifyField f@(n :@ p) t = do
 
 
 -- Procedures ------------------------------------------------------------------
-storeProcedure' :: Joy -> Epilog ()
-storeProcedure' Joy { jType = blockType, jInsts } = do
+storeProcedure' :: Word32 -> Joy -> Epilog ()
+storeProcedure' procParamsSize Joy { jType = blockType, jInsts } = do
     Just (n :@ p) <- use current
     t@(_ :-> retType)<- use curProcType
 
@@ -221,10 +221,11 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
           , procType   = t
           , procParams = Seq.empty
           , procDef    = Nothing
-          , procStackSize = ssize }
+          , procStackSize = ssize
+          , procParamsSize }
 
       else
-        if scalar retType || retType == EpVoid
+        if scalar retType || retType == voidT
           then do
             params <- use parameters
 
@@ -234,7 +235,8 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
               , procType   = t
               , procParams = params
               , procDef    = Just (jInsts, scope)
-              , procStackSize = ssize }
+              , procStackSize = ssize
+              , procParamsSize }
 
           else err $ BadReturnType retType n p
 
@@ -244,9 +246,12 @@ storeProcedure' Joy { jType = blockType, jInsts } = do
 
 storeProcedure :: Type -> Epilog ()
 storeProcedure t = do
-  curStackSize .= Max 0
-  params <- fmap parType <$> use parameters
+  params <- fmap aux <$> use parameters
   curProcType .= params :-> t
+
+  where
+    aux Parameter { parType, parRef } =
+      (if parRef then RefMode else ValMode, parType)
 
 
 -- Instructions ----------------------------------------------------------------
@@ -259,19 +264,56 @@ instructions
         else pure $ joy { jPos, jInsts = is <> i }
 
 ---- Parameter -------------------------
-checkParam :: At Type -> At Name -> Epilog Joy
-checkParam att@(parType :@ _) atn@(parName :@ parPos) = do
-  j@Joy { jType } <- checkDeclaration att atn
-  case jType of
-    None -> pure j
-    _ -> do
-      when (not $ scalar jType) . err $ BadParamType parName jType parPos
+checkParam :: Mode -> At Type -> At Name -> Epilog Joy
+checkParam _ (None :@ p) _ =
+  pure $ noJoy { jPos = p }
+checkParam m (parType :@ _) (parName :@ parPos) = do
+  symbs <- use symbols
+  offs  <- use offset
 
+  psize  <- asks pointerSize
+  palign <- asks pointerAlign
+
+  j <- case parName `local` symbs of
+    Right Entry { eType, ePosition } -> do
+      err $ DuplicateDeclaration parName eType ePosition parType parPos
+      pure $ noJoy { jPos = parPos }
+    Left _ -> do
+      symbols %= insertSymbol parName Entry
+        { eName         = parName
+        , eKind         = case m of RefMode -> RefParam; ValMode -> Param
+        , eType         = parType
+        , ePosition     = parPos
+        , eInitialValue = Nothing
+        , eOffset       = case m of
+          RefMode -> padded palign (head offs)
+          ValMode -> padded (alignT parType) (head offs)
+        , eOperand      = Nothing }
+      off' <- offset %%= \(off:xs) ->
+        let
+          off' = case m of
+            RefMode -> padded palign $ padded palign off + psize
+            ValMode -> padded (alignT parType) $ padded (alignT parType) off + sizeT parType
+        in (off', off' : xs)
+      curStackSize <>= Max (fromIntegral off')
+      pure joy { jType = parType, jPos = parPos }
+
+  case m of
+    RefMode ->
       parameters |>= Parameter
         { parName
         , parType
-        , parPos }
-      pure j
+        , parPos
+        , parRef = True }
+    ValMode -> do
+      parameters |>= Parameter
+        { parName
+        , parType
+        , parPos
+        , parRef = False }
+      unless (scalar (jType j)) . err $ BadParamType parName (jType j) parPos
+  pure j
+
 
 ---- Initialization and Declaration ----
 checkDeclaration :: At Type -> At Name -> Epilog Joy
@@ -303,10 +345,11 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
             , eOffset       = padded (alignT t) (head offs)
             , eOperand      = Nothing }
           off' <- offset %%= \(x:xs) ->
-            let off' = padded (alignT t) x + sizeT t
+            let off' = padded (alignT t) $ padded (alignT t) x + sizeT t
             in (off', off' : xs)
           curStackSize <>= Max (fromIntegral off')
-          pure joy { jPos }
+          pure joy { jType = t, jPos }
+
         Just Joy { jType, jExp }
           | jType == None -> pure noJoy { jPos }
           | jType == t    -> do
@@ -319,18 +362,21 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
               , eOffset       = padded (alignT t) (head offs)
               , eOperand      = Nothing }
             (off, off') <- offset %%= \(x:xs) ->
-              let off' = padded (alignT t) x + sizeT t
+              let off' = padded (alignT t) $ padded (alignT t) x + sizeT t
               in ((x, off'), off' : xs)
             curStackSize <>= Max (fromIntegral off')
-            pure joy { jPos, jInsts = Seq.singleton Assign
-              { instP        = jPos
-              , assignTarget = Lval
-                { lvalType   = t
-                , lval'      = Variable
-                  { lName    = var
-                  , lKind    = Local
-                  , lOffset  = off } }
-              , assignVal    = fromJust jExp }}
+            pure joy
+              { jPos
+              , jType = t
+              , jInsts = Seq.singleton Assign
+                { instP        = jPos
+                , assignTarget = Lval
+                  { lvalType   = t
+                  , lval'      = Variable
+                    { lName    = var
+                    , lKind    = Local
+                    , lOffset  = off } }
+                  , assignVal    = fromJust jExp }}
           | otherwise    -> do
             err AssignMismatch { amFstT = t, amSndT = jType, amP = jPos}
             pure noJoy { jPos }
@@ -361,37 +407,66 @@ checkCall (pname :@ callP) js = do
   Just (n :@ p) <- use current
   (ets :-> ret) <- use curProcType
   if pname == n
-    then compareArgs p ets ret
+    then compareArgs callP ets ret
     else case pname `Map.lookup` procs of
       Just Procedure { procType = ets' :-> ret' } ->
-        compareArgs p ets' ret'
+        compareArgs callP ets' ret'
 
       Just EpiProc { procType = ets' :-> ret' } ->
-        compareArgs p ets' ret'
+        compareArgs callP ets' ret'
 
       Just _ -> do
-        err $ UndefinedProcedure pname p
+        err $ UndefinedProcedure pname callP
         pure $ noJoy { jPos = p }
 
       Nothing -> do
-        err $ UndefinedProcedure pname p
+        err $ UndefinedProcedure pname callP
         pure $ noJoy { jPos = p }
 
   where
     compareArgs p ets ret
-      | length js == length ets && and (Seq.zipWith eq' ets js) =
-        pure $ joy { jType = ret, jPos = p, jInsts = theCall }
-      | None `elem` fmap jType js = pure $ noJoy { jPos = p }
+      | None `elem` (jType <$> js) =
+        pure noJoy { jPos = p }
+
+      | length js == length ets =
+        foldM (eq' p (ets)) (Just Seq.empty) (Seq.zip ets js) >>= \case
+          Nothing -> pure $ noJoy { jPos = p }
+          Just args -> pure $ joy
+            { jType = ret
+            , jPos = p
+            , jInsts = Seq.singleton ICall
+              { instP    = callP
+              , callName = pname
+              , callArgs = args
+              , callRetType = ret }}
+
       | otherwise = do
         err $ BadCall pname (fmap jType js) ets p
         pure $ noJoy { jPos = p }
 
-    eq' et Joy { jType = t } = et == t
-
-    theCall = Seq.singleton ICall
-      { instP    = callP
-      , callName = pname
-      , callArgs = fromJust . jExp <$> js }
+    eq' :: Position
+        -> Seq (Mode, Type)
+        -> Maybe (Seq (P.Either Lval Expression))
+        -> ((Mode, Type), Joy)
+        -> Epilog (Maybe (Seq (P.Either Lval Expression)))
+    eq' _ _ Nothing _ = pure Nothing
+    eq' p ets (Just args) ((ValMode, et), Joy { jType = t, jExp }) = if t == et
+      then case jExp of
+        Nothing -> pure Nothing
+        Just e  -> pure . Just $ args |> Right e
+      else do
+        err $ BadCall pname (fmap jType js) ets p
+        pure Nothing
+    eq' p ets (Just args) ((RefMode, et), Joy { jType = t, jExp }) = if t == et
+      then case jExp of
+        Nothing -> pure Nothing
+        Just Expression { exp' = Rval lval } -> pure . Just $ args |> Left lval
+        Just _ -> do
+          err $ BadCall pname (fmap jType js) ets p -- FIXME make another error message
+          pure Nothing
+      else do
+        err $ BadCall pname (fmap jType js) ets p
+        pure Nothing
 
 
 ---- If --------------------------------
@@ -603,13 +678,13 @@ checkAnswer retp Joy { jType = aret, jExp } = do
   if eret == aret
     then pure joy { jPos = retp, jInsts = theAnswer }
     else do
-      if aret == EpVoid
+      if aret == voidT
         then err $ BadFinish eret      procp retp
         else err $ BadAnswer eret aret procp retp
       pure noJoy { jPos = retp }
 
   where
-    theAnswer = Seq.singleton $ if aret == EpVoid
+    theAnswer = Seq.singleton $ if aret == voidT
       then Finish { instP = retp }
       else Answer
         { instP     = retp
@@ -685,7 +760,7 @@ checkVariable :: At Name -> Epilog Joy
 checkVariable (name :@ p) = do
   symbs <- use symbols
   case name `lookup` symbs of
-    Right Entry { eType, eOffset, eKind } ->
+    Right Entry { eType, eOffset, eKind } -> do
       pure $ joy { jType = eType, jPos = p, jLval = Just theLval }
       where
         theLval = Lval

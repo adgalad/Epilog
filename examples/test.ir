@@ -1,0 +1,164 @@
+Preprocessing executable 'Epilog' for Epilog-0.1.0.0...
+Running Epilog...
+Generating IR for ../examples/test.ep
+	.data
+WWW: space 4
+
+	.text
+; Procedure _entry
+1:
+	*WWW := #i999
+	call "main"
+	exit
+
+; Procedure dos
+3:
+	; Procedure at (12,1)
+	prelude 8
+	; Make at (15,3)
+	param #i4
+	_t1 := call "_make"
+	cleanup 4
+	; Local variable `Pointy`
+	_t2 := addi @FramePointer #i4
+	*_t2 := _t1
+	; Assignment at (16,3)
+	; Local variable `Pointy`
+	_t3 := addi @FramePointer #i4
+	_t4 := *_t3
+	*_t4 := #i5
+	; Answer at (17,3)
+	_t0 := #i666
+	goto 2
+
+2:
+	; Epilog for procedure dos
+	epilog 8
+	return _t0
+
+; Procedure main
+5:
+	; Procedure at (19,1)
+	prelude 4
+	; For at (21,5)
+	; Local variable `A`
+	; Range at (21,16)
+	*@FramePointer := #i1
+	goto 6
+
+6:
+	_t5 := *@FramePointer
+	if lei _t5 #i10 goto 7
+	goto 8
+
+7:
+	; Write at (21,27)
+	; Local variable `A`
+	_t6 := *@FramePointer
+	param _t6
+	call "writeInteger"
+	cleanup 4
+	_t7 := *@FramePointer
+	_t8 := addi _t7 #i1
+	*@FramePointer := _t8
+	goto 6
+
+8:
+	; Range at (22,16)
+	*@FramePointer := #i5
+	goto 9
+
+9:
+	_t9 := *@FramePointer
+	if lei _t9 #i99 goto 10
+	goto 11
+
+10:
+	; Write at (22,27)
+	; Local variable `A`
+	_t10 := *@FramePointer
+	; Local variable `A`
+	_t11 := *@FramePointer
+	_t12 := muli _t10 _t11
+	param _t12
+	call "writeInteger"
+	cleanup 4
+	_t13 := *@FramePointer
+	_t14 := addi _t13 #i1
+	*@FramePointer := _t14
+	goto 9
+
+11:
+	; While at (25,6)
+	goto 12
+
+12:
+	; Guard at (25,14)
+	; Local variable `A`
+	_t15 := *@FramePointer
+	if gti _t15 #i1 goto 14
+	goto 15
+
+14:
+	; Write at (25,21)
+	; Local variable `A`
+	_t16 := *@FramePointer
+	param _t16
+	call "writeInteger"
+	cleanup 4
+	; Assignment at (26,21)
+	; Local variable `A`
+	_t17 := *@FramePointer
+	_t18 := subi _t17 #i1
+	; Local variable `A`
+	*@FramePointer := _t18
+	goto 12
+
+15:
+	; Guard at (27,12)
+	goto 16
+
+16:
+	; Read at (27,21)
+	_t19 := call "readInteger"
+	; Global variable `WWW`
+	*WWW := _t19
+	goto 12
+
+17:
+	; Guard at (28,12)
+	goto 18
+
+18:
+	; Write at (28,21)
+	_t20 := call "dos"
+	cleanup 4
+	param _t20
+	call "writeInteger"
+	cleanup 4
+	goto 12
+
+13:
+	goto 4
+
+4:
+	; Epilog for procedure main
+	epilog 4
+	return
+
+; Procedure uno
+20:
+	; Procedure at (3,1)
+	prelude 16
+	; Assignment at (4,11)
+	; Local variable `P`
+	_t21 := addi @FramePointer #i4
+	*_t21 := #i8
+	goto 19
+
+19:
+	; Epilog for procedure uno
+	epilog 20
+	return
+
+
