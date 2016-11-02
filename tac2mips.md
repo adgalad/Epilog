@@ -45,7 +45,7 @@
 
 No code.
 
-### Op-Assignment `(o0 :: Operand) :=  (o :: Operation)` // Carlos
+### Op-Assignment `(o0 :: Operand) :=  (o :: Operation)`
 
 `case o of`
 
@@ -55,19 +55,98 @@ No code.
 
     -   `T Int`           -> '\\i j -> add i j $zero'  
 
-    -   `FP`              -> '\\i -> add i $fp $zero'
+    -   `FP`              -> '\\i   -> add i $fp $zero'
 
-    -   `C (v::Constant)` -> '\\i   -> li i v'
+    -   `C (v::Constant)` -> `case v of`
+
+        - `FC _` -> '\\i  -> l.s i v'
+
+        - `_`    -> '\\i  -> li i v'
+
+ -  `U op a` -> '\\r -> case op of` 
+    
+    -   NegI     -> 'neg   r a'
+
+    -   NegF     -> 'neg.s r a'
+
+    -   BNot     -> 'xori  r a -1'
+
+ -  `B op a b` -> '\\r -> case op of'
+    
+    -  `AddI`    ->  `case b of` 
+
+            - `C (v::Constant)` -> 'addi r a v'
+
+            - `_              ` -> 'add r a b'
+
+    -  `SubI`    ->  'sub r a b'
+
+    -  `MulI`    ->  'mult a b; mflo'
+
+    -  `DivI`    ->  'div a b; mflo r'
+
+    -  `RemI`    ->  'div a b; mfhi r'
+
+    -  `AddF`    ->  'add.s r a b'
+
+    -  `SubF`    ->  'sub.s r a b'
+
+    -  `MulF`    ->  'mul.s r a b'
+
+    -  `DivF`    ->  'div.s r a b'
+    
+    -  `BSL`     ->  'sll r a b'
+
+    -  `BSR`     ->  'sra r a b'
+
+    -  `BAnd`    ->  'and r a b'
+
+    -  `BOr`     ->  'or  r a b'
+
+    -  `BXor`    ->  'xor r a b'
 
 
 
-### Array read `Operand :=# (Int32, Operand)` // Carlos
+### Array read `Operand :=# (Int32, Operand)`
 
-### Array write `(Int32, Operand) :#= Operand` // Carlos
+ - `t := a[i] (type :: Type)` ->  `case type of`
+    
+    - `bool, char` -> 'lb   t, i(a)'
 
-### Pointer read `Operand :=* Operand` // Carlos
+    - `int, ptr`   -> 'lw   t, i(a)'
 
-### Pointer write `Operand :*= Operand` // Carlos
+    - `float`      -> 'l.s, t, i(a)' 
+
+### Array write `(Int32, Operand) :#= Operand`
+
+ - `t[i] := a (type :: Type)` ->  `case type of`
+    
+    - `bool, char` -> 'sb  a, i(t)'
+
+    - `int, ptr`   -> 'sw  a, i(t)'
+
+    - `float`      -> 's.s a, i(t)'
+
+### Pointer read `Operand :=* Operand`
+
+ - `t := *a (type :: Type)` ->  `case type of`
+    
+    - `bool, char` -> 'lb t, 0(a)'
+
+    - `int, ptr`   -> 'lw t, 0(a)' 
+
+    - `float`      -> 'l.s t, 0(a)'
+
+
+### Pointer write `Operand :*= Operand`
+
+ - `*t := a (type :: Type)` ->  `case type of`
+    
+    - `bool, char` -> 'sb a, 0(t) '
+
+    - `int, ptr`   -> 'sw a, 0(t)'
+
+    - `float`      -> 's.s a, 0(t)'
 
 ### Push parameter `Param Operand`
 
