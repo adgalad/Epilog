@@ -8,16 +8,38 @@ _string: .asciiz "Hola Carlos\n"
 main:
     addi $sp, $sp, -16
 
-    sw   $fp, 0($sp)
-    # sw $, 4($sp)          # Callee stores return address
-    # sw $, 8($sp)          # Don't assign return value
     la   $v0, _string       # 0x4048f5c3
     sw   $v0, 12($sp)
+    # sw $, 8($sp)          # Don't assign return value
+    # sw $, 4($sp)          # Callee stores return address
+    sw   $fp, 0($sp)
 
     jal  _writeStr
 
-    lw   $fp, 12($sp)
+    lw   $fp, 0($fp)
     addi $sp, $sp, 16
+
+
+
+
+    addi $sp, $sp, -12
+    sw   $fp, 0($sp)
+    jal  _readChar
+
+    lw   $s0, 8($fp)
+
+
+
+    addi $sp, $sp, -4
+    sw   $s0, 0($sp)
+    addi $sp, $sp, -12
+    sw   $fp, 0($sp)
+    jal  _writeChar
+
+    lw   $fp, 0($fp)
+    addi $sp, $sp, 16
+
+
 
     li   $v0, 10            # Exit
     syscall
@@ -94,22 +116,57 @@ _writeStr:
 
 # readBoolean:
 _readBoolean:
-    nop
+    move $fp, $sp
+    sw   $ra, 4($fp)
+    li   $v0, 5            # Read Integer syscall
+    syscall
+
+    beq  $v0, $zero, _rBz
+    li   $v0, 1
+_rBz:
+    sw   $v0, 8($fp)
+
+    lw   $ra, 4($fp)
+    jr   $ra
 
 
 # readFloat:
 _readFloat:
-    nop
+    move $fp, $sp
+    sw   $ra, 4($fp)
+    li   $v0, 6            # Read Float syscall
+    syscall
+
+    s.s  $f0, 8($fp)
+
+    lw   $ra, 4($fp)
+    jr   $ra
 
 
 # readInteger:
 _readInteger:
-    nop
+    move $fp, $sp
+    sw   $ra, 4($fp)
+    li   $v0, 5            # Read Integer syscall
+    syscall
+
+    sw   $v0, 8($fp)
+
+    lw   $ra, 4($fp)
+    jr   $ra
 
 
 # readChar:
 _readChar:
-    nop
+    move $fp, $sp
+    sw   $ra, 4($fp)
+    li   $v0, 12           # Read Char syscall
+    syscall
+
+    sw   $v0, 8($fp)
+
+    lw   $ra, 4($fp)
+    jr   $ra
 
 
 # make:

@@ -7,38 +7,39 @@
 | 2 | v0 | scratch 0                    |
 | 3 | v1 | scratch 1                    |
 | 4 | a0 | scratch 2                    |
-|   | a1 | general use                  |
-|   | a2 | general use                  |
-|   | a3 | general use                  |
-|   | t0 | general use                  |
-|   | t1 | general use                  |
-|   | t2 | general use                  |
-|   | t3 | general use                  |
-|   | t4 | general use                  |
-|   | t5 | general use                  |
-|   | t6 | general use                  |
-|   | t7 | general use                  |
-|   | s0 | general use                  |
-|   | s1 | general use                  |
-|   | s2 | general use                  |
-|   | s3 | general use                  |
-|   | s4 | general use                  |
-|   | s5 | general use                  |
-|   | s6 | general use                  |
-|   | s7 | general use                  |
-|   | t8 | general use                  |
-|   | t9 | general use                  |
-|   | k0 | kernel 0                     |
-|   | k1 | kernel 1                     |
-|   | gp | global pointer               |
-|   | sp | stack pointer                |
-|   | fp | frame pointer                |
-|   | ra | scratch 3                    |
+| 5 | a1 | general use                  |
+| 6 | a2 | general use                  |
+| 7 | a3 | general use                  |
+| 8 | t0 | general use                  |
+| 9 | t1 | general use                  |
+| 10| t2 | general use                  |
+| 11| t3 | general use                  |
+| 12| t4 | general use                  |
+| 13| t5 | general use                  |
+| 14| t6 | general use                  |
+| 15| t7 | general use                  |
+| 16| s0 | general use                  |
+| 17| s1 | general use                  |
+| 18| s2 | general use                  |
+| 19| s3 | general use                  |
+| 20| s4 | general use                  |
+| 21| s5 | general use                  |
+| 22| s6 | general use                  |
+| 23| s7 | general use                  |
+| 24| t8 | general use                  |
+| 25| t9 | general use                  |
+| 26| k0 | kernel 0                     |
+| 27| k1 | kernel 1                     |
+| 28| gp | global pointer               |
+| 29| sp | stack pointer                |
+| 30| fp | frame pointer                |
+| 31| ra | scratch 3                    |
 |---|--- |------------------------------|
 |   | pc |                              |
 |   | lo |                              |
 |   | hi |                              |
 
+\newpage
 ## Stack Representation
 
 ```
@@ -53,9 +54,9 @@
 +----------------------------+   |
 |            . . .           |   |
 +----------------------------+   } Argumentos   
-|            arg2            |   |
+|            arg1            |   |
 +----------------------------+   |
-|            arg1 (12($fp) ) |   |
+|            arg0 (12($fp) ) |   |
 +----------------------------+  _/
 |           ret val          |
 +----------------------------+
@@ -63,10 +64,10 @@
 +----------------------------+
 |        frame pointer       | <---- $fp
 +----------------------------+  -\
-|             v1  (-4($fp) ) |   |
+|             v0  (-4($fp) ) |   |
 +----------------------------+   |
-|             v2             |   |
-+----------------------------+   } Variables locales   
+|             v1             |   |
++----------------------------+   } Variables locales
 |            . . .           |   |
 +----------------------------+   |
 |             vn             | <-|-- $sp
@@ -80,6 +81,7 @@
                .            
 ```
 
+\newpage
 ## Instructions
 
 ### `Comment (s :: String)`
@@ -92,115 +94,158 @@
 
  -  `Id (o1 :: Operand)` -> `case o1 of`
 
-    -   `R Name`          -> '\\i j -> add i j $zero'
+    -   `R Name`          -> `\\i j -> move i, j`
 
-    -   `T Int`           -> '\\i j -> add i j $zero'  
+    -   `T Int`           -> `\\i j -> move i, j`  
 
-    -   `FP`              -> '\\i   -> add i $fp $zero'
+    -   `FP`              -> `\\i   -> move i, $fp`
 
     -   `C (v::Constant)` -> `case v of`
 
-        - `FC _` -> '\\i  -> l.s i v'
+        - `FC _` -> `\\i  -> l.s i v`
 
-        - `_`    -> '\\i  -> li i v'
+        - `_`    -> `\\i  -> li i v`
 
- -  `U op a` -> '\\r -> case op of` 
-    
-    -   NegI     -> 'neg   r a'
+ -  `U op a` -> `\\r -> case op of`
 
-    -   NegF     -> 'neg.s r a'
+    -   NegI     -> `neg   r, a`
 
-    -   BNot     -> 'xori  r a -1'
+    -   NegF     -> `neg.s r, a`
 
- -  `B op a b` -> '\\r -> case op of'
-    
-    -  `AddI`    ->  `case b of` 
+    -   BNot     -> `xori  r, a -1`
 
-            - `C (v::Constant)` -> 'addi r a v'
+ -  `B op a, b` -> `\\r -> case op of`
 
-            - `_              ` -> 'add r a b'
+    -  `AddI`    ->  `case b of`
 
-    -  `SubI`    ->  'sub r a b'
+            - `C (v::Constant)` -> `addi r, a v`
 
-    -  `MulI`    ->  'mult a b; mflo'
+            - `_              ` -> `add r, a, b`
 
-    -  `DivI`    ->  'div a b; mflo r'
+    -  `SubI`    ->  `sub r, a, b`
 
-    -  `RemI`    ->  'div a b; mfhi r'
+    -  `MulI`    ->  
+      ```
+        mult a, b
+        mfhi r
+        beq r $zero %l
+        exception
+      %l:
+        mflo r
+      ```
 
-    -  `AddF`    ->  'add.s r a b'
+    -  `DivI`    ->  `div a, b; mflo r`
 
-    -  `SubF`    ->  'sub.s r a b'
+    -  `RemI`    ->  `div a, b; mfhi r`
 
-    -  `MulF`    ->  'mul.s r a b'
+    -  `AddF`    ->  `add.s r, a, b`
 
-    -  `DivF`    ->  'div.s r a b'
-    
-    -  `BSL`     ->  'sll r a b'
+    -  `SubF`    ->  `sub.s r, a, b`
 
-    -  `BSR`     ->  'sra r a b'
+    -  `MulF`    ->  `mul.s r, a, b`
 
-    -  `BAnd`    ->  'and r a b'
+    -  `DivF`    ->  `div.s r, a, b`
 
-    -  `BOr`     ->  'or  r a b'
+    -  `BSL`     ->  `sll r, a, b`
 
-    -  `BXor`    ->  'xor r a b'
+    -  `BSR`     ->  `sra r, a, b`
+
+    -  `BAnd`    ->  `and r, a, b`
+
+    -  `BOr`     ->  `or  r, a, b`
+
+    -  `BXor`    ->  `xor r, a, b`
 
 
 
 ### Array read `Operand :=# (Int32, Operand)`
 
  - `t := a[i] (type :: Type)` ->  `case type of`
-    
-    - `bool, char` -> 'lb   t, i(a)'
 
-    - `int, ptr`   -> 'lw   t, i(a)'
+    - `float`      -> `l.s, t, i(a)`
 
-    - `float`      -> 'l.s, t, i(a)' 
+    - `_`   -> `lw   t, i(a)`
+
 
 ### Array write `(Int32, Operand) :#= Operand`
 
- - `t[i] := a (type :: Type)` ->  `case type of`
-    
-    - `bool, char` -> 'sb  a, i(t)'
+ -  `t[i] := a (type :: Type)` ->  `case type of`
 
-    - `int, ptr`   -> 'sw  a, i(t)'
+    - `float` -> `s.s a, i(t)`
 
-    - `float`      -> 's.s a, i(t)'
+    - `_`     -> `sw  a, i(t)`
+
 
 ### Pointer read `Operand :=* Operand`
 
  - `t := *a (type :: Type)` ->  `case type of`
-    
-    - `bool, char` -> 'lb t, 0(a)'
 
-    - `int, ptr`   -> 'lw t, 0(a)' 
+    - `float` -> `l.s t, 0(a)`
 
-    - `float`      -> 'l.s t, 0(a)'
+    - `_`   -> `lw t, 0(a)`
+
 
 
 ### Pointer write `Operand :*= Operand`
 
  - `*t := a (type :: Type)` ->  `case type of`
-    
-    - `bool, char` -> 'sb a, 0(t) '
 
-    - `int, ptr`   -> 'sw a, 0(t)'
+    - `float`      -> `s.s a, 0(t)`
 
-    - `float`      -> 's.s a, 0(t)'
+    - `_`   -> `sw a, 0(t)`
 
-### Push parameter `Param Operand`
 
-### Call `Call Function`
+### Push parameter `Param (o:: Operand)`
 
-### Call assign `Operand :<- Function`
+```
+addi $sp, $sp, -4
+sw   $o, 0($sp)
+```
 
-### Cleanup after function call `Cleanup Word32`
+### Call `Call (f :: Function)`
 
-### Reserve space in the stack `Prolog Word32`
+```
+addi $sp, $sp, -12
+sw   $fp, 0($sp)
+jal  f
+```
 
-### Free space in the stack `Epilog Word32`
+### Call assign `(o :: Operand) :<- (f :: Function)`
 
+```
+addi $sp, $sp, -12
+sw   $fp, 0($sp)
+jal  f
+
+lw   $o, 8($fp)
+```
+
+### Cleanup after function call `Cleanup (n :: Word32)`
+
+```
+lw   $fp, 0($fp)
+addi $sp, $sp, (n + 12)
+```
+
+### Reserve space in the stack `Prolog (n :: Word32)`
+
+```
+move $fp, $sp
+addi $sp, $sp, (-n)
+```
+
+### Free space in the stack `Epilog (n :: Word32)`
+
+```
+sw   $ra, 4($fp)
+addi $sp, $sp, n
+```
+
+### `Answer (o :: Operand)`
+
+```
+sw $o, 8($fp)
+```
 
 ## Terminators
 
@@ -210,7 +255,7 @@
 
 ### Conditional branch 1 `IfBr (o :: Operand) (l1 :: Label) (l2 :: Label)`
 
- -  `R (n :: Name)`  ->  `\\r -> bne $r $zero, l1; j l2'
+ -  `R (n :: Name)`  ->  `\\r -> bne $r $zero, l1; j l2`
 
 ### Conditional branch 2 `CondBr (r :: Rel) (o1 :: Operand) (o2 :: Operand) (l :: Label)`
 
@@ -229,7 +274,6 @@
  -  NEF -> `\\f1 f2 -> c.eq.s $f1, $f2 ; bc1f l`
 
 
-
  -  LTI -> `\\r1 r2 -> slt $v0, $r1, $r2; bne $v0, $zero, l`
 
  -  LEI -> `\\r1 r2 -> slt $v0, $r2, $r1; beq $v0, $zero, l`
@@ -242,15 +286,14 @@
 
  -  NEI -> `\\r1 r2 -> bne $r1, $r2, l`
 
- -  FAI -> `\\r1 r2 -> `div $r1, $r2; mfhi $v0; bne $v0, $zero, l`
+ -  FAI -> `\\r1 r2 -> div $r2, $r1; mfhi $v0; bne $v0, $zero, l`
 
- -  NFI -> `\\r1 r2 -> `div $r1, $r2; mfhi $v0; beq $v0, $zero, l`
+ -  NFI -> `\\r1 r2 -> div $r2, $r1; mfhi $v0; beq $v0, $zero, l`
 
-
-### `Return` (Cambia la generación de IR)
+### `Return`
 
 ```
-lw $ra, -4($fp) # revisar índices
+lw $ra, 4($fp)
 jr $ra
 ```
 
@@ -261,4 +304,4 @@ li  $v0, 10
 syscall
 ```
 
-## Read/Write // Moisés
+## Read/Write
