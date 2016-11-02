@@ -150,6 +150,9 @@ data TAC
   -- ^ Reserve space (n bytes) in the stack
   | Epilog Word32
   -- ^ Free space (n bytes) in the stack
+
+  | Answer Operand
+  -- ^ Store return value in stack
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 infix 8 :=, :=#, :#=, :=*, :*=
@@ -211,7 +214,6 @@ data Terminator
     , trueDest  :: Label
     , falseDest :: Label }
   | Return
-    { retVal :: Maybe Operand }
   | Exit
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
@@ -223,7 +225,7 @@ instance Emit Terminator where
     CondBr rel a b l1 l2 ->
       "if " <> fmap toLower (show rel) <> " " <> emit a <> " " <> emit b <>
       " goto " <> show l1 <> "\n\tgoto " <> show l2
-    Return op            -> "return" <> maybe "" ((" " <>) . emit) op
+    Return               -> "return"
     Exit                 -> "exit"
 
 data Rel

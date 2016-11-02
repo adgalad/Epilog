@@ -27,7 +27,6 @@ module Language.Epilog.IR.Monad
   , edges
   , currentBlock
   , nextBlock
-  , retTemp
   , retLabel
   , labelCount
   , tempCount
@@ -60,7 +59,6 @@ data IRState = IRState
   , _edges          :: [Edge]
   , _currentBlock   :: Maybe (Label, Seq TAC)
   , _nextBlock      :: [Label]
-  , _retTemp        :: Maybe Operand
   , _retLabel       :: Maybe Label
   , _labelCount     :: Int
   , _tempCount      :: Int
@@ -76,7 +74,6 @@ initialIR = IRState
   , _edges          = []
   , _currentBlock   = Nothing
   , _nextBlock      = []
-  , _retTemp        = Nothing
   , _retLabel       = Nothing
   , _labelCount     = 1
   , _tempCount      = 0

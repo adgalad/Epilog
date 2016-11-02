@@ -11,7 +11,8 @@ import           Language.Epilog.AST.Instruction
 import           Language.Epilog.Common
 import           Language.Epilog.IR.Expression
 import           Language.Epilog.IR.Monad
-import           Language.Epilog.IR.TAC
+import           Language.Epilog.IR.TAC          hiding (TAC (Answer))
+import qualified Language.Epilog.IR.TAC          as TAC (TAC (Answer))
 import           Language.Epilog.Position
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
@@ -126,9 +127,7 @@ irInstruction = \case
     comment $ "Answer at " <> showP instP
     t0 <- irExpression answerVal
 
-    use retTemp >>= \case
-      Nothing -> internal "nowhere to answer"
-      Just t1 -> addTAC $ t1 := Id t0
+    addTAC $ TAC.Answer t0
 
     use retLabel >>= \case
       Nothing -> internal "nowhere to return after answer"

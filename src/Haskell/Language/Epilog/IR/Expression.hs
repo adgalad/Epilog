@@ -94,7 +94,14 @@ irExpression e@Expression { exp' } = case exp' of
 
           let Basic { atom } = expType exp0
 
-          addTAC $ result := B (toIRBOp atom op) operand0 operand1
+          -- addTAC $ result := B (toIRBOp atom op) operand0 operand1
+          case operand0 of
+            C _ -> do
+              t <- newTemp
+              addTAC $ t := Id operand0
+              addTAC $ result := B (toIRBOp atom op) t operand1
+            _ ->
+              addTAC $ result := B (toIRBOp atom op) operand0 operand1
           pure result
 
   Unary op exp0 -> if
@@ -346,12 +353,9 @@ irLval Lval { lvalType, lval' } = case lval' of
     case k of
       K.Global -> pure $ R name
       K.Local -> do
-        if offset == 0
-          then pure FP
-          else do
-            t <- newTemp
-            addTAC $ t := B AddI FP negBase
-            pure t
+        t <- newTemp
+        addTAC $ t := B AddI FP negBase
+        pure t
       K.Param -> do
         t <- newTemp
         addTAC $ t := B AddI FP base
@@ -361,11 +365,11 @@ irLval Lval { lvalType, lval' } = case lval' of
         addTAC $ t :=# (offset', FP)
         pure t
     where
-      offset' = fromIntegral $ offset + (case k of
-        K.RefParam -> 4
-        _ -> sizeT lvalType)
+      offset' = fromIntegral $ offset + 12 -- (case k of
+        -- K.RefParam -> 4
+        -- _ -> sizeT lvalType)
       base = C . IC $ offset'
-      negBase = C . IC . fromIntegral . negate $ offset
+      negBase = C . IC . fromIntegral . negate $ offset + 4
 
   Member lval _name offset -> do
     r <- irLval lval
@@ -403,15 +407,9 @@ irRval Lval { lvalType, lval' } = case lval' of
     case k of
       K.Global -> pure $ R name
       K.Local -> do
-        if offset == 0
-          then do
-            t <- newTemp
-            addTAC $ t :=* FP
-            pure t
-          else do
-            t <- newTemp
-            addTAC $ t :=# (negOffset, FP)
-            pure t
+        t <- newTemp
+        addTAC $ t :=# (negOffset, FP)
+        pure t
       K.Param -> do
         t <- newTemp
         addTAC $ t :=# (offset', FP)
@@ -423,8 +421,8 @@ irRval Lval { lvalType, lval' } = case lval' of
         addTAC $ t2 :=* t1
         pure t2
     where
-      negOffset = negate . fromIntegral $ offset
-      offset' = fromIntegral $ offset + (fromIntegral $ sizeT lvalType)
+      negOffset = negate . fromIntegral $ offset + 4
+      offset' = fromIntegral $ offset + 12 -- + (fromIntegral $ sizeT lvalType)
 
   Member lval _name offset -> do
     r <- irLval lval

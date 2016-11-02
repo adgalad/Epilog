@@ -29,8 +29,6 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
       symbols .= smbs
 
       retLabel <~ Just <$> newLabel
-      when (retType /= voidT) $
-        retTemp <~ Just <$> newTemp
 
       newLabel >>= (#)
       addTAC . Comment $ "Procedure at " <> showP procPos
@@ -41,18 +39,16 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
       use currentBlock >>= \case
         Nothing -> pure ()
         Just _  -> do
-          use retTemp >>= \case
-            Nothing -> pure ()
-            Just t  -> do
-              addTAC . (t :=) . Id $ case retType of
-                Basic { atom } -> case atom of
-                  EpInteger    -> C (IC 0)
-                  EpBoolean    -> C (BC False)
-                  EpFloat      -> C (FC 0.0)
-                  EpCharacter  -> C (CC 0)
-                  _ -> internal $ "bad return type " <> show t
-                Pointer {}     -> C (IC 0)
-                _ -> internal $ "bad return type " <> show t
+          unless (retType == voidT) $ do
+            addTAC . Answer $ case retType of
+              Basic { atom } -> case atom of
+                EpInteger    -> C (IC 0)
+                EpBoolean    -> C (BC False)
+                EpFloat      -> C (FC 0.0)
+                EpCharacter  -> C (CC 0)
+                t -> internal $ "bad return type " <> show t
+              Pointer {}     -> C (IC 0)
+              t -> internal $ "bad return type " <> show t
           use retLabel >>= \case
             Nothing -> internal "nowhere to return"
             Just lbl -> terminate $ Br lbl
@@ -62,10 +58,9 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
         Just lbl -> (lbl #)
       addTAC . Comment $ "Epilog for procedure " <> procName
       addTAC $ Epilog (procStackSize + procParamsSize)
-      use retTemp >>= terminate . Return
+      terminate Return
 
       retLabel .= Nothing
-      retTemp .= Nothing
 
       closeModule procName
 
