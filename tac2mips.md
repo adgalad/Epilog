@@ -41,9 +41,9 @@
 
 ## Instructions
 
-### `Comment String`
+### `Comment (s :: String)`
 
-No code.
+`# s`
 
 ### Op-Assignment `(o0 :: Operand) :=  (o :: Operation)` // Carlos
 
@@ -82,16 +82,63 @@ No code.
 ### Free space in the stack `Epilog Word32`
 
 
-## Terminators // Moisés
+## Terminators
 
 ### Mandatory branc `Br Label`
 
-### Conditional branch 1 `IfBr Operand Label Label`
+`j label`
 
-### Conditional branch 2 `CondBr Rel Operand Operand Label`
+### Conditional branch 1 `IfBr (o :: Operand) (l1 :: Label) (l2 :: Label)`
 
-### `Return (Maybe Operand)`
+ -  `R (n :: Name)`  ->  `\\r -> bne $r $zero, l1; j l2'
+
+### Conditional branch 2 `CondBr (r :: Rel) (o1 :: Operand) (o2 :: Operand) (l :: Label)`
+
+`case r of`
+
+ -  LTF -> `\\f1 f2 -> c.lt.s $f1, $f2 ; bc1t l`
+
+ -  LEF -> `\\f1 f2 -> c.le.s $f1, $f2 ; bc1t l`
+
+ -  GTF -> `\\f1 f2 -> c.lt.s $f2, $f1 ; bc1t l`
+
+ -  GEF -> `\\f1 f2 -> c.le.s $f2, $f1 ; bc1t l`
+
+ -  EQF -> `\\f1 f2 -> c.eq.s $f1, $f2 ; bc1t l`
+
+ -  NEF -> `\\f1 f2 -> c.eq.s $f1, $f2 ; bc1f l`
+
+
+
+ -  LTI -> `\\r1 r2 -> slt $v0, $r1, $r2; bne $v0, $zero, l`
+
+ -  LEI -> `\\r1 r2 -> slt $v0, $r2, $r1; beq $v0, $zero, l`
+
+ -  GTI -> `\\r1 r2 -> slt $v0, $r2, $r1; bne $v0, $zero, l`
+
+ -  GEI -> `\\r1 r2 -> slt $v0, $r1, $r2; beq $v0, $zero, l`
+
+ -  EQI -> `\\r1 r2 -> beq $r1, $r2, l`
+
+ -  NEI -> `\\r1 r2 -> bne $r1, $r2, l`
+
+ -  FAI -> `\\r1 r2 -> `div $r1, $r2; mfhi $v0; bne $v0, $zero, l`
+
+ -  NFI -> `\\r1 r2 -> `div $r1, $r2; mfhi $v0; beq $v0, $zero, l`
+
+
+### `Return` (Cambia la generación de IR)
+
+```
+lw $ra, -4($fp) # revisar índices
+jr $ra
+```
 
 ### `Exit`
+
+```
+li  $v0, 10           
+syscall
+```
 
 ## Read/Write // Moisés
