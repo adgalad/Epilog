@@ -70,10 +70,10 @@ irInstruction = \case
 
     let readFunc = case lvalType readTarget of
           Basic { atom } -> case atom of
-            EpBoolean   -> "readBoolean"
-            EpFloat     -> "readFloat"
-            EpInteger   -> "readInteger"
-            EpCharacter -> "readChar"
+            EpBoolean   -> "_readBoolean"
+            EpFloat     -> "_readFloat"
+            EpInteger   -> "_readInteger"
+            EpCharacter -> "_readChar"
             _           -> internal "non-readable type"
           _ -> internal "non-readable type"
 
@@ -88,12 +88,12 @@ irInstruction = \case
 
     let writeFunc = case expType writeVal of
           Basic { atom } -> case atom of
-            EpBoolean   -> "writeBoolean"
-            EpFloat     -> "writeFloat"
-            EpInteger   -> "writeInteger"
-            EpCharacter -> "writeChar"
+            EpBoolean   -> "_writeBoolean"
+            EpFloat     -> "_writeFloat"
+            EpInteger   -> "_writeInteger"
+            EpCharacter -> "_writeChar"
             _           -> internal "non-printable type"
-          EpStr _ _     -> "writeStr"
+          EpStr _ _     -> "_writeStr"
           _ -> internal "non-printable type"
 
     t <- irExpression writeVal
