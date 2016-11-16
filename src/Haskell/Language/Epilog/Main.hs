@@ -8,6 +8,7 @@ module Main (main) where
 import           Language.Epilog.Common
 import           Language.Epilog.Epilog
 import           Language.Epilog.IR.Monad    hiding (symbols)
+import           Language.Epilog.MIPS.Monad
 import           Language.Epilog.IR.Program
 import           Language.Epilog.IR.TAC
 import           Language.Epilog.Parser
@@ -143,8 +144,19 @@ doIR filename handle = do
 
 
 doMIPS :: FilePath -> Handle -> IO ()
-doMIPS _ _ = putStrLn "No MIPS for you."
+doMIPS filename handle = do
+  inp <- hGetContents handle
 
+  putStrLn $ unwords ["Generating MIPS for", filename]
+
+  (ast, s, _w) <- runEpilog parse inp
+
+  when (s^.parseOK) $ do
+    (code, _s) <- runIR irProgram ast
+
+    -- (mipsCode, _) <- runMIPS code 
+
+    putStrLn $ emit code
 
 -- Main --------------------------------
 main :: IO ()
