@@ -113,12 +113,12 @@ data Program = Program
 
 instance Emit Program where
   emit Program { datas, modules } =
-    (if null datas then "" else ("\t.data\n" <> emit datas <> "\n")) <>
+    (if null datas then "" else "\t.data\n" <> emit datas <> "\n") <>
     "\t.text\n" <> emit modules
 --------------------------------------------------------------------------------
 
 instance (Emit a, Foldable f) => Emit (f a) where
-  emit = concat . fmap emit . toList
+  emit = concatMap emit . toList
 --------------------------------------------------------------------------------
 
 type Function = String
@@ -126,6 +126,9 @@ type Function = String
 data TAC
   = Comment String
   -- ^ We're gonna need this
+
+  | Var Bool Name Offset Size
+  -- ^ Variable allocation
 
   | Operand :=  Operation
   -- ^ Regular Op-assignment
@@ -160,6 +163,8 @@ infix 8 :=, :=#, :#=, :=*, :*=
 instance Emit TAC where
   emit = \case
     Comment s     -> "; " <> s
+    Var r n o s   -> (if r then "ref" else "var") <> " " <> n <> " " <>
+      show o <> " " <> show s
     x := op       -> emit x <> " := " <> emit op
     x :=# (c, i)  -> emit x <> " := " <> show c <> "[" <> emit i <> "]"
     (c, i) :#= x  -> show c <> "[" <> emit i <> "]" <> " := " <> emit x
@@ -171,6 +176,7 @@ instance Emit TAC where
     Cleanup i     -> "cleanup " <> show i
     Prolog i      -> "prolog " <> show i
     Epilog i      -> "epilog " <> show i
+    Answer o      -> "answer " <> emit o
 
 data Operation
   = B  BOp Operand Operand

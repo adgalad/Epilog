@@ -10,7 +10,8 @@ import           Language.Epilog.AST.Procedure
 import           Language.Epilog.Common
 import           Language.Epilog.IR.Instruction
 import           Language.Epilog.IR.Monad
-import           Language.Epilog.IR.TAC
+import           Language.Epilog.IR.TAC         hiding (TAC (Var))
+import qualified Language.Epilog.IR.TAC         as TAC (TAC (Var))
 import           Language.Epilog.Position       hiding (Position (Epilog))
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type           (Type (..), Atom (..), voidT)
@@ -20,7 +21,7 @@ import           Control.Lens                   (use, (.=), (<~))
 
 irProcedure :: Procedure -> IRMonad ()
 irProcedure Procedure { procName, procPos, procType = _ :-> retType
-                      {-, procParams-}, procDef, procStackSize, procParamsSize } =
+                      , procParams, procDef, procStackSize, procParamsSize } =
   case procDef of
     Nothing -> liftIO . putStrLn $ "Epilog native procedure `" <> procName <> "`"
     Just (insts, scope) -> do
@@ -33,6 +34,10 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
       newLabel >>= (#)
       addTAC . Comment $ "Procedure at " <> showP procPos
       addTAC $ Prolog procStackSize
+
+      forM_ procParams $
+        \Parameter { parName, parOffset, parSize, parRef } ->
+          addTAC $ TAC.Var parRef parName (parOffset + 12) parSize
 
       mapM_ irInstruction insts
 

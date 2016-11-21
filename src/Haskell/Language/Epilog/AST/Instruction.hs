@@ -77,6 +77,11 @@ data Instruction
     , answerVal :: Expression }
   | Finish -- AST built
     { instP :: Position }
+  | Var
+    { instP     :: Position
+    , varName   :: Name
+    , varOffset :: Offset
+    , varSize   :: Word32 }
   deriving (Eq, Show)
 
 instance P Instruction where
@@ -135,6 +140,12 @@ instance Treelike Instruction where
 
     Finish p ->
       leaf (unwords ["Finish", showP p])
+
+    Var p n o s ->
+      Node (unwords ["Var", showP p])
+        [ Node "name"   [ leaf n ]
+        , Node "offset" [ leaf . show $ o ]
+        , Node "size"   [ leaf . show $ s ] ]
 
     where
       guardTree :: Guard -> Tree String

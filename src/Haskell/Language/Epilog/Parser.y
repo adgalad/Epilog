@@ -343,7 +343,7 @@ Inst
 ------ Declaration and Initialization ----
 Declaration
     : Type VarId
-    {% checkDeclaration $1 $2 } -- A declaration must not appear on the AST
+    {% checkDeclaration $1 $2 } -- A declaration *must* appear on the AST
 
 Initialization
     : Type VarId is Exp

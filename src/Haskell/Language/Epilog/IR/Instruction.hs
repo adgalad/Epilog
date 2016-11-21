@@ -11,8 +11,8 @@ import           Language.Epilog.AST.Instruction
 import           Language.Epilog.Common
 import           Language.Epilog.IR.Expression
 import           Language.Epilog.IR.Monad
-import           Language.Epilog.IR.TAC          hiding (TAC (Answer))
-import qualified Language.Epilog.IR.TAC          as TAC (TAC (Answer))
+import           Language.Epilog.IR.TAC          hiding (TAC (Answer, Var))
+import qualified Language.Epilog.IR.TAC          as TAC (TAC (Answer, Var))
 import           Language.Epilog.Position
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
@@ -138,6 +138,9 @@ irInstruction = \case
     use retLabel >>= \case
       Nothing -> internal "nowhere to return after finish"
       Just l  -> terminate $ Br l
+
+  Var { varName, varOffset, varSize } ->
+    addTAC $ TAC.Var False varName (negate $ 4 + varOffset) varSize
 
 irGuards :: Label -> [(Position, Expression, Insts)] -> IRMonad ()
 irGuards _ [] = internal "impossible call to irGuards"

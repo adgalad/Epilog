@@ -274,10 +274,10 @@ checkParam m (parType :@ _) (parName :@ parPos) = do
   psize  <- asks pointerSize
   palign <- asks pointerAlign
 
-  j <- case parName `local` symbs of
+  (o, s, j) <- case parName `local` symbs of
     Right Entry { eType, ePosition } -> do
       err $ DuplicateDeclaration parName eType ePosition parType parPos
-      pure $ noJoy { jPos = parPos }
+      pure $ (0, 0, noJoy { jPos = parPos })
     Left _ -> do
       symbols %= insertSymbol parName Entry
         { eName         = parName
@@ -289,26 +289,33 @@ checkParam m (parType :@ _) (parName :@ parPos) = do
           RefMode -> padded palign (head offs)
           ValMode -> padded (alignT parType) (head offs)
         , eOperand      = Nothing }
-      off' <- offset %%= \(off:xs) ->
+      (off, off') <- offset %%= \(x:xs) ->
         let
           off' = case m of
-            RefMode -> padded palign $ padded palign off + psize
-            ValMode -> padded (alignT parType) $ padded (alignT parType) off + sizeT parType
-        in (off', off' : xs)
+            RefMode -> padded palign $ padded palign x + psize
+            ValMode -> padded (alignT parType) $ padded (alignT parType) x + sizeT parType
+        in ((x, off'), off' : xs)
       curStackSize <>= Max (fromIntegral off')
-      pure joy { jType = parType, jPos = parPos }
+      pure
+        ( fromIntegral off
+        , fromIntegral $ off' - off
+        , joy { jType = parType, jPos = parPos } )
 
   case m of
     RefMode ->
       parameters |>= Parameter
         { parName
         , parType
+        , parOffset = o
+        , parSize   = s
         , parPos
         , parRef = True }
     ValMode -> do
       parameters |>= Parameter
         { parName
         , parType
+        , parOffset = o
+        , parSize   = s
         , parPos
         , parRef = False }
       unless (scalar (jType j)) . err $ BadParamType parName (jType j) parPos
@@ -344,11 +351,15 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
             , eInitialValue = Nothing
             , eOffset       = padded (alignT t) (head offs)
             , eOperand      = Nothing }
-          off' <- offset %%= \(x:xs) ->
+          (off, off') <- offset %%= \(x:xs) ->
             let off' = padded (alignT t) $ padded (alignT t) x + sizeT t
-            in (off', off' : xs)
+            in ((x, off'), off' : xs)
           curStackSize <>= Max (fromIntegral off')
-          pure joy { jType = t, jPos }
+          pure joy
+            { jPos
+            , jType = t
+            , jInsts =
+              [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off) ] }
 
         Just Joy { jType, jExp }
           | jType == None -> pure noJoy { jPos }
@@ -368,15 +379,17 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
             pure joy
               { jPos
               , jType = t
-              , jInsts = Seq.singleton Assign
-                { instP        = jPos
-                , assignTarget = Lval
-                  { lvalType   = t
-                  , lval'      = Variable
-                    { lName    = var
-                    , lKind    = Local
-                    , lOffset  = off } }
-                  , assignVal    = fromJust jExp }}
+              , jInsts =
+                [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off)
+                , Assign
+                  { instP        = jPos
+                  , assignTarget = Lval
+                    { lvalType   = t
+                    , lval'      = Variable
+                      { lName    = var
+                      , lKind    = Local
+                      , lOffset  = off } }
+                    , assignVal    = fromJust jExp } ] }
           | otherwise    -> do
             err AssignMismatch { amFstT = t, amSndT = jType, amP = jPos}
             pure noJoy { jPos }

@@ -346,30 +346,24 @@ toIRRel atom = \case
   NFop     -> NFI
   o        -> internal $ "Non relational operator `" <> show o <> "`"
 
+
+-- Either Tupla/Operando
 irLval :: Lval -> IRMonad Operand
 irLval Lval { lvalType, lval' } = case lval' of
-  Variable name k offset -> do
+  Variable name k _offset -> do
     comment $ "Lval " <> show k <> " variable `" <> name <> "`"
     case k of
-      K.Global -> pure $ R name
-      K.Local -> do
-        t <- newTemp
-        addTAC $ t := B AddI FP negBase
-        pure t
-      K.Param -> do
-        t <- newTemp
-        addTAC $ t := B AddI FP base
-        pure t
       K.RefParam -> do
         t <- newTemp
-        addTAC $ t :=# (offset', FP)
+        addTAC $ t :=* R name
         pure t
-    where
-      offset' = fromIntegral $ offset + 12 -- (case k of
+      _ -> pure $ R name
+    -- where
+      -- offset' = fromIntegral $ offset + 12 -- (case k of
         -- K.RefParam -> 4
         -- _ -> sizeT lvalType)
-      base = C . IC $ offset'
-      negBase = C . IC . fromIntegral . negate $ offset + 4
+      -- base = C . IC $ offset'
+      -- negBase = C . IC . fromIntegral . negate $ offset + 4
 
   Member lval _name offset -> do
     r <- irLval lval
@@ -405,24 +399,16 @@ irRval Lval { lvalType, lval' } = case lval' of
   Variable name k offset -> do
     comment $ "Rval " <> show k <> " variable `" <> name <> "`"
     case k of
-      K.Global -> pure $ R name
-      K.Local -> do
-        t <- newTemp
-        addTAC $ t :=# (negOffset, FP)
-        pure t
-      K.Param -> do
-        t <- newTemp
-        addTAC $ t :=# (offset', FP)
-        pure t
       K.RefParam -> do
         t1 <- newTemp
         t2 <- newTemp
-        addTAC $ t1 :=# (offset', FP)
+        addTAC $ t1 :=* R name
         addTAC $ t2 :=* t1
         pure t2
-    where
-      negOffset = negate . fromIntegral $ offset + 4
-      offset' = fromIntegral $ offset + 12 -- + (fromIntegral $ sizeT lvalType)
+      _ -> do
+        t <- newTemp
+        addTAC $ t :=* R name
+        pure t
 
   Member lval _name offset -> do
     r <- irLval lval

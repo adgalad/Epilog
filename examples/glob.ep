@@ -1,0 +1,11 @@
+integer K is 10.
+
+procedure this (integer P) :-
+    P is 5.
+
+procedure main () :-
+    integer A, integer B,
+    A is 999,
+    integer C is 20,
+    read A, read B,
+    write K.

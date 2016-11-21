@@ -1,5 +1,7 @@
 module Language.Epilog.Common
   ( Name
+  , Offset
+  , Size
   , Semigroup (..)
   , Map
   , Seq
@@ -34,6 +36,8 @@ import           Data.Sequence             (Seq)
 import           Data.Word                 (Word32, Word8)
 
 type Name = String
+type Offset = Int32
+type Size = Word32
 
 infix 4 |>=
 (|>=) :: (Snoc b b a a, MonadState s m)

@@ -19,10 +19,12 @@ type Params = Seq Parameter
 --------------------------------------------------------------------------------
 
 data Parameter = Parameter
-  { parName :: Name
-  , parType :: Type
-  , parPos  :: Position
-  , parRef  :: Bool }
+  { parName   :: Name
+  , parType   :: Type
+  , parOffset :: Offset
+  , parSize   :: Size
+  , parPos    :: Position
+  , parRef    :: Bool }
   deriving (Eq, Show)
 
 instance Treelike Parameter where
