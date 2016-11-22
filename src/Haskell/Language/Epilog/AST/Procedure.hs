@@ -38,7 +38,7 @@ data Procedure
     , procPos        :: Position
     , procType       :: Type
     , procParams     :: Params
-    , procDef        :: Maybe (Insts, Scope)
+    , procDef        :: Maybe (IBlock, Scope)
     , procStackSize  :: Word32
     , procParamsSize :: Word32}
   | EpiProc
@@ -56,9 +56,9 @@ instance Treelike Procedure where
       Node "Parameters" (toForest procParams) :
       case procDef of
         Nothing -> []
-        Just (insts, scope) ->
+        Just (block, scope) ->
           [ Node "Scope" [toTree scope]
-          , Node "Insts" [toTree insts] ]
+          , Node "Instructions" [toTree block] ]
   toTree EpiProc { procName, procType } =
     Node ("Native procedure `" <> procName <> "`")
       [leaf ("Type: " <> show procType)]

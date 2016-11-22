@@ -4,6 +4,7 @@
 
 module Language.Epilog.IR.Instruction
   ( irInstruction
+  , irIBlock
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression  hiding (VarKind (..))
@@ -142,9 +143,9 @@ irInstruction = \case
   Var { varName, varOffset, varSize } ->
     addTAC $ TAC.Var False varName (negate $ 4 + varOffset) varSize
 
-irGuards :: Label -> [(Position, Expression, Insts)] -> IRMonad ()
+irGuards :: Label -> [(Position, Expression, IBlock)] -> IRMonad ()
 irGuards _ [] = internal "impossible call to irGuards"
-irGuards final ((guardP, cond, insts):gs) = do
+irGuards final ((guardP, cond, iblock):gs) = do
   comment $ "Guard at " <> showP guardP
 
   true  <- newLabel
@@ -154,12 +155,13 @@ irGuards final ((guardP, cond, insts):gs) = do
   irBoolean true false cond
 
   (true #)
-  mapM_ irInstruction insts
+  irIBlock iblock
 
   next : _ <- use nextBlock
   use currentBlock >>= \case
     Nothing -> pure ()
     Just _  -> terminate $ Br next
+
 
   case gs of
     [] -> pure ()
@@ -169,7 +171,7 @@ irGuards final ((guardP, cond, insts):gs) = do
 
 irRange :: Operand -> [Range] -> IRMonad ()
 irRange _ [] = pure ()
-irRange iterator ((rangeP, low, high, insts) : rs) = do
+irRange iterator ((rangeP, low, high, iblock) : rs) = do
   comment $ "Range at " <> showP rangeP
 
   lOp <- irExpression low
@@ -188,7 +190,8 @@ irRange iterator ((rangeP, low, high, insts) : rs) = do
   terminate $ CondBr LEI t0 hOp gBody next
 
   (gBody #)
-  mapM_ irInstruction insts
+  irIBlock iblock
+
   let
     one = case expType low of
       Basic { atom } | atom == EpCharacter -> C $ CC 1
@@ -205,3 +208,9 @@ irRange iterator ((rangeP, low, high, insts) : rs) = do
 
   (next #)
   irRange iterator rs
+
+irIBlock :: IBlock -> IRMonad ()
+irIBlock (IBlock insts) = do
+  enterScope
+  mapM_ irInstruction insts
+  exitScope

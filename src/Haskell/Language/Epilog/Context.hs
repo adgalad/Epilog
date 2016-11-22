@@ -206,7 +206,7 @@ verifyField f@(n :@ p) t = do
 
 -- Procedures ------------------------------------------------------------------
 storeProcedure' :: Word32 -> Joy -> Epilog ()
-storeProcedure' procParamsSize Joy { jType = blockType, jInsts } = do
+storeProcedure' procParamsSize Joy { jType = blockType, jBlock } = do
     Just (n :@ p) <- use current
     t@(_ :-> retType)<- use curProcType
 
@@ -234,7 +234,11 @@ storeProcedure' procParamsSize Joy { jType = blockType, jInsts } = do
               , procPos    = p
               , procType   = t
               , procParams = params
-              , procDef    = Just (jInsts, scope)
+              , procDef    = Just
+                (case jBlock of
+                  Nothing -> error "bad block at storeProcedure'"
+                  Just b  -> b
+                , scope )
               , procStackSize = ssize
               , procParamsSize }
 
@@ -505,14 +509,14 @@ checkGuards
 checkGuard :: Joy -> Joy -> Epilog Joy
 checkGuard
   Joy { jType = condT, jPos, jExp }
-  Joy { jType = instsT, jInsts }
-  | condT == None || instsT == None = pure noJoy { jPos }
+  Joy { jType = instsT, jBlock }
+  | condT == None || instsT == None || isNothing jBlock = pure noJoy { jPos }
   | otherwise = pure joy
     { jPos
     , jGuards = Seq.singleton
       ( jPos
       , fromJust jExp
-      , jInsts ) }
+      , fromJust jBlock ) }
 
 checkGuardCond :: Joy -> Epilog Joy
 checkGuardCond j@Joy { jType = Basic { atom = EpBoolean } } =
@@ -649,15 +653,15 @@ checkRanges Joy { jType = rsT, jPos, jRanges } Joy { jType = rT, jRanges = jRang
 
 
 checkRange :: Joy -> Joy -> Epilog Joy
-checkRange Joy { jType = rT, jPos, jExp, jExp' } Joy { jType = instsT, jInsts }
-  | rT == None || instsT == None = pure noJoy { jPos }
+checkRange Joy { jType = rT, jPos, jExp, jExp' } Joy { jType = instsT, jBlock }
+  | rT == None || instsT == None || isNothing jBlock = pure noJoy { jPos }
   | otherwise = pure $ joy
     { jPos
     , jRanges = Seq.singleton
       ( jPos
       , fromJust jExp
       , fromJust jExp'
-      , jInsts ) }
+      , fromJust jBlock ) }
 
 
 checkRangeLimits :: Joy -> Joy -> Epilog Joy

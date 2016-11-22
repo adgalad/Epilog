@@ -393,36 +393,50 @@ irLval Lval { lvalType, lval' } = case lval' of
     addTAC $ t :=* r
     pure t
 
+data Metaoperand
+  = Pure     Operand
+  | Brackets Operand Operand
+  | Star     Operand
+  deriving (Eq, Show, Ord)
 
-irRval :: Lval -> IRMonad Operand
+irRval :: Lval -> IRMonad Metaoperand
 irRval Lval { lvalType, lval' } = case lval' of
-  Variable name k offset -> do
+  Variable name k _offset -> do
     comment $ "Rval " <> show k <> " variable `" <> name <> "`"
-    case k of
-      K.RefParam -> do
-        t1 <- newTemp
-        t2 <- newTemp
-        addTAC $ t1 :=* R name
-        addTAC $ t2 :=* t1
-        pure t2
-      _ -> do
-        t <- newTemp
-        addTAC $ t :=* R name
-        pure t
+    name' <- getVarName name
+    pure . ($ R name') $ case k of
+      K.RefParam -> Star
+      _          -> Pure
 
   Member lval _name offset -> do
-    r <- irLval lval
-    if offset == 0
-      then do
+    r <- irRval lval
+    case r of
+      Pure op -> pure $ Brackets op (C . IC . fromIntegral $ offset)
+
+      Brackets b off -> do
         t <- newTemp
-        addTAC $ t :=* r
-        pure t
-      else do
-        t1 <- newTemp
-        addTAC $ t1 := B AddI r (C . IC . fromIntegral $ offset)
-        t2 <- newTemp
-        addTAC $ t2 :=* t1
-        pure t2
+        -- caso en que off es constante
+        addTAC $ t := B AddI off (C . IC . fromIntegral $ offset)
+        pure $ Brackets b t
+
+      Star op -> do
+        t <- newTemp
+        addTAC $ t :=* op
+        pure $ Brackets t (C . IC . fromIntegral $ offset)
+
+
+    --
+    -- if offset == 0
+    --   then do
+    --     t <- newTemp
+    --     addTAC $ t :=* r
+    --     pure t
+    --   else do
+    --     t1 <- newTemp
+    --     addTAC $ t1 := B AddI r (C . IC . fromIntegral $ offset)
+    --     t2 <- newTemp
+    --     addTAC $ t2 :=* t1
+    --     pure t2
 
   Index lval idx -> do
     r <- irLval lval

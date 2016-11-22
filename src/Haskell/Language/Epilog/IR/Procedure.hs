@@ -24,7 +24,7 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
                       , procParams, procDef, procStackSize, procParamsSize } =
   case procDef of
     Nothing -> liftIO . putStrLn $ "Epilog native procedure `" <> procName <> "`"
-    Just (insts, scope) -> do
+    Just (iblock, scope) -> do
       g <- use global
       let smbs = (\(Right x) -> x) . goDownFirst . insertST scope . focus $ g
       symbols .= smbs
@@ -39,7 +39,7 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
         \Parameter { parName, parOffset, parSize, parRef } ->
           addTAC $ TAC.Var parRef parName (parOffset + 12) parSize
 
-      mapM_ irInstruction insts
+      irIBlock iblock
 
       use currentBlock >>= \case
         Nothing -> pure ()

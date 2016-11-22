@@ -223,7 +223,7 @@ Procedure2
     | "->" Type
     {% storeProcedure (item $2) }
 Procedure3
-    : OPENF( ":-" ) Insts CLOSE(CLOSE( "." )) CLOSELOCAL
+    : OPENF( ":-" ) Block CLOSE(CLOSE( "." )) CLOSELOCAL
     { $2 { jPos = pos $3 } }
 
 OPENPARAMS
@@ -306,6 +306,10 @@ Cont
 
 
 ---- Instructions ----------------------
+Block
+    : Insts
+    { $1 { jBlock = Just (IBlock . jInsts $ $1), jInsts = Seq.empty } }
+
 Insts
     : Inst
     { $1 }
@@ -318,7 +322,7 @@ Inst
     | Assign                        { $1 }
     | Call                          { $1 }
     | If                            { $1 }
-    -- | Case                          { $1 }
+    -- | Case                       { $1 }
     | For                           { $1 }
     | While                         { $1 }
 
@@ -460,7 +464,7 @@ Guards
     {% checkGuards $1 $3 }
 
 Guard
-    : GuardCond OPEN( "->" ) Insts
+    : GuardCond OPEN( "->" ) Block
     {% checkGuard $1 $3 }
 
 GuardCond
@@ -486,7 +490,7 @@ GuardCond
 --     {% checkSets $1 $3 }
 --
 -- Set
---     : Elems OPEN( "->" ) Insts
+--     : Elems OPEN( "->" ) Block
 --     {% checkSet $1 $3 }
 --
 -- Elems
@@ -525,7 +529,7 @@ Ranges
     {% checkRanges $1 $3 }
 
 Range
-    : Range1 OPEN( "->" ) Insts
+    : Range1 OPEN( "->" ) Block
     {% checkRange $1 $3 }
 
 Range1

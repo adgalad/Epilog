@@ -8,6 +8,7 @@ module Language.Epilog.AST.Instruction
     , Exps
     , Guard
     , Guards
+    , IBlock (..)
     , Insts
     , Range
     , Ranges
@@ -22,16 +23,18 @@ import           Language.Epilog.Treelike
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 
+data IBlock = IBlock (Seq Instruction) deriving (Eq, Show)
+
 -- Sequence synonyms -----------------------------------------------------------
 type Insts  = Seq Instruction
 
-type Guard  = (Position, Expression, Insts)
+type Guard  = (Position, Expression, IBlock)
 type Guards = Seq Guard
 
--- type Set    = (Position, Exps, Insts)
+-- type Set    = (Position, Exps, IBlock)
 -- type Sets   = Seq Set
 
-type Range  = (Position, Expression, Expression, Insts)
+type Range  = (Position, Expression, Expression, IBlock)
 type Ranges = Seq Range
 
 -- Instructions ----------------------------------------------------------------
@@ -87,8 +90,8 @@ data Instruction
 instance P Instruction where
   pos = instP
 
-instance Treelike Insts where
-  toTree insts = Node "Instructions" (toForest insts)
+instance Treelike IBlock where
+  toTree (IBlock insts) = Node "Instructions" (toForest insts)
 
 instance Treelike Instruction where
   toTree = \case
@@ -149,7 +152,7 @@ instance Treelike Instruction where
 
     where
       guardTree :: Guard -> Tree String
-      guardTree (p, cond, insts) =
+      guardTree (p, cond, IBlock insts) =
         Node (unwords ["Guard", showP p])
             [ Node "Condition" [toTree cond]
             , Node "Body" (toForest insts) ]
@@ -161,7 +164,7 @@ instance Treelike Instruction where
       --       , Node "Body" (toForest insts) ]
 
       rangeTree :: Range -> Tree String
-      rangeTree (p, lower, upper, insts) =
+      rangeTree (p, lower, upper, IBlock insts) =
         Node (unwords ["Range", showP p])
             [ Node "From" [toTree lower]
             , Node "To"   [toTree upper]
