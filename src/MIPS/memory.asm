@@ -1,5 +1,5 @@
 
-  .data 
+  .data
 _base_header: .word 0, 0    # base_header {next, size}
 _last_used: .word 0
   .text
@@ -13,7 +13,7 @@ sw   $t0, 0($sp)
 addi $sp, $sp, -12
 sw   $fp, 0($sp)
 
-jal  _malloc
+jal  _make
 
 lw   $s2, 8($fp)
 lw   $fp, 0($fp)
@@ -32,7 +32,7 @@ sw   $t0, 0($sp)
 addi $sp, $sp, -12
 sw   $fp, 0($sp)
 
-jal  _malloc
+jal  _make
 
 lw   $s3, 8($fp)
 lw   $fp, 0($fp)
@@ -50,7 +50,7 @@ sw   $s2, 0($sp)
 addi $sp, $sp, -12
 sw   $fp, 0($sp)
 
-jal  _free
+jal  _ekam
 
 lw   $fp, 0($fp)
 
@@ -62,7 +62,7 @@ sw   $t0, 0($sp)
 addi $sp, $sp, -12
 sw   $fp, 0($sp)
 
-jal  _malloc
+jal  _make
 
 lw   $s4, 8($fp)
 lw   $fp, 0($fp)
@@ -79,10 +79,10 @@ syscall
 
 ##############################################################
 ##############################################################
-##################        MALLOC       #######################
+##################        MAKE       #########################
 ##############################################################
 ##############################################################
-_malloc:
+_make:
   # a0: nbytes       <--- malloc argument
   # a1: &base_header
   # v1: nunits
@@ -107,7 +107,7 @@ bne $s0, $zero, _malloc_body   # if last_used == null
 _malloc_body:
 
 # t0: previous
-# t1: current 
+# t1: current
 move $t0, $s0           # previous = last_used
 lw   $t1, 0($t0)        # current  = last_used->next
 
@@ -125,7 +125,7 @@ blt $t2, $v1, _malloc_not_found # if current->size >= nunits
 
 _malloc_else:                # else
     sub $t3, $t2, $v1        #    t3 = current->size - nunits
-    sw  $t3, 4($t1)          #    current->size = t3 
+    sw  $t3, 4($t1)          #    current->size = t3
     mul $t3, $t3, 8          #    t3 = current->size * sizeof(Header)
     add $t1, $t1, $t3        #    current += current->size
     sw  $v1, 4($t1)          #    current->size = nunits
@@ -136,7 +136,7 @@ sw   $t0, _last_used       # last_used = previous
 addi $t1, $t1, 8
 sw   $t1, 8($fp)           # return  current + sizeof(Header)
 lw   $ra, 4($fp)
-jr   $ra                    
+jr   $ra
 
 _malloc_not_found:
 bne $t1, $s0, _malloc_loop_increment
@@ -144,7 +144,7 @@ bne $t1, $s0, _malloc_loop_increment
   addi $sp, $sp, -16
   sw   $v1, 12($sp)
   sw   $fp, 0($sp)
-  
+
   jal  _more_mem
 
   lw   $t1, 8($fp)
@@ -188,8 +188,8 @@ addi $v0, $v0, 8     # mem += sizeof(header)
   addi $sp, $sp, -16
   sw   $v0, 12($sp)
   sw   $fp, 0($sp)
-  
-  jal  _free
+
+  jal  _ekam
 
   lw   $fp, 0($fp)
   addi $sp, $sp, 16
@@ -197,15 +197,15 @@ addi $v0, $v0, 8     # mem += sizeof(header)
 lw $v0, _last_used
 sw $v0, 8($fp)              # return last_used
 lw $ra, 4($fp)
-jr $ra  
+jr $ra
 
 ##############################################################
 ##############################################################
-##################        FREE         #######################
+##################        EKAM         #######################
 ##############################################################
 ##############################################################
 
-_free:
+_ekam:
   # a2: pointer (insertp)  <-- argument
   # t3: current
   # t4: current->next
@@ -253,7 +253,7 @@ bne $t6, $t4, _free_else  # if insertp + insertp->size == current->next
   lw $t7, 4($t4)          # t7 = current->next->size
   add $t7, $t7, $t5       # t7 = current->next->size + insertp->size
   sw $t7, 4($a2)          # insertp->size += current->next->size
-  
+
   j _free_if
 
 _free_else:
@@ -281,4 +281,4 @@ _free_end:
 sw $t3, _last_used        # last_used = current
 
 lw $ra, 4($fp)
-jr $ra 
+jr $ra

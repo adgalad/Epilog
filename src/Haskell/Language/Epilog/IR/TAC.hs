@@ -18,7 +18,7 @@ module Language.Epilog.IR.TAC
   , Program (..)
   , Operand (..)
   , Constant (..)
-  , Label
+  , Label (..)
   , targets
   ) where
 --------------------------------------------------------------------------------
@@ -34,15 +34,17 @@ import           GHC.Generics           (Generic)
 class Emit a where
   emit :: a -> String
 
-type Label = Int
+data Label = Label { lblstr :: String, lblnum :: Int  }
+  deriving (Eq, Show, Ord, Read, Generic, Serialize)
+
+instance Emit Label where
+  emit = lblstr
 --------------------------------------------------------------------------------
 
 data Operand
   = R Name
   | T Int
   | C Constant
-  | FP
-  -- | GP
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 instance Emit Operand where
@@ -50,8 +52,6 @@ instance Emit Operand where
     R s -> s
     T i -> "_t" <> show i
     C c -> "#" <> emit c
-    FP  -> "@FramePointer"
-    -- GP  -> "@GlobalPointer"
 
 data Constant
   = BC Bool
@@ -76,7 +76,7 @@ data Block = Block
 
 instance Emit Block where
   emit Block { lbl, tacs, term } =
-    (<> "\n") . unlines . ((show lbl <> ":") :) . toList $
+    (<> "\n") . unlines . ((emit lbl <> ":") :) . toList $
       fmap (("\t" <>) . emit) tacs |> (("\t" <>) . emit) term
 --------------------------------------------------------------------------------
 
@@ -141,8 +141,13 @@ data TAC
   | Operand :*= Operand
   -- ^ Pointer write, i.e. *a := b
 
+  | Operand :=& Operand
+  -- ^ Address-of operator, i.e., t := &a
+
   | Param Operand
   -- ^ For storing procedure parameters
+  | RefParam Operand
+  -- ^ For storing procedure reference parameters
   | Call Function
     -- ^ Call a procedure
   | Operand :<- Function
@@ -170,7 +175,9 @@ instance Emit TAC where
     (b, o) :#= x  -> emit b <> "[" <> emit o <> "]" <> " := " <> emit x
     x :=* a       -> emit x <> " := *" <> emit a
     x :*= a       -> "*" <> emit x <> " := " <> emit a
+    x :=& a       -> emit x <> " := &" <> emit a
     Param op      -> "param " <> emit op
+    RefParam op   -> "param &" <> emit op
     Call func     -> "call " <> show func
     x :<- func    -> emit x <> " := call " <> show func
     Cleanup i     -> "cleanup " <> show i
@@ -225,12 +232,12 @@ data Terminator
 
 instance Emit Terminator where
   emit = \case
-    Br l                 -> "goto " <> show l
-    IfBr cond l1 l2      -> "if " <> emit cond <> " goto " <> show l1 <>
-      " else goto " <> show l2
+    Br l                 -> "goto " <> emit l
+    IfBr cond l1 l2      -> "if " <> emit cond <> " goto " <> emit l1 <>
+      " else goto " <> emit l2
     CondBr rel a b l1 l2 ->
       "if " <> fmap toLower (show rel) <> " " <> emit a <> " " <> emit b <>
-      " goto " <> show l1 <> "\n\tgoto " <> show l2
+      " goto " <> emit l1 <> "\n\tgoto " <> emit l2
     Return               -> "return"
     Exit                 -> "exit"
 
@@ -251,4 +258,4 @@ targets = \case
   IfBr { trueDest, falseDest } -> [trueDest, falseDest]
   CondBr { trueDest, falseDest } -> [trueDest, falseDest]
   Return {} -> []
-  Exit -> [-1]
+  Exit -> [Label "_EXIT" (-1)]

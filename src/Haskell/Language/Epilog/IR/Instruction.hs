@@ -27,6 +27,7 @@ irInstruction = \case
     comment $ "Assignment at " <> showP instP
     t <- irExpression assignVal
     r <- irLval assignTarget
+
     addTAC $ case r of
       Pure op ->
         op := Id t
@@ -35,18 +36,20 @@ irInstruction = \case
       Star op ->
         op :*= t
 
-  ICall { instP , callName, callArgs, callRetType } -> do -- FIXME!!!!!!!! RefParams
+  ICall { instP , callName, callArgs, callRetType } -> do
     comment $ "Call at " <> showP instP
-    -- args <- mapM (either irLval irExpression) callArgs
-    -- mapM_ (addTAC . Param) (Seq.reverse args)
+    args <- mapM (either irLvalAddr irExpression) callArgs
+    mapM_ (addTAC . Param) (Seq.reverse args)
     addTAC $ Call callName
-    -- addTAC . Cleanup . (*4) . fromIntegral . length $ callArgs
-    addTAC . Cleanup . fromIntegral . sizeT $ callRetType
+    addTAC . Cleanup
+      . ((+) . fromIntegral . sizeT $ callRetType)
+      . (*4) . fromIntegral . length
+      $ callArgs
 
   If { instP, ifGuards } -> do
     comment $ "If at " <> showP instP
 
-    next <- newLabel
+    next <- newLabel "IfExit"
     nextBlock <|= next
 
     irGuards next . toList $ ifGuards
@@ -63,12 +66,12 @@ irInstruction = \case
   While { instP, whileGuards } -> do
     comment $ "While at " <> showP instP
 
-    whileHeader <- newLabel
+    whileHeader <- newLabel "WhileHeader"
     terminate $ Br whileHeader
     nextBlock <|= whileHeader
 
     (whileHeader #)
-    next <- newLabel
+    next <- newLabel "WhileExit"
     irGuards next . toList $ whileGuards
 
     (next #)
@@ -85,34 +88,40 @@ irInstruction = \case
             _           -> internal "non-readable type"
           _ -> internal "non-readable type"
 
-    t <- newTemp
-    addTAC $ t :<- readFunc
-
     r <- irLval readTarget
-    addTAC $ case r of
+    case r of
       Pure op ->
-        op := Id t
-      Star op ->
-        op :*= t
-      Brackets b off ->
-        (b, off) :#= t
+        addTAC $ op :<- readFunc
+      _ -> do
+        t <- newTemp
+        addTAC $ t :<- readFunc
+        case r of
+          Star op ->
+            addTAC $ op :*= t
+          Brackets b off ->
+            addTAC $ (b, off) :#= t
+          _ -> internal "The impossible happened"
 
   Write { instP, writeVal } -> do
     comment $ "Write at " <> showP instP
 
-    let writeFunc = case expType writeVal of
-          Basic { atom } -> case atom of
-            EpBoolean   -> "_writeBoolean"
-            EpFloat     -> "_writeFloat"
-            EpInteger   -> "_writeInteger"
-            EpCharacter -> "_writeChar"
-            _           -> internal "non-printable type"
-          EpStr _ _     -> "_writeStr"
-          _ -> internal "non-printable type"
-
     t <- irExpression writeVal
 
-    addTAC $ Param t
+    writeFunc <- case expType writeVal of
+      Basic { atom } -> do
+        let writeFunc = case atom of
+              EpBoolean   -> "_writeBoolean"
+              EpFloat     -> "_writeFloat"
+              EpInteger   -> "_writeInteger"
+              EpCharacter -> "_writeChar"
+              _           -> internal "non-printable type"
+        addTAC $ Param t
+        pure writeFunc
+      EpStr _ _     -> do
+        addTAC $ RefParam t
+        pure "_writeStr"
+      _ -> internal "non-printable type"
+
     addTAC $ Call writeFunc
 
   Make { instP, makeTarget } -> do
@@ -137,18 +146,29 @@ irInstruction = \case
     comment $ "Ekam at " <> showP instP
 
     r <- irLval ekamTarget
-    -- addTAC $ Param r -- FIXME!!!
-    -- addTAC $ Call "_ekam"
-    -- addTAC $ Cleanup 4
-
-    addTAC $ case r of
+    par <- case r of
       Pure op ->
-        op := Id (C (IC 0))
-      Star op ->
-        op :*= C (IC 0)
-      Brackets b off ->
-        (b, off) :#= C (IC 0)
+        pure op
+      Brackets b off -> do
+        t <- newTemp
+        addTAC $ t :=# (b, off)
+        pure t
+      Star op -> do
+        t <- newTemp
+        addTAC $ t :=* op
+        pure t
 
+    addTAC $ Param par
+    addTAC $ Call "_ekam"
+    addTAC $ Cleanup 4
+
+    case r of
+      Pure op ->
+        addTAC $ op := Id (C (IC 0))
+      Brackets b off ->
+        addTAC $ (b, off) :#= C (IC 0)
+      Star op ->
+        addTAC $ op :*= C (IC 0)
 
   Answer { instP, answerVal } -> do
     comment $ "Answer at " <> showP instP
@@ -166,18 +186,19 @@ irInstruction = \case
       Nothing -> internal "nowhere to return after finish"
       Just l  -> terminate $ Br l
 
-  Var { varName, varOffset, varSize } ->
-    addTAC $ TAC.Var False varName (negate $ 4 + varOffset) varSize
+  Var { varName, varOffset, varSize } -> do
+    varName' <- insertVar varName
+    addTAC $ TAC.Var False varName' (negate $ 4 + varOffset) varSize
 
 irGuards :: Label -> [(Position, Expression, IBlock)] -> IRMonad ()
 irGuards _ [] = internal "impossible call to irGuards"
 irGuards final ((guardP, cond, iblock):gs) = do
   comment $ "Guard at " <> showP guardP
 
-  true  <- newLabel
+  true  <- newLabel "YesGuard"
   false <- case gs of
     [] -> pure final
-    _  -> newLabel
+    _  -> newLabel "NextGuard"
   irBoolean true false cond
 
   (true #)
@@ -211,9 +232,9 @@ irRange iterator ((rangeP, low, high, iblock) : rs) = do
     Star op ->
       op :*= lOp
 
-  gHeader <- newLabel
-  gBody   <- newLabel
-  next    <- newLabel
+  gHeader <- newLabel "ForHeader"
+  gBody   <- newLabel "ForBody"
+  next    <- newLabel "ForExit"
   terminate $ Br gHeader
 
   (gHeader #)

@@ -205,15 +205,31 @@ verifyField f@(n :@ p) t = do
 
 
 -- Procedures ------------------------------------------------------------------
-storeProcedure' :: Word32 -> Joy -> Epilog ()
-storeProcedure' procParamsSize Joy { jType = blockType, jBlock } = do
+storeProcedure' :: Word32 -> Maybe Joy -> Epilog ()
+storeProcedure' _ Nothing = do
+  Just (n :@ p) <- use current
+  use (pendProcs . at n) >>= \case
+    Nothing -> do
+      t <- use curProcType
+      pendProcs . at n ?= (t :@ p)
+    Just (_ :@ p') -> err $ ReForwardDec n p p'
+
+storeProcedure' procParamsSize (Just Joy { jType = blockType, jBlock }) = do
     Just (n :@ p) <- use current
     t@(_ :-> retType)<- use curProcType
+
+    sameType <- use (pendProcs . at n) >>= \case
+      Nothing -> pure True
+      Just (t' :@ p') -> if t == t'
+        then pure True
+        else do
+          err $ ForwardDecMismatch n t' t p' p
+          pure False
 
     scope <- symbols %%= extractScope
     ssize <- getMax <$> use curStackSize
 
-    if blockType == None
+    if blockType == None || not sameType
       then
         procedures . at n ?= Procedure
           { procName   = n
@@ -432,13 +448,17 @@ checkCall (pname :@ callP) js = do
       Just EpiProc { procType = ets' :-> ret' } ->
         compareArgs callP ets' ret'
 
-      Just _ -> do
-        err $ UndefinedProcedure pname callP
-        pure $ noJoy { jPos = p }
+      Just _ -> error "the impossible happened at checkCall"
 
       Nothing -> do
-        err $ UndefinedProcedure pname callP
-        pure $ noJoy { jPos = p }
+        use (pendProcs . at pname) >>= \case
+          Nothing -> do
+            err $ UndefinedProcedure pname callP
+            pure $ noJoy { jPos = p }
+          Just ((ets' :-> ret') :@ _) -> do
+            compareArgs callP ets' ret'
+          Just _ ->
+            error "the impossible (part II) happened at checkCall"
 
   where
     compareArgs p ets ret

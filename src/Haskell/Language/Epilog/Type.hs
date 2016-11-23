@@ -129,6 +129,10 @@ instance Eq Type where
         False
     Any == _ =
         True
+
+    (ps1 :-> r1) == (ps2 :-> r2) =
+        r1 == r2 && ps1 == ps2
+
     _ == _ =
         False
 

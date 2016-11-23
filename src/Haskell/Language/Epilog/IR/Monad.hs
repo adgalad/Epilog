@@ -13,6 +13,7 @@ module Language.Epilog.IR.Monad
   , runIR
   , initialIR
   , newLabel
+  , newUnLabel
   , newTemp
   , (#)
   , addTAC
@@ -68,6 +69,7 @@ data IRState = IRState
   , _nextBlock    :: [Label]
   , _retLabel     :: Maybe Label
   , _labelCount   :: Int
+  , _labelSupply  :: Map String Int
   , _tempCount    :: Int
   , _varSupply    :: Map String Int
   , _global       :: Scope
@@ -84,6 +86,7 @@ initialIR = IRState
   , _nextBlock    = []
   , _retLabel     = Nothing
   , _labelCount   = 1
+  , _labelSupply  = Map.empty
   , _tempCount    = 0
   , _varSupply    = Map.empty
   , _global       = undefined
@@ -95,8 +98,15 @@ makeLenses ''IRState
 runIR :: (a -> IRMonad b) -> a -> IO (b, IRState)
 runIR x inp = runStateT (x inp) initialIR
 
-newLabel :: IRMonad Label
-newLabel = labelCount <<+= 1
+newUnLabel :: IRMonad Label
+newUnLabel = newLabel "Noname"
+
+newLabel :: String -> IRMonad Label
+newLabel name = Label <$> aux <*> (labelCount <<+= 1)
+  where
+    aux = labelSupply %%= \supply -> case name `Map.lookup` supply of
+      Nothing -> (name                 , supply & at name ?~ 1)
+      Just i  -> (name <> "_" <> show i, supply & at name ?~ i)
 
 newTemp :: IRMonad Operand
 newTemp = T <$> (tempCount <<+= 1)
@@ -114,7 +124,7 @@ addTAC tac = -- do
     cb@(Just _) -> (_Just . _2 |>~ tac) cb
 
 comment :: String -> IRMonad ()
-comment = addTAC . Comment
+comment = const $ pure () -- addTAC . Comment
 
 terminate :: Terminator -> IRMonad ()
 terminate term = -- do
@@ -127,7 +137,7 @@ terminate term = -- do
         , term }
       currentBlock .= Nothing
 
-      edges %= (fmap (lbl,) (targets term) <>)
+      edges %= (fmap (lblnum lbl,) (lblnum <$> targets term) <>)
 
 closeModule :: Name -> IRMonad ()
 closeModule mName = do
@@ -157,13 +167,13 @@ getVarName :: String -> IRMonad String
 getVarName v = do
   getVarName' <$> use varTable
   where
-    getVarName' []     = error "getVarName failed"
+    getVarName' []     = error $ "getVarName failed: " <> v
     getVarName' (m:ms) = fromMaybe (getVarName' ms) (v `Map.lookup` m)
 
 newVar :: String -> IRMonad String
 newVar name = varSupply %%= \supply -> case name `Map.lookup` supply of
-  Nothing -> (name <> ".0"         , supply & at name ?~ 1)
-  Just i  -> (name <> "." <> show i, supply & at name ?~ i + 1)
+  Nothing -> (name                 , supply & at name ?~ 1)
+  Just i  -> (name <> "." <> show i, supply & at name ?~ i)
 
 insertVar' :: String -> IRMonad ()
 insertVar' = void . insertVar

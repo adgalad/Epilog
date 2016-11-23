@@ -41,7 +41,7 @@ import           System.IO                       (hPrint, stderr)
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
 type Strings = Map String Int32
-type Pending = Map Name   (Seq Position)
+type Pending = Map Name   (At Type)
 type Byte    = Word8
 
 -- | The configuration of the compiler monad.

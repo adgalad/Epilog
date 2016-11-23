@@ -21,7 +21,7 @@ import           Control.Lens                   (use, (.=), (<~))
 
 irProcedure :: Procedure -> IRMonad ()
 irProcedure Procedure { procName, procPos, procType = _ :-> retType
-                      , procParams, procDef, procStackSize, procParamsSize } =
+                      , procParams, procDef, procStackSize } =
   case procDef of
     Nothing -> liftIO . putStrLn $ "Epilog native procedure `" <> procName <> "`"
     Just (iblock, scope) -> do
@@ -29,15 +29,16 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
       let smbs = (\(Right x) -> x) . goDownFirst . insertST scope . focus $ g
       symbols .= smbs
 
-      retLabel <~ Just <$> newLabel
+      retLabel <~ Just <$> newLabel "Return"
 
-      newLabel >>= (#)
+      newLabel ("proc_" <> procName) >>= (#)
       addTAC . Comment $ "Procedure at " <> showP procPos
       addTAC $ Prolog procStackSize
 
       forM_ procParams $
-        \Parameter { parName, parOffset, parSize, parRef } ->
-          addTAC $ TAC.Var parRef parName (parOffset + 12) parSize
+        \Parameter { parName, parOffset, parSize, parRef } -> do
+          parName' <- insertVar parName
+          addTAC $ TAC.Var parRef parName' (parOffset + 12) parSize
 
       irIBlock iblock
 
@@ -62,7 +63,7 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
         Nothing  -> internal "no return label"
         Just lbl -> (lbl #)
       addTAC . Comment $ "Epilog for procedure " <> procName
-      addTAC $ Epilog (procStackSize + procParamsSize)
+      addTAC $ Epilog procStackSize
       terminate Return
 
       retLabel .= Nothing

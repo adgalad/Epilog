@@ -8,6 +8,7 @@ module Language.Epilog.IR.Expression
   ( irExpression
   , irBoolean
   , irLval
+  , irLvalAddr
   , Metaoperand (..)
   ) where
 --------------------------------------------------------------------------------
@@ -21,7 +22,7 @@ import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Data.Bits                      ((.&.), (.|.), shiftR, shiftL,
                                                  xor, complement)
--- import qualified Data.Sequence                  as Seq (reverse)
+import qualified Data.Sequence                  as Seq (reverse)
 --------------------------------------------------------------------------------
 
 irExpression :: Expression -> IRMonad Operand
@@ -48,9 +49,9 @@ irExpression e@Expression { exp' } = case exp' of
         addTAC $ t :=* op
         pure t
 
-  ECall callName _callArgs -> do -- FIXME!!!!
-    -- args <- mapM (either irLval irExpression) callArgs
-    -- mapM_ (addTAC . Param) (Seq.reverse args)
+  ECall callName callArgs -> do
+    args <- mapM (either irLvalAddr irExpression) callArgs
+    mapM_ (addTAC . Param) (Seq.reverse args)
 
     t <- newTemp
     addTAC $ t :<- callName
@@ -158,13 +159,13 @@ irExpression e@Expression { exp' } = case exp' of
 
 wrapBoolean :: Expression -> IRMonad Operand
 wrapBoolean e = do
-  true <- newLabel
-  false <- newLabel
+  true <- newLabel "True"
+  false <- newLabel "False"
 
   result <- newTemp
   irBoolean true false e
 
-  finish <- newLabel
+  finish <- newLabel "WrapBoolFinish"
 
   (true #)
   addTAC $ result := Id (C . BC $ True)
@@ -241,7 +242,7 @@ irBoolean true false e@Expression { exp' } = case exp' of
       terminate $ IfBr t true false
 
     Andalso -> do
-      middle <- newLabel
+      middle <- newLabel "JC_andalso"
       irBoolean middle false exp0
 
       (middle #)
@@ -252,7 +253,7 @@ irBoolean true false e@Expression { exp' } = case exp' of
       terminate $ IfBr t true false
 
     Orelse  -> do
-      middle <- newLabel
+      middle <- newLabel "JC_orelse"
       irBoolean true middle exp0
       (middle #)
       irBoolean true false exp1
@@ -360,63 +361,16 @@ toIRRel atom = \case
   NFop     -> NFI
   o        -> internal $ "Non relational operator `" <> show o <> "`"
 
-
--- Either Tupla/Operando
--- irLval :: Lval -> IRMonad Operand
--- irLval Lval { lvalType, lval' } = case lval' of
---   Variable name k _offset -> do
---     comment $ "Lval " <> show k <> " variable `" <> name <> "`"
---     case k of
---       K.RefParam -> do
---         t <- newTemp
---         addTAC $ t :=* R name
---         pure t
---       _ -> pure $ R name
---     -- where
---       -- offset' = fromIntegral $ offset + 12 -- (case k of
---         -- K.RefParam -> 4
---         -- _ -> sizeT lvalType)
---       -- base = C . IC $ offset'
---       -- negBase = C . IC . fromIntegral . negate $ offset + 4
---
---   Member lval _name offset -> do
---     r <- irLval lval
---     if offset == 0
---       then pure r
---       else do
---         t <- newTemp
---         addTAC $ t := B AddI r (C . IC . fromIntegral $ offset)
---         pure t
---
---   Index lval idx -> do
---     r <- irLval lval
---     t <- irExpression idx
---     case t of
---       C (IC 0) -> pure r
---       _ -> do
---         let sz = C . IC . fromIntegral . sizeT $ lvalType
---         t1 <- newTemp
---         addTAC $ t1 := B MulI sz t
---         t2 <- newTemp
---         addTAC $ t2 := B AddI r t1
---         pure t2
---
---   Deref lval -> do
---     r <- irLval lval
---     t <- newTemp
---     addTAC $ t :=* r
---     pure t
-
 data Metaoperand
-  = Pure     Operand
-  | Brackets Operand Operand
-  | Star     Operand
+  = Pure     { op :: Operand}
+  | Brackets { base :: Operand, off :: Operand } -- ^ the offset is in bytes
+  | Star     { op :: Operand}
   deriving (Eq, Show, Ord)
 
 irLval :: Lval -> IRMonad Metaoperand
 irLval Lval { lvalType, lval' } = case lval' of
   Variable name k _offset -> do
-    comment $ "Rval " <> show k <> " variable `" <> name <> "`"
+    comment $ "Lval " <> show k <> " variable `" <> name <> "`"
     name' <- getVarName name
     pure . ($ R name') $ case k of
       K.RefParam -> Star
@@ -459,6 +413,10 @@ irLval Lval { lvalType, lval' } = case lval' of
       Brackets b off -> case (off, t0) of
         (C (IC n), C (IC m)) -> pure $
           Brackets b (C (IC $ n + (m * (fromIntegral . sizeT $ lvalType))))
+        (_, C (IC m)) -> do
+          t1 <- newTemp
+          addTAC $ t1 := B AddI off (C . IC . (*m) . fromIntegral . sizeT $ lvalType)
+          pure $ Brackets b t1
         _ -> do
           t1 <- newTemp
           addTAC $ t1 := B MulI t0 (C . IC . fromIntegral . sizeT $ lvalType)
@@ -491,4 +449,20 @@ irLval Lval { lvalType, lval' } = case lval' of
       Star op -> do
         t <- newTemp
         addTAC $ t :=* op
-        pure $ Star op
+        pure $ Star t
+
+irLvalAddr :: Lval -> IRMonad Operand
+irLvalAddr lval = do
+  r <- irLval lval
+  case r of
+    Pure op -> do
+      t <- newTemp
+      addTAC $ t :=& op
+      pure t
+    Brackets b off -> do
+      t1 <- newTemp
+      t2 <- newTemp
+      addTAC $ t1 :=& b
+      addTAC $ t2 := B AddI t1 off
+      pure t2
+    Star op -> pure op

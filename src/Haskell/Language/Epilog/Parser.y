@@ -224,7 +224,10 @@ Procedure2
     {% storeProcedure (item $2) }
 Procedure3
     : OPENF( ":-" ) Block CLOSE(CLOSE( "." )) CLOSELOCAL
-    { $2 { jPos = pos $3 } }
+    { Just $ $2 { jPos = pos $3 } }
+    | CLOSE( "." )
+    { Nothing }
+
 
 OPENPARAMS
   : {- lambda -}
