@@ -8,6 +8,7 @@ module Language.Epilog.IR.Expression
   ( irExpression
   , irBoolean
   , irLval
+  , Metaoperand (..)
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression hiding (Not, VarKind(..))
@@ -20,7 +21,7 @@ import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Data.Bits                      ((.&.), (.|.), shiftR, shiftL,
                                                  xor, complement)
-import qualified Data.Sequence                  as Seq (reverse)
+-- import qualified Data.Sequence                  as Seq (reverse)
 --------------------------------------------------------------------------------
 
 irExpression :: Expression -> IRMonad Operand
@@ -32,11 +33,24 @@ irExpression e@Expression { exp' } = case exp' of
 
   LitString idx -> pure $ R ("_str" <> show idx)
 
-  Rval rval -> irRval rval
+  Rval rval -> do
+    r <- irLval rval
+    case r of
+      Pure op -> pure $ op
 
-  ECall callName callArgs -> do
-    args <- mapM (either irLval irExpression) callArgs
-    mapM_ (addTAC . Param) (Seq.reverse args)
+      Brackets b off -> do
+        t <- newTemp
+        addTAC $ t :=# (b, off)
+        pure t
+
+      Star op -> do
+        t <- newTemp
+        addTAC $ t :=* op
+        pure t
+
+  ECall callName _callArgs -> do -- FIXME!!!!
+    -- args <- mapM (either irLval irExpression) callArgs
+    -- mapM_ (addTAC . Param) (Seq.reverse args)
 
     t <- newTemp
     addTAC $ t :<- callName
@@ -348,50 +362,50 @@ toIRRel atom = \case
 
 
 -- Either Tupla/Operando
-irLval :: Lval -> IRMonad Operand
-irLval Lval { lvalType, lval' } = case lval' of
-  Variable name k _offset -> do
-    comment $ "Lval " <> show k <> " variable `" <> name <> "`"
-    case k of
-      K.RefParam -> do
-        t <- newTemp
-        addTAC $ t :=* R name
-        pure t
-      _ -> pure $ R name
-    -- where
-      -- offset' = fromIntegral $ offset + 12 -- (case k of
-        -- K.RefParam -> 4
-        -- _ -> sizeT lvalType)
-      -- base = C . IC $ offset'
-      -- negBase = C . IC . fromIntegral . negate $ offset + 4
-
-  Member lval _name offset -> do
-    r <- irLval lval
-    if offset == 0
-      then pure r
-      else do
-        t <- newTemp
-        addTAC $ t := B AddI r (C . IC . fromIntegral $ offset)
-        pure t
-
-  Index lval idx -> do
-    r <- irLval lval
-    t <- irExpression idx
-    case t of
-      C (IC 0) -> pure r
-      _ -> do
-        let sz = C . IC . fromIntegral . sizeT $ lvalType
-        t1 <- newTemp
-        addTAC $ t1 := B MulI sz t
-        t2 <- newTemp
-        addTAC $ t2 := B AddI r t1
-        pure t2
-
-  Deref lval -> do
-    r <- irLval lval
-    t <- newTemp
-    addTAC $ t :=* r
-    pure t
+-- irLval :: Lval -> IRMonad Operand
+-- irLval Lval { lvalType, lval' } = case lval' of
+--   Variable name k _offset -> do
+--     comment $ "Lval " <> show k <> " variable `" <> name <> "`"
+--     case k of
+--       K.RefParam -> do
+--         t <- newTemp
+--         addTAC $ t :=* R name
+--         pure t
+--       _ -> pure $ R name
+--     -- where
+--       -- offset' = fromIntegral $ offset + 12 -- (case k of
+--         -- K.RefParam -> 4
+--         -- _ -> sizeT lvalType)
+--       -- base = C . IC $ offset'
+--       -- negBase = C . IC . fromIntegral . negate $ offset + 4
+--
+--   Member lval _name offset -> do
+--     r <- irLval lval
+--     if offset == 0
+--       then pure r
+--       else do
+--         t <- newTemp
+--         addTAC $ t := B AddI r (C . IC . fromIntegral $ offset)
+--         pure t
+--
+--   Index lval idx -> do
+--     r <- irLval lval
+--     t <- irExpression idx
+--     case t of
+--       C (IC 0) -> pure r
+--       _ -> do
+--         let sz = C . IC . fromIntegral . sizeT $ lvalType
+--         t1 <- newTemp
+--         addTAC $ t1 := B MulI sz t
+--         t2 <- newTemp
+--         addTAC $ t2 := B AddI r t1
+--         pure t2
+--
+--   Deref lval -> do
+--     r <- irLval lval
+--     t <- newTemp
+--     addTAC $ t :=* r
+--     pure t
 
 data Metaoperand
   = Pure     Operand
@@ -399,8 +413,8 @@ data Metaoperand
   | Star     Operand
   deriving (Eq, Show, Ord)
 
-irRval :: Lval -> IRMonad Metaoperand
-irRval Lval { lvalType, lval' } = case lval' of
+irLval :: Lval -> IRMonad Metaoperand
+irLval Lval { lvalType, lval' } = case lval' of
   Variable name k _offset -> do
     comment $ "Rval " <> show k <> " variable `" <> name <> "`"
     name' <- getVarName name
@@ -408,58 +422,73 @@ irRval Lval { lvalType, lval' } = case lval' of
       K.RefParam -> Star
       _          -> Pure
 
+  Member lval _name 0 -> irLval lval
+
   Member lval _name offset -> do
-    r <- irRval lval
+    r <- irLval lval
     case r of
       Pure op -> pure $ Brackets op (C . IC . fromIntegral $ offset)
 
-      Brackets b off -> do
-        t <- newTemp
-        -- caso en que off es constante
-        addTAC $ t := B AddI off (C . IC . fromIntegral $ offset)
-        pure $ Brackets b t
+      Brackets b off -> case off of
+        C (IC n) -> case n of
+          0 -> pure $ Brackets b (C . IC . fromIntegral $ offset)
+          _ -> pure $ Brackets b (C . IC . (+n) . fromIntegral $ offset)
+        _ -> do
+          t <- newTemp
+          addTAC $ t := B AddI off (C . IC . fromIntegral $ offset)
+          pure $ Brackets b t
 
       Star op -> do
         t <- newTemp
         addTAC $ t :=* op
         pure $ Brackets t (C . IC . fromIntegral $ offset)
 
-
-    --
-    -- if offset == 0
-    --   then do
-    --     t <- newTemp
-    --     addTAC $ t :=* r
-    --     pure t
-    --   else do
-    --     t1 <- newTemp
-    --     addTAC $ t1 := B AddI r (C . IC . fromIntegral $ offset)
-    --     t2 <- newTemp
-    --     addTAC $ t2 :=* t1
-    --     pure t2
-
   Index lval idx -> do
-    r <- irLval lval
-    t <- irExpression idx
-    case t of
-      C (IC 0) -> do
+    r  <- irLval lval
+    t0 <- irExpression idx
+    case r of
+      Pure op -> case t0 of
+        C (IC n) -> pure $ case n of
+          0 -> Pure op
+          _ -> Brackets op (C . IC . (*n) . fromIntegral . sizeT $ lvalType)
+        _ -> do
+          t1 <- newTemp
+          addTAC $ t1 := B MulI t0 (C . IC . fromIntegral . sizeT $ lvalType)
+          pure $ Brackets op t1
+
+      Brackets b off -> case (off, t0) of
+        (C (IC n), C (IC m)) -> pure $
+          Brackets b (C (IC $ n + (m * (fromIntegral . sizeT $ lvalType))))
+        _ -> do
+          t1 <- newTemp
+          addTAC $ t1 := B MulI t0 (C . IC . fromIntegral . sizeT $ lvalType)
+          t2 <- newTemp
+          addTAC $ t2 := B AddI off t1
+          pure $ Brackets b t2
+
+      Star op -> do
         t1 <- newTemp
-        addTAC $ t1 :=* r
-        pure r
-      _ -> do
-        let sz = C . IC . fromIntegral . sizeT $ lvalType
-        t1 <- newTemp
-        addTAC $ t1 := B MulI sz t
-        t2 <- newTemp
-        addTAC $ t2 := B AddI r t1
-        t3 <- newTemp
-        addTAC $ t3 :=* t2
-        pure t3
+        addTAC $ t1 :=* op
+        case t0 of
+          C (IC n) -> pure $ case n of
+            0 -> Pure t1
+            _ -> Brackets t1 (C . IC . (*n) . fromIntegral . sizeT $ lvalType)
+          _ -> do
+            t2 <- newTemp
+            addTAC $ t2 := B MulI t0 (C . IC . fromIntegral . sizeT $ lvalType)
+            pure $ Brackets t1 t2
 
   Deref lval -> do
     r <- irLval lval
-    t1 <- newTemp
-    t2 <- newTemp
-    addTAC $ t1 :=* r
-    addTAC $ t2 :=* t1
-    pure t2
+    case r of
+      Pure op -> pure $ Star op
+
+      Brackets b off -> do
+        t <- newTemp
+        addTAC $ t :=# (b, off)
+        pure $ Star t
+
+      Star op -> do
+        t <- newTemp
+        addTAC $ t :=* op
+        pure $ Star op

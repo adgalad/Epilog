@@ -27,12 +27,18 @@ irInstruction = \case
     comment $ "Assignment at " <> showP instP
     t <- irExpression assignVal
     r <- irLval assignTarget
-    addTAC $ r :*= t
+    addTAC $ case r of
+      Pure op ->
+        op := Id t
+      Brackets b off ->
+        (b, off) :#= t
+      Star op ->
+        op :*= t
 
-  ICall { instP , callName, callArgs, callRetType } -> do
+  ICall { instP , callName, callArgs, callRetType } -> do -- FIXME!!!!!!!! RefParams
     comment $ "Call at " <> showP instP
-    args <- mapM (either irLval irExpression) callArgs
-    mapM_ (addTAC . Param) (Seq.reverse args)
+    -- args <- mapM (either irLval irExpression) callArgs
+    -- mapM_ (addTAC . Param) (Seq.reverse args)
     addTAC $ Call callName
     -- addTAC . Cleanup . (*4) . fromIntegral . length $ callArgs
     addTAC . Cleanup . fromIntegral . sizeT $ callRetType
@@ -83,7 +89,13 @@ irInstruction = \case
     addTAC $ t :<- readFunc
 
     r <- irLval readTarget
-    addTAC $ r :*= t
+    addTAC $ case r of
+      Pure op ->
+        op := Id t
+      Star op ->
+        op :*= t
+      Brackets b off ->
+        (b, off) :#= t
 
   Write { instP, writeVal } -> do
     comment $ "Write at " <> showP instP
@@ -112,17 +124,31 @@ irInstruction = \case
     addTAC $ Cleanup 4
 
     r <- irLval makeTarget
-    addTAC $ r :*= t
+
+    addTAC $ case r of
+      Pure op ->
+        op := Id t
+      Star op ->
+        op :*= t
+      Brackets b off ->
+        (b, off) :#= t
 
   Ekam { instP, ekamTarget } -> do
     comment $ "Ekam at " <> showP instP
 
     r <- irLval ekamTarget
-    addTAC $ Param r
-    addTAC $ Call "_ekam"
-    addTAC $ Cleanup 4
+    -- addTAC $ Param r -- FIXME!!!
+    -- addTAC $ Call "_ekam"
+    -- addTAC $ Cleanup 4
 
-    addTAC $ r :*= C (IC 0)
+    addTAC $ case r of
+      Pure op ->
+        op := Id (C (IC 0))
+      Star op ->
+        op :*= C (IC 0)
+      Brackets b off ->
+        (b, off) :#= C (IC 0)
+
 
   Answer { instP, answerVal } -> do
     comment $ "Answer at " <> showP instP
@@ -169,7 +195,7 @@ irGuards final ((guardP, cond, iblock):gs) = do
       (false #)
       irGuards final gs
 
-irRange :: Operand -> [Range] -> IRMonad ()
+irRange :: Metaoperand -> [Range] -> IRMonad ()
 irRange _ [] = pure ()
 irRange iterator ((rangeP, low, high, iblock) : rs) = do
   comment $ "Range at " <> showP rangeP
@@ -177,7 +203,13 @@ irRange iterator ((rangeP, low, high, iblock) : rs) = do
   lOp <- irExpression low
   hOp <- irExpression high
 
-  addTAC $ iterator :*= lOp
+  addTAC $ case iterator of
+    Pure op ->
+      op := Id lOp
+    Brackets b off ->
+      (b, off) :#= lOp
+    Star op ->
+      op :*= lOp
 
   gHeader <- newLabel
   gBody   <- newLabel
@@ -185,9 +217,18 @@ irRange iterator ((rangeP, low, high, iblock) : rs) = do
   terminate $ Br gHeader
 
   (gHeader #)
-  t0 <- newTemp
-  addTAC $ t0 :=* iterator
-  terminate $ CondBr LEI t0 hOp gBody next
+
+  it <- case iterator of
+    Pure op -> pure op
+    Brackets b off -> do
+      t <- newTemp
+      addTAC $ t :=# (b, off)
+      pure t
+    Star op -> do
+      t <- newTemp
+      addTAC $ t :=* op
+      pure t
+  terminate $ CondBr LEI it hOp gBody next
 
   (gBody #)
   irIBlock iblock
@@ -198,11 +239,22 @@ irRange iterator ((rangeP, low, high, iblock) : rs) = do
                      | atom == EpInteger   -> C $ IC 1
       _ -> internal "bad type in for bounds"
 
-  t1 <- newTemp
-  t2 <- newTemp
-  addTAC $ t1 :=* iterator
-  addTAC $ t2 := B AddI t1 one
-  addTAC $ iterator :*= t2
+  case iterator of
+    Pure op -> addTAC $ op := B AddI op one
+
+    Brackets b off -> do
+      t1 <- newTemp
+      t2 <- newTemp
+      addTAC $ t1 :=# (b, off)
+      addTAC $ t2 := B AddI t1 one
+      addTAC $ (b, off) :#= t2
+
+    Star op -> do
+      t1 <- newTemp
+      t2 <- newTemp
+      addTAC $ t1 :=* op
+      addTAC $ t2 := B AddI t1 one
+      addTAC $ op :*= t2
 
   terminate $ Br gHeader
 

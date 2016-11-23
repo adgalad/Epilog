@@ -132,9 +132,9 @@ data TAC
 
   | Operand :=  Operation
   -- ^ Regular Op-assignment
-  | Operand :=# (Int32, Operand)
+  | Operand :=# (Operand, Operand)
   -- ^ Array reading, i.e. a := const[i]
-  | (Int32, Operand) :#= Operand
+  | (Operand, Operand) :#= Operand
   -- ^ Array write, i.e. const[i] := a
   | Operand :=* Operand
   -- ^ Pointer read, i.e. a := *b
@@ -166,8 +166,8 @@ instance Emit TAC where
     Var r n o s   -> (if r then "ref" else "var") <> " " <> n <> " " <>
       show o <> " " <> show s
     x := op       -> emit x <> " := " <> emit op
-    x :=# (c, i)  -> emit x <> " := " <> show c <> "[" <> emit i <> "]"
-    (c, i) :#= x  -> show c <> "[" <> emit i <> "]" <> " := " <> emit x
+    x :=# (b, o)  -> emit x <> " := " <> emit b <> "[" <> emit o <> "]"
+    (b, o) :#= x  -> emit b <> "[" <> emit o <> "]" <> " := " <> emit x
     x :=* a       -> emit x <> " := *" <> emit a
     x :*= a       -> "*" <> emit x <> " := " <> emit a
     Param op      -> "param " <> emit op
