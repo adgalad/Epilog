@@ -27,7 +27,6 @@ data VarKind = Global | RefParam | Param | Local deriving (Eq, Ord, Show)
 
 -- Useful synonyms ---------------------
 type Exps = Seq Expression
-type Name = String
 
 -- Expressions -------------------------
 data Expression = Expression
