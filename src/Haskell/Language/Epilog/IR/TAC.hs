@@ -51,7 +51,7 @@ instance Emit Operand where
   emit = \case
     R s -> s
     T i -> "_t" <> show i
-    C c -> "#" <> emit c
+    C c -> emit c
 
 data Constant
   = BC Bool
@@ -62,10 +62,10 @@ data Constant
 
 instance Emit Constant where
   emit = \case
-    BC b -> show b
-    IC i -> "i" <> show i
-    FC f -> "f" <> show f
-    CC w -> "c" <> show w
+    BC b -> "b#" <> show b
+    IC i -> "i#" <> show i
+    FC f -> "f#" <> show f
+    CC w -> "c#" <> show w
 --------------------------------------------------------------------------------
 
 data Block = Block
@@ -178,8 +178,8 @@ instance Emit TAC where
     x :=& a       -> emit x <> " := &" <> emit a
     Param op      -> "param " <> emit op
     RefParam op   -> "param &" <> emit op
-    Call func     -> "call " <> show func
-    x :<- func    -> emit x <> " := call " <> show func
+    Call func     -> "call " <> func
+    x :<- func    -> emit x <> " := call " <> func
     Cleanup i     -> "cleanup " <> show i
     Prolog i      -> "prolog " <> show i
     Epilog i      -> "epilog " <> show i

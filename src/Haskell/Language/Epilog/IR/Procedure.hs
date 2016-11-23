@@ -29,10 +29,10 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
       let smbs = (\(Right x) -> x) . goDownFirst . insertST scope . focus $ g
       symbols .= smbs
 
-      retLabel <~ Just <$> newLabel "Return"
+      retLabel <~ Just <$> newLabel ("return_" <> procName)
 
       newLabel ("proc_" <> procName) >>= (#)
-      addTAC . Comment $ "Procedure at " <> showP procPos
+      comment $ "Procedure at " <> showP procPos
       addTAC $ Prolog procStackSize
 
       forM_ procParams $
@@ -62,7 +62,7 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
       use retLabel >>= \case
         Nothing  -> internal "no return label"
         Just lbl -> (lbl #)
-      addTAC . Comment $ "Epilog for procedure " <> procName
+      comment $ "Epilog for procedure " <> procName
       addTAC $ Epilog procStackSize
       terminate Return
 

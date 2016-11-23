@@ -173,7 +173,7 @@ getVarName v = do
 newVar :: String -> IRMonad String
 newVar name = varSupply %%= \supply -> case name `Map.lookup` supply of
   Nothing -> (name                 , supply & at name ?~ 1)
-  Just i  -> (name <> "." <> show i, supply & at name ?~ i)
+  Just i  -> (name <> "_" <> show i, supply & at name ?~ i)
 
 insertVar' :: String -> IRMonad ()
 insertVar' = void . insertVar

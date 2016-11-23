@@ -1,3 +1,117 @@
 Preprocessing executable 'Epilog' for Epilog-0.1.0.0...
+[22 of 24] Compiling Language.Epilog.IR.Procedure ( Language/Epilog/IR/Procedure.hs, dist/build/Epilog/Epilog-tmp/Language/Epilog/IR/Procedure.o )
+[24 of 24] Compiling Main             ( Language/Epilog/Main.hs, dist/build/Epilog/Epilog-tmp/Main.o ) [TH]
+Linking dist/build/Epilog/Epilog ...
 Running Epilog...
 Generating IR for ../../examples/collatz.ep
+	.data
+_str1: "\t"
+_str0: "\n"
+W: space 4
+
+	.text
+; Module _entry
+Entry:
+	W := i#999
+	call main
+	exit
+
+; Module collatz
+proc_collatz:
+	prolog 12
+	var A 12 4
+	ref B 16 4
+	var N -4 4
+	_t0 := *B
+	N := A
+	goto ForHeader
+
+ForHeader:
+	if lei N _t0 goto ForBody
+	goto ForExit
+
+ForBody:
+	var Exit -8 4
+	Exit := b#False
+	param N
+	call _writeInteger
+	param &_str0
+	call _writeStr
+	var X -12 4
+	X := N
+	goto WhileHeader
+
+WhileHeader:
+	if eqi X i#2 goto YesGuard
+	goto NextGuard
+
+YesGuard:
+	param &_str1
+	call _writeStr
+	param X
+	call _writeInteger
+	X := i#1
+	goto WhileHeader
+
+NextGuard:
+	if fai i#2 X goto YesGuard_1
+	goto NextGuard_1
+
+YesGuard_1:
+	param &_str1
+	call _writeStr
+	param X
+	call _writeInteger
+	_t1 := divi X i#2
+	X := _t1
+	goto WhileHeader
+
+NextGuard_1:
+	if nfi i#2 X goto JC_andalso
+	goto WhileExit
+
+JC_andalso:
+	if gti X i#1 goto YesGuard_1
+	goto WhileExit
+
+YesGuard_1:
+	_t2 := muli X i#3
+	_t3 := addi _t2 i#1
+	X := _t3
+	goto WhileHeader
+
+WhileExit:
+	param &_str0
+	call _writeStr
+	N := addi N i#1
+	goto ForHeader
+
+ForExit:
+	goto return_collatz
+
+return_collatz:
+	epilog 12
+	return
+
+; Module main
+proc_main:
+	prolog 8
+	var K 12 4
+	ref P 16 4
+	var A_1 -4 4
+	var B_1 -8 4
+	A_1 := call _readInteger
+	B_1 := call _readInteger
+	W := call _readInteger
+	_t4 := &B_1
+	param _t4
+	param A_1
+	call collatz
+	cleanup 8
+	goto return_main
+
+return_main:
+	epilog 8
+	return
+
+
