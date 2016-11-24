@@ -13,13 +13,19 @@ module Language.Epilog.IR.Monad
   , runIR
   , initialIR
   , newLabel
-  , newRegister
+  , newUnLabel
   , newTemp
   , (#)
   , addTAC
   , comment
   , terminate
   , closeModule
+  , enterScope
+  , exitScope
+  , getVarName
+  , newVar
+  , insertVar'
+  , insertVar
   -- * State
   , dataSegment
   , modules
@@ -30,9 +36,10 @@ module Language.Epilog.IR.Monad
   , retLabel
   , labelCount
   , tempCount
-  , registerSupply
+  , varSupply
   , global
   , symbols
+  , varTable
   -- , types
   ) where
 --------------------------------------------------------------------------------
@@ -41,61 +48,68 @@ import           Language.Epilog.IR.TAC      hiding (modules)
 import           Language.Epilog.SymbolTable (Scope, SymbolTable)
 --------------------------------------------------------------------------------
 import           Control.Lens                (at, makeLenses, use, (%%=), (%=),
-                                              (&), (.=), (<<+=), (?~), _2,
-                                              _Just)
+                                              (&), (.=), (<<+=), (?=), (?~), _2,
+                                              _Just, _head)
 import           Control.Monad.Trans.State   (StateT, evalStateT, execStateT,
                                               runStateT)
 import           Data.Graph                  (Edge, buildG)
 import qualified Data.Map                    as Map (empty, lookup)
+import           Data.Maybe                  (fromMaybe)
 import           Data.Sequence               as Seq (empty)
 --------------------------------------------------------------------------------
 
 type IRMonad a = StateT IRState IO a
 
 data IRState = IRState
-  { _dataSegment    :: Seq Data
-  , _modules        :: Seq Module
-  , _blocks         :: Seq (Label, Block)
-  , _edges          :: [Edge]
-  , _currentBlock   :: Maybe (Label, Seq TAC)
-  , _nextBlock      :: [Label]
-  , _retLabel       :: Maybe Label
-  , _labelCount     :: Int
-  , _tempCount      :: Int
-  , _registerSupply :: Map String Int
-  , _global         :: Scope
-  , _symbols        :: SymbolTable }
+  { _dataSegment  :: Seq Data
+  , _modules      :: Seq Module
+  , _blocks       :: Seq (Label, Block)
+  , _edges        :: [Edge]
+  , _currentBlock :: Maybe (Label, Seq TAC)
+  , _nextBlock    :: [Label]
+  , _retLabel     :: Maybe Label
+  , _labelCount   :: Int
+  , _labelSupply  :: Map String Int
+  , _tempCount    :: Int
+  , _varSupply    :: Map String Int
+  , _global       :: Scope
+  , _symbols      :: SymbolTable
+  , _varTable     :: [Map String String] }
 
 initialIR :: IRState
 initialIR = IRState
-  { _dataSegment    = Seq.empty
-  , _modules        = Seq.empty
-  , _blocks         = Seq.empty
-  , _edges          = []
-  , _currentBlock   = Nothing
-  , _nextBlock      = []
-  , _retLabel       = Nothing
-  , _labelCount     = 1
-  , _tempCount      = 0
-  , _registerSupply = Map.empty
-  , _global         = undefined
-  , _symbols        = undefined }
+  { _dataSegment  = Seq.empty
+  , _modules      = Seq.empty
+  , _blocks       = Seq.empty
+  , _edges        = []
+  , _currentBlock = Nothing
+  , _nextBlock    = []
+  , _retLabel     = Nothing
+  , _labelCount   = 1
+  , _labelSupply  = Map.empty
+  , _tempCount    = 0
+  , _varSupply    = Map.empty
+  , _global       = undefined
+  , _symbols      = undefined
+  , _varTable     = [] }
 
 makeLenses ''IRState
 
 runIR :: (a -> IRMonad b) -> a -> IO (b, IRState)
 runIR x inp = runStateT (x inp) initialIR
 
-newLabel :: IRMonad Label
-newLabel = labelCount <<+= 1
+newUnLabel :: IRMonad Label
+newUnLabel = newLabel "Noname"
+
+newLabel :: String -> IRMonad Label
+newLabel name = Label <$> aux <*> (labelCount <<+= 1)
+  where
+    aux = labelSupply %%= \supply -> case name `Map.lookup` supply of
+      Nothing -> (name                 , supply & at name ?~ 1)
+      Just i  -> (name <> "_" <> show i, supply & at name ?~ i)
 
 newTemp :: IRMonad Operand
 newTemp = T <$> (tempCount <<+= 1)
-
-newRegister :: String -> IRMonad Operand
-newRegister name = registerSupply %%= \supply -> case name `Map.lookup` supply of
-  Nothing -> (R $ name <> ".0"         , supply & at name ?~ 1)
-  Just i  -> (R $ name <> "." <> show i, supply & at name ?~ i + 1)
 
 (#) :: Label -> IRMonad ()
 (#) label = -- do
@@ -110,7 +124,7 @@ addTAC tac = -- do
     cb@(Just _) -> (_Just . _2 |>~ tac) cb
 
 comment :: String -> IRMonad ()
-comment = addTAC . Comment
+comment = const $ pure () -- addTAC . Comment
 
 terminate :: Terminator -> IRMonad ()
 terminate term = -- do
@@ -123,7 +137,7 @@ terminate term = -- do
         , term }
       currentBlock .= Nothing
 
-      edges %= (fmap (lbl,) (targets term) <>)
+      edges %= (fmap (lblnum lbl,) (lblnum <$> targets term) <>)
 
 closeModule :: Name -> IRMonad ()
 closeModule mName = do
@@ -142,3 +156,30 @@ closeModule mName = do
       edges       .= []
       nextBlock   .= []
       symbols     .= undefined
+
+enterScope :: IRMonad ()
+enterScope = varTable %= (Map.empty :)
+
+exitScope :: IRMonad ()
+exitScope = varTable %= tail
+
+getVarName :: String -> IRMonad String
+getVarName v = do
+  getVarName' <$> use varTable
+  where
+    getVarName' []     = error $ "getVarName failed: " <> v
+    getVarName' (m:ms) = fromMaybe (getVarName' ms) (v `Map.lookup` m)
+
+newVar :: String -> IRMonad String
+newVar name = varSupply %%= \supply -> case name `Map.lookup` supply of
+  Nothing -> (name                 , supply & at name ?~ 1)
+  Just i  -> (name <> "_" <> show i, supply & at name ?~ i)
+
+insertVar' :: String -> IRMonad ()
+insertVar' = void . insertVar
+
+insertVar :: String -> IRMonad String
+insertVar v = do
+  v' <- newVar v
+  varTable._head.at v ?= v'
+  pure v'

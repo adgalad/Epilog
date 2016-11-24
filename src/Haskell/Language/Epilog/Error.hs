@@ -190,6 +190,16 @@ data EpilogError
         { bdT :: Type
         , bdP :: Position
         }
+    | ReForwardDec
+        { rfdName :: Name
+        , rfdP    :: Position
+        , rfdP'   :: Position }
+    | ForwardDecMismatch
+        { fdmN  :: Name
+        , fdmT  :: Type
+        , fdmT' :: Type
+        , fdmP  :: Position
+        , fdmP' :: Position }
     deriving (Eq)
 
 instance P EpilogError where
@@ -231,6 +241,8 @@ instance P EpilogError where
         BadDeref                   _ p -> p
         BadParamType             _ _ p -> p
         BadReturnType            _ _ p -> p
+        ReForwardDec             _ _ p -> p
+        ForwardDecMismatch   _ _ _ _ p -> p
 
 instance Ord EpilogError where
     compare = compare `on` pos
@@ -413,3 +425,13 @@ instance Show EpilogError where
             "Bad dereference " <> show p <>
             ", attempted to dereference lval of type `" <> show t <>
             "`, but only Pointer types can be dereferenced"
+
+        ReForwardDec n p p' ->
+            "Found extra forward declaration `" <> n <> "` at " <> show p' <>
+            ", original declaration was at " <> show p <> "."
+
+        ForwardDecMismatch n t t' p p' ->
+            "Procedure `" <> n <> "`, defined at " <> show p' <>
+            " with type " <> show t' <>
+            " does not match the forward declaration at " <> show p <>
+            " with type " <> show t <> "."

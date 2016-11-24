@@ -1,0 +1,20 @@
+integer K.
+
+procedure p (integer A, ref integer B) :-
+  integer N,
+  write A + B + N + K.
+
+procedure main () :-
+  integer A, integer B,
+  K is 25,
+  A is 54,
+
+
+  if true -> integer A,
+              A is 10
+  end,
+
+
+
+  read A, read B,
+  p (A, B).

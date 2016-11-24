@@ -5,7 +5,7 @@ module Language.Epilog.Joy
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression  (Expression, Lval)
-import           Language.Epilog.AST.Instruction (Guards, Insts, Ranges)
+import           Language.Epilog.AST.Instruction (Guards, IBlock, Insts, Ranges)
 import           Language.Epilog.Position        (Position (..))
 import           Language.Epilog.Type            (Type (..), voidT)
 --------------------------------------------------------------------------------
@@ -21,7 +21,8 @@ data Joy = Joy
   , jExp'   :: Maybe Expression
   , jLval   :: Maybe Lval
   , jRanges :: Ranges
-  , jGuards :: Guards }
+  , jGuards :: Guards
+  , jBlock  :: Maybe IBlock }
 
 joy :: Joy
 joy = Joy
@@ -32,7 +33,8 @@ joy = Joy
   , jExp'   = Nothing
   , jLval   = Nothing
   , jRanges = Seq.empty
-  , jGuards = Seq.empty }
+  , jGuards = Seq.empty
+  , jBlock  = Nothing }
 
 noJoy :: Joy
 noJoy = joy { jType = None }

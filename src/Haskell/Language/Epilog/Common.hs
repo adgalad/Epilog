@@ -1,5 +1,7 @@
 module Language.Epilog.Common
   ( Name
+  , Offset
+  , Size
   , Semigroup (..)
   , Map
   , Seq
@@ -8,6 +10,7 @@ module Language.Epilog.Common
   , Word32
   , toList
   , fromJust
+  , isNothing
   , (|>=)
   , (|>~)
   , (<|=)
@@ -17,23 +20,26 @@ module Language.Epilog.Common
   , forM_
   , unless
   , when
+  , void
   , internal
   ) where
 
 import           Control.Lens              (ASetter, Cons, Snoc, (%=), (%~),
                                             (<|), (|>))
-import           Control.Monad             (foldM, forM_, unless, when)
+import           Control.Monad             (foldM, forM_, unless, when, void)
 import           Control.Monad.IO.Class    (liftIO)
 import           Control.Monad.State.Class (MonadState)
 import           Data.Foldable             (toList)
 import           Data.Int                  (Int32)
 import           Data.Map.Strict           (Map)
-import           Data.Maybe                (fromJust)
+import           Data.Maybe                (fromJust, isNothing)
 import           Data.Semigroup            (Semigroup (..))
 import           Data.Sequence             (Seq)
 import           Data.Word                 (Word32, Word8)
 
 type Name = String
+type Offset = Int32
+type Size = Word32
 
 infix 4 |>=
 (|>=) :: (Snoc b b a a, MonadState s m)

@@ -205,15 +205,31 @@ verifyField f@(n :@ p) t = do
 
 
 -- Procedures ------------------------------------------------------------------
-storeProcedure' :: Word32 -> Joy -> Epilog ()
-storeProcedure' procParamsSize Joy { jType = blockType, jInsts } = do
+storeProcedure' :: Word32 -> Maybe Joy -> Epilog ()
+storeProcedure' _ Nothing = do
+  Just (n :@ p) <- use current
+  use (pendProcs . at n) >>= \case
+    Nothing -> do
+      t <- use curProcType
+      pendProcs . at n ?= (t :@ p)
+    Just (_ :@ p') -> err $ ReForwardDec n p p'
+
+storeProcedure' procParamsSize (Just Joy { jType = blockType, jBlock }) = do
     Just (n :@ p) <- use current
     t@(_ :-> retType)<- use curProcType
+
+    sameType <- use (pendProcs . at n) >>= \case
+      Nothing -> pure True
+      Just (t' :@ p') -> if t == t'
+        then pure True
+        else do
+          err $ ForwardDecMismatch n t' t p' p
+          pure False
 
     scope <- symbols %%= extractScope
     ssize <- getMax <$> use curStackSize
 
-    if blockType == None
+    if blockType == None || not sameType
       then
         procedures . at n ?= Procedure
           { procName   = n
@@ -234,7 +250,11 @@ storeProcedure' procParamsSize Joy { jType = blockType, jInsts } = do
               , procPos    = p
               , procType   = t
               , procParams = params
-              , procDef    = Just (jInsts, scope)
+              , procDef    = Just
+                (case jBlock of
+                  Nothing -> error "bad block at storeProcedure'"
+                  Just b  -> b
+                , scope )
               , procStackSize = ssize
               , procParamsSize }
 
@@ -274,10 +294,10 @@ checkParam m (parType :@ _) (parName :@ parPos) = do
   psize  <- asks pointerSize
   palign <- asks pointerAlign
 
-  j <- case parName `local` symbs of
+  (o, s, j) <- case parName `local` symbs of
     Right Entry { eType, ePosition } -> do
       err $ DuplicateDeclaration parName eType ePosition parType parPos
-      pure $ noJoy { jPos = parPos }
+      pure $ (0, 0, noJoy { jPos = parPos })
     Left _ -> do
       symbols %= insertSymbol parName Entry
         { eName         = parName
@@ -289,26 +309,33 @@ checkParam m (parType :@ _) (parName :@ parPos) = do
           RefMode -> padded palign (head offs)
           ValMode -> padded (alignT parType) (head offs)
         , eOperand      = Nothing }
-      off' <- offset %%= \(off:xs) ->
+      (off, off') <- offset %%= \(x:xs) ->
         let
           off' = case m of
-            RefMode -> padded palign $ padded palign off + psize
-            ValMode -> padded (alignT parType) $ padded (alignT parType) off + sizeT parType
-        in (off', off' : xs)
+            RefMode -> padded palign $ padded palign x + psize
+            ValMode -> padded (alignT parType) $ padded (alignT parType) x + sizeT parType
+        in ((x, off'), off' : xs)
       curStackSize <>= Max (fromIntegral off')
-      pure joy { jType = parType, jPos = parPos }
+      pure
+        ( fromIntegral off
+        , fromIntegral $ off' - off
+        , joy { jType = parType, jPos = parPos } )
 
   case m of
     RefMode ->
       parameters |>= Parameter
         { parName
         , parType
+        , parOffset = o
+        , parSize   = s
         , parPos
         , parRef = True }
     ValMode -> do
       parameters |>= Parameter
         { parName
         , parType
+        , parOffset = o
+        , parSize   = s
         , parPos
         , parRef = False }
       unless (scalar (jType j)) . err $ BadParamType parName (jType j) parPos
@@ -344,11 +371,15 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
             , eInitialValue = Nothing
             , eOffset       = padded (alignT t) (head offs)
             , eOperand      = Nothing }
-          off' <- offset %%= \(x:xs) ->
+          (off, off') <- offset %%= \(x:xs) ->
             let off' = padded (alignT t) $ padded (alignT t) x + sizeT t
-            in (off', off' : xs)
+            in ((x, off'), off' : xs)
           curStackSize <>= Max (fromIntegral off')
-          pure joy { jType = t, jPos }
+          pure joy
+            { jPos
+            , jType = t
+            , jInsts =
+              [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off) ] }
 
         Just Joy { jType, jExp }
           | jType == None -> pure noJoy { jPos }
@@ -368,15 +399,17 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
             pure joy
               { jPos
               , jType = t
-              , jInsts = Seq.singleton Assign
-                { instP        = jPos
-                , assignTarget = Lval
-                  { lvalType   = t
-                  , lval'      = Variable
-                    { lName    = var
-                    , lKind    = Local
-                    , lOffset  = off } }
-                  , assignVal    = fromJust jExp }}
+              , jInsts =
+                [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off)
+                , Assign
+                  { instP        = jPos
+                  , assignTarget = Lval
+                    { lvalType   = t
+                    , lval'      = Variable
+                      { lName    = var
+                      , lKind    = Local
+                      , lOffset  = off } }
+                    , assignVal    = fromJust jExp } ] }
           | otherwise    -> do
             err AssignMismatch { amFstT = t, amSndT = jType, amP = jPos}
             pure noJoy { jPos }
@@ -415,13 +448,17 @@ checkCall (pname :@ callP) js = do
       Just EpiProc { procType = ets' :-> ret' } ->
         compareArgs callP ets' ret'
 
-      Just _ -> do
-        err $ UndefinedProcedure pname callP
-        pure $ noJoy { jPos = p }
+      Just _ -> error "the impossible happened at checkCall"
 
       Nothing -> do
-        err $ UndefinedProcedure pname callP
-        pure $ noJoy { jPos = p }
+        use (pendProcs . at pname) >>= \case
+          Nothing -> do
+            err $ UndefinedProcedure pname callP
+            pure $ noJoy { jPos = p }
+          Just ((ets' :-> ret') :@ _) -> do
+            compareArgs callP ets' ret'
+          Just _ ->
+            error "the impossible (part II) happened at checkCall"
 
   where
     compareArgs p ets ret
@@ -492,14 +529,14 @@ checkGuards
 checkGuard :: Joy -> Joy -> Epilog Joy
 checkGuard
   Joy { jType = condT, jPos, jExp }
-  Joy { jType = instsT, jInsts }
-  | condT == None || instsT == None = pure noJoy { jPos }
+  Joy { jType = instsT, jBlock }
+  | condT == None || instsT == None || isNothing jBlock = pure noJoy { jPos }
   | otherwise = pure joy
     { jPos
     , jGuards = Seq.singleton
       ( jPos
       , fromJust jExp
-      , jInsts ) }
+      , fromJust jBlock ) }
 
 checkGuardCond :: Joy -> Epilog Joy
 checkGuardCond j@Joy { jType = Basic { atom = EpBoolean } } =
@@ -636,15 +673,15 @@ checkRanges Joy { jType = rsT, jPos, jRanges } Joy { jType = rT, jRanges = jRang
 
 
 checkRange :: Joy -> Joy -> Epilog Joy
-checkRange Joy { jType = rT, jPos, jExp, jExp' } Joy { jType = instsT, jInsts }
-  | rT == None || instsT == None = pure noJoy { jPos }
+checkRange Joy { jType = rT, jPos, jExp, jExp' } Joy { jType = instsT, jBlock }
+  | rT == None || instsT == None || isNothing jBlock = pure noJoy { jPos }
   | otherwise = pure $ joy
     { jPos
     , jRanges = Seq.singleton
       ( jPos
       , fromJust jExp
       , fromJust jExp'
-      , jInsts ) }
+      , fromJust jBlock ) }
 
 
 checkRangeLimits :: Joy -> Joy -> Epilog Joy

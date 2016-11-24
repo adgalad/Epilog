@@ -1,4 +1,14 @@
-procedure collatz (integer A, integer B) :-
+integer W is 999.
+
+procedure collatz (integer K, ref integer P).
+
+procedure main () :-
+    integer A, integer B,
+    read A, read B,
+    read W,
+    collatz (A, B).
+
+procedure collatz (integer A, ref integer B) :-
     integer N,
     for N from A to B ->
         boolean Exit is false,
@@ -9,9 +19,8 @@ procedure collatz (integer A, integer B) :-
             ; 2 !| X andalso X > 1 -> X is X * 3 + 1
         end,
         write "\n"
-    end.
+    end,
 
-procedure main () :-
-    integer A, integer B,
-    read A, read B,
-    collatz (A, B).
+    B is 259,
+
+    collatz(A, B).

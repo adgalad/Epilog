@@ -1,175 +1,114 @@
 	.data
 _str1: "\t"
 _str0: "\n"
+W: space 4
 
 	.text
-; Procedure _entry
-1:
-	call "main"
+; Module _entry
+Entry:
+	W := i#999
+	call main
 	exit
 
-; Procedure collatz
-3:
-	; Procedure at (1,1)
-	prelude 20
-	; For at (3,5)
-	; Local variable `N`
-	_t0 := addi @FramePointer #i8
-	; Range at (3,16)
-	; Param variable `A`
-	_t1 := -4[@FramePointer]
-	; Param variable `B`
-	_t2 := -8[@FramePointer]
-	*_t0 := _t1
-	goto 4
+; Module collatz
+proc_collatz:
+	prolog 12
+	var A 12 4
+	ref B 16 4
+	var N -4 4
+	_t0 := *B
+	N := A
+	goto ForHeader
 
-4:
-	_t3 := *_t0
-	if lei _t3 _t2 goto 5
-	goto 6
+ForHeader:
+	if lei N _t0 goto ForBody
+	goto ForExit
 
-5:
-	; Assignment at (4,17)
-	; Local variable `Exit`
-	_t4 := addi @FramePointer #i12
-	*_t4 := #False
-	; Write at (5,9)
-	; Local variable `N`
-	_t5 := 8[@FramePointer]
-	param _t5
-	call "writeInteger"
-	cleanup 4
-	; Write at (5,18)
-	param _str0
-	call "writeStr"
-	cleanup 4
-	; Assignment at (6,17)
-	; Local variable `N`
-	_t6 := 8[@FramePointer]
-	; Local variable `X`
-	_t7 := addi @FramePointer #i13
-	*_t7 := _t6
-	; While at (7,9)
-	goto 7
+ForBody:
+	var Exit -8 4
+	Exit := b#False
+	param N
+	call _writeInteger
+	param &_str0
+	call _writeStr
+	var X -12 4
+	X := N
+	goto WhileHeader
 
-7:
-	; Guard at (7,17)
-	; Local variable `X`
-	_t8 := 16[@FramePointer]
-	if eqi _t8 #i2 goto 9
-	goto 10
+WhileHeader:
+	if eqi X i#2 goto YesGuard
+	goto NextGuard
 
-9:
-	; Write at (7,39)
-	param _str1
-	call "writeStr"
-	cleanup 4
-	; Write at (7,51)
-	; Local variable `X`
-	_t9 := 16[@FramePointer]
-	param _t9
-	call "writeInteger"
-	cleanup 4
-	; Assignment at (7,60)
-	; Local variable `X`
-	_t10 := addi @FramePointer #i16
-	*_t10 := #i1
-	goto 7
+YesGuard:
+	param &_str1
+	call _writeStr
+	param X
+	call _writeInteger
+	X := i#1
+	goto WhileHeader
 
-10:
-	; Guard at (8,17)
-	; Local variable `X`
-	_t11 := 16[@FramePointer]
-	if fai #i2 _t11 goto 11
-	goto 12
+NextGuard:
+	if fai i#2 X goto YesGuard_1
+	goto NextGuard_1
 
-11:
-	; Write at (8,39)
-	param _str1
-	call "writeStr"
-	cleanup 4
-	; Write at (8,51)
-	; Local variable `X`
-	_t12 := 16[@FramePointer]
-	param _t12
-	call "writeInteger"
-	cleanup 4
-	; Assignment at (8,60)
-	; Local variable `X`
-	_t13 := 16[@FramePointer]
-	_t14 := divi _t13 #i2
-	; Local variable `X`
-	_t15 := addi @FramePointer #i16
-	*_t15 := _t14
-	goto 7
+YesGuard_1:
+	param &_str1
+	call _writeStr
+	param X
+	call _writeInteger
+	_t1 := divi X i#2
+	X := _t1
+	goto WhileHeader
 
-12:
-	; Guard at (9,22)
-	; Local variable `X`
-	_t16 := 16[@FramePointer]
-	if nfi #i2 _t16 goto 14
-	goto 8
+NextGuard_1:
+	if nfi i#2 X goto JC_andalso
+	goto WhileExit
 
-14:
-	; Local variable `X`
-	_t17 := 16[@FramePointer]
-	if gti _t17 #i1 goto 13
-	goto 8
+JC_andalso:
+	if gti X i#1 goto YesGuard_1
+	goto WhileExit
 
-13:
-	; Assignment at (9,39)
-	; Local variable `X`
-	_t18 := 16[@FramePointer]
-	_t19 := muli _t18 #i3
-	_t20 := addi _t19 #i1
-	; Local variable `X`
-	_t21 := addi @FramePointer #i16
-	*_t21 := _t20
-	goto 7
+YesGuard_1:
+	_t2 := muli X i#3
+	_t3 := addi _t2 i#1
+	X := _t3
+	goto WhileHeader
 
-8:
-	; Write at (11,9)
-	param _str0
-	call "writeStr"
-	cleanup 4
-	_t22 := *_t0
-	_t23 := addi _t22 #i1
-	*_t0 := _t23
-	goto 4
+WhileExit:
+	param &_str0
+	call _writeStr
+	N := addi N i#1
+	goto ForHeader
 
-6:
-	goto 2
+ForExit:
+	*B := i#259
+	param B
+	param A
+	call collatz
+	cleanup 8
+	goto return_collatz
 
-2:
-	; Epilog for procedure collatz
-	epilog 28
+return_collatz:
+	epilog 12
 	return
 
-; Procedure main
-16:
-	; Procedure at (14,1)
-	prelude 8
-	; Read at (16,5)
-	_t24 := call "readInteger"
-	; Local variable `A`
-	*@FramePointer := _t24
-	; Read at (16,13)
-	_t25 := call "readInteger"
-	; Local variable `B`
-	_t26 := addi @FramePointer #i4
-	*_t26 := _t25
-	; Call at (17,5)
-	; Local variable `A`
-	_t27 := *@FramePointer
-	; Local variable `B`
-	_t28 := 4[@FramePointer]
-	param _t27
-	param _t28
-	call "collatz"
-	cleanup 0
-	goto 15
+; Module main
+proc_main:
+	prolog 8
+	var K 12 4
+	ref P 16 4
+	var A_1 -4 4
+	var B_1 -8 4
+	A_1 := call _readInteger
+	B_1 := call _readInteger
+	W := call _readInteger
+	_t4 := &B_1
+	param _t4
+	param A_1
+	call collatz
+	cleanup 8
+	goto return_main
 
-15:
-	; Epilog for procedure main
+return_main:
 	epilog 8
 	return
