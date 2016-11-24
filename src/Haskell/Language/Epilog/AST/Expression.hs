@@ -15,6 +15,7 @@ module Language.Epilog.AST.Expression
 import           Language.Epilog.Position
 import           Language.Epilog.Treelike
 import           Language.Epilog.Type
+import           Language.Epilog.Common (Name)
 --------------------------------------------------------------------------------
 import           Data.Foldable            (toList)
 import           Data.Int                 (Int32)

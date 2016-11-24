@@ -1,9 +1,3 @@
-Preprocessing executable 'Epilog' for Epilog-0.1.0.0...
-[22 of 24] Compiling Language.Epilog.IR.Procedure ( Language/Epilog/IR/Procedure.hs, dist/build/Epilog/Epilog-tmp/Language/Epilog/IR/Procedure.o )
-[24 of 24] Compiling Main             ( Language/Epilog/Main.hs, dist/build/Epilog/Epilog-tmp/Main.o ) [TH]
-Linking dist/build/Epilog/Epilog ...
-Running Epilog...
-Generating IR for ../../examples/collatz.ep
 	.data
 _str1: "\t"
 _str0: "\n"
@@ -87,6 +81,11 @@ WhileExit:
 	goto ForHeader
 
 ForExit:
+	*B := i#259
+	param B
+	param A
+	call collatz
+	cleanup 8
 	goto return_collatz
 
 return_collatz:
@@ -113,5 +112,3 @@ proc_main:
 return_main:
 	epilog 8
 	return
-
-

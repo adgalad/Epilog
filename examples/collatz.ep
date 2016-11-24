@@ -19,4 +19,8 @@ procedure collatz (integer A, ref integer B) :-
             ; 2 !| X andalso X > 1 -> X is X * 3 + 1
         end,
         write "\n"
-    end.
+    end,
+
+    B is 259,
+
+    collatz(A, B).
