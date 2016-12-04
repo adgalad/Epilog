@@ -13,6 +13,9 @@ import           Language.Epilog.IR.TAC
 import           Language.Epilog.Parser
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
+import           Language.Epilog.MIPS.Monad
+import           Language.Epilog.MIPS.MIPS    (emitMIPS)
+import           Language.Epilog.MIPS.Program (mipsProgram)
 --------------------------------------------------------------------------------
 import           Control.Lens                (makeLenses, (.~), (^.))
 import qualified Data.Map                    as Map
@@ -35,7 +38,7 @@ defaultOptions :: Options
 defaultOptions  = Options
   { _help     = False
   , _version  = False
-  , _action   = doIR }
+  , _action   = doMIPS }
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -143,8 +146,18 @@ doIR filename handle = do
 
 
 doMIPS :: FilePath -> Handle -> IO ()
-doMIPS _ _ = putStrLn "No MIPS for you."
+doMIPS filename handle = do
+  inp <- hGetContents handle
 
+  putStrLn $ unwords ["Generating IR for", filename]
+
+  (ast, s, _w) <- runEpilog parse inp
+
+  when (s^.parseOK) $ do
+    (code, _s) <- runIR irProgram ast
+    -- putStrLn $ emit code
+    (mcode, ms) <- runMIPS mipsProgram code
+    putStrLn $ emitMIPS mcode
 
 -- Main --------------------------------
 main :: IO ()
