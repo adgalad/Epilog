@@ -6,4 +6,5 @@ procedure f(integer H) :-
 	integer H is 6+5 div 6*7.
 	
 procedure main() :-
+	write "hola",
 	integer H is 6+5 div 6*7.

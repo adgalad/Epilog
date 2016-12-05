@@ -13,12 +13,12 @@ module Language.Epilog.MIPS.MIPS
   , Constant (..)
   , Program (..)
   , Block (..)
-  , TAC.Label
+  , IR.Label
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
 import           Language.Epilog.IR.TAC (BOp(..), Data(..))
-import qualified Language.Epilog.IR.TAC as TAC
+import qualified Language.Epilog.IR.TAC as IR
 --------------------------------------------------------------------------------
 import           Data.List              (intercalate)
 import           Data.Sequence          ((|>))
@@ -28,7 +28,6 @@ import           Safe                   (atDef)
 
 class Emips a where
   emips :: a -> String
-
 
 instance Emips TAC.Label where
   emips = ("_" <>) . TAC.lblstr
@@ -82,17 +81,17 @@ instance (Emips a, Foldable f) => Emips (f a) where
 
 
 --------------------------------------------------------------------------------
-instance Emips TAC.Data where
+instance Emips IR.Data where
   emips = \case
     VarData { dName, dSpace } ->
       dName <> ": .space " <> show dSpace <> "\n"
     StringData { dName, dString } ->
-      dName <> ": .ascii" <> show dString <> "\n"
+      dName <> ": .ascii " <> show dString <> "\n"
 
 --------------------------------------------------------------------------------
 
 data Block = Block
-  { bLabel :: TAC.Label
+  { bLabel :: IR.Label
   , bCode  :: Seq MIPS }
 
 instance Emips Block where
@@ -101,7 +100,7 @@ instance Emips Block where
       fmap (("\t" <>) . emips) bCode
 
 data Program = Program
-  { pData   :: Seq TAC.Data
+  { pData   :: Seq IR.Data
   , pBlocks :: Seq Block
   }
 
@@ -118,14 +117,15 @@ data MIPS
   | LoadW   Register (Int32, Register)
   | Move    Register Register
   | StoreW  Register (Int32, Register)
+  | StoreWG Register String
   | Syscall
-  | Slt  Register Register Register
+  | Slt     Register Register Register
   -- Terminators
-  | Beq  Register Register TAC.Label
-  | Bne  Register Register TAC.Label
-  | Bc1t TAC.Label
-  | Bc1f TAC.Label
-  | J    TAC.Label
+  | Beq  Register Register IR.Label
+  | Bne  Register Register IR.Label
+  | Bc1t IR.Label
+  | Bc1f IR.Label
+  | J    IR.Label
   | Jr   Register
   | Jal  String
 
@@ -163,6 +163,9 @@ instance Emips MIPS where
     "sw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
 
   emips Syscall = "syscall"
+  
+  emips (StoreWG r name)    = 
+    "sw " <> emips r <> ", " <> name
 
   emips (Slt r1 r2 r3) = "slt " <> intercalate ", " (emips <$> [r1,r2,r3])
 

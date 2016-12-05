@@ -12,9 +12,9 @@ import           Language.Epilog.MIPS.MIPS
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type          (sizeT)
 --------------------------------------------------------------------------------
-import           Control.Lens                  (use, (.=))
+import           Control.Lens                  (use, (.=),(%=))
 import qualified Data.Sequence                 as Seq (empty)
-import qualified Data.Map                      as Map (toList, empty)
+import qualified Data.Map                      as Map (toList, empty, insert)
 --------------------------------------------------------------------------------
 
 mipsProgram :: TAC.Program -> MIPSMonad Program
@@ -25,7 +25,7 @@ mipsProgram TAC.Program { TAC.datas, TAC.modules } = do
 mipsModule :: TAC.Module -> MIPSMonad ()
 mipsModule TAC.Module {TAC.mBlocks} = forM_ mBlocks $ \m -> do
   mipsBlock m
-  resetRegDescriptors
+  resetRegDescrips
   variables .= Map.empty
 
 mipsBlock :: TAC.Block -> MIPSMonad ()
@@ -108,7 +108,10 @@ mipsTAC :: TAC.TAC -> MIPSMonad ()
 mipsTAC = \case 
   TAC.Comment str -> addMIPS $ Comment str
 
-  -- Var b name offs size -> undefined
+  TAC.Var _ name offs size -> do
+    let 
+      var = (VarDescrip Nothing False (Local offs))
+    variables %= Map.insert (TAC.R name) var
 
 
   -- op := operation -> undefined
@@ -129,10 +132,10 @@ mipsTAC = \case
 
   -- RefParam Operand ->
 
-  TAC.Call func -> do 
+  TAC.Call proc -> do 
     addMIPS $ BinOpi SubI SP SP (IC $ 12)
     addMIPS $ StoreW FP (0, SP)
-    addMIPS . Jal $ "_proc_" <> func
+    addMIPS . Jal $ "_proc_" <> proc
 
   
   -- Operand :<- Function ->
