@@ -194,14 +194,12 @@ instance Emit TAC where
 data Operation
   = B  BOp Operand Operand
   | U  UOp Operand
-  | Id     Operand
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 instance Emit Operation where
   emit = \case
-    B op a b -> fmap toLower (show op) <> " " <> emit a <>  " " <> emit b
-    U op a   -> fmap toLower (show op) <> " " <> emit a
-    Id   a   -> emit a
+    B op a b -> emit op <> " " <> emit a <>  " " <> emit b
+    U op a   -> emit op <> emit a
 
 data BOp
   = AddI | AddF
@@ -214,9 +212,19 @@ data BOp
   | BXor
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
+instance Emit BOp where
+  emit = (fmap toLower) . show
+
 data UOp
-  = NegF | NegI | BNot
+  = NegF | NegI | BNot | Id
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
+
+instance Emit UOp where
+  emit = \case
+    NegF -> "negf "
+    NegI -> "negi "
+    BNot -> "bnot "
+    Id   -> ""
 
 
 data Terminator

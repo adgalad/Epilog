@@ -116,7 +116,7 @@ irExpression e@Expression { exp', expPos } = case exp' of
           case operand0 of
             C _ -> do
               t <- newTemp
-              addTAC $ t := Id operand0
+              addTAC $ t := U Id operand0
               addTAC $ result := B (toIRBOp atom op) t operand1
             _ ->
               addTAC $ result := B (toIRBOp atom op) operand0 operand1
@@ -171,11 +171,11 @@ wrapBoolean e = do
   finish <- newLabel "WrapBoolFinish"
 
   (true #)
-  addTAC $ result := Id (C . BC $ True)
+  addTAC $ result := U Id (C . BC $ True)
   terminate $ Br finish
 
   (false #)
-  addTAC $ result := Id (C . BC $ False)
+  addTAC $ result := U Id (C . BC $ False)
   terminate $ Br finish
 
   (finish #)

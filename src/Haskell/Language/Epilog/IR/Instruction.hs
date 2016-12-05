@@ -30,7 +30,7 @@ irInstruction = \case
 
     addTAC $ case r of
       Pure op ->
-        op := Id t
+        op := U Id t
       Brackets b off ->
         (b, off) :#= t
       Star op ->
@@ -136,7 +136,7 @@ irInstruction = \case
 
     addTAC $ case r of
       Pure op ->
-        op := Id t
+        op := U Id t
       Star op ->
         op :*= t
       Brackets b off ->
@@ -164,7 +164,7 @@ irInstruction = \case
 
     case r of
       Pure op ->
-        addTAC $ op := Id (C (IC 0))
+        addTAC $ op := U Id (C (IC 0))
       Brackets b off ->
         addTAC $ (b, off) :#= C (IC 0)
       Star op ->
@@ -226,7 +226,7 @@ irRange iterator ((rangeP, low, high, iblock) : rs) = do
 
   addTAC $ case iterator of
     Pure op ->
-      op := Id lOp
+      op := U Id lOp
     Brackets b off ->
       (b, off) :#= lOp
     Star op ->

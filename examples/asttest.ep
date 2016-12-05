@@ -1,6 +1,6 @@
 
 
-integer H is 5.
+integer Return is 5.
 
 procedure f(integer H) :- 
 	integer H is 6+5 div 6*7.

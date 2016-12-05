@@ -10,8 +10,8 @@ import           Language.Epilog.IR.Expression
 import           Language.Epilog.IR.Monad
 import           Language.Epilog.IR.Procedure  (irProcedure)
 import           Language.Epilog.IR.TAC        (Data (..), Operand (R),
-                                                Operation (Id), TAC (..),
-                                                Terminator (..))
+                                                Operation (U), TAC (..),
+                                                Terminator (..), UOp (Id))
 import qualified Language.Epilog.IR.TAC        as TAC (Program (..))
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type          (sizeT)
@@ -39,7 +39,7 @@ irProgram Program { procs, scope, strings } = do
       Nothing -> pure ()
       Just e  -> do
         t <- irExpression e
-        addTAC $ R eName := Id t
+        addTAC $ R eName := U Id t
   addTAC $ Call "main"
   terminate $ Exit
   closeModule "_entry"

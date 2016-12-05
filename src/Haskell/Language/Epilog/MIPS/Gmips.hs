@@ -19,6 +19,22 @@ import qualified Data.Sequence                 as Seq (empty)
 import qualified Data.Map                      as Map (toList, empty, insert)
 --------------------------------------------------------------------------------
 
+spill :: Register
+spill = undefined
+
+getOpReg :: Operand -> Register
+getOpReg o = undefined
+
+getReg3 :: TAC -> (Register, Register, Register)
+getReg3 t = undefined
+
+getReg2 :: TAC -> (Register, Register)
+getReg2 t = undefined
+
+
+
+
+
 class Gmips a where
   gmips :: a -> MIPSMonad ()
 
@@ -42,7 +58,7 @@ instance Gmips Module where
   gmips Module { mName, mBlocks } = do
     tell1 $ Comment mName
     mapM_ gmips mBlocks
-    resetRegDescrips        -- TODO
+    resetRegDescs        -- TODO
     variables .= Map.empty  -- TODO
 
 instance Gmips Block where
@@ -120,10 +136,9 @@ instance Gmips TAC where
   gmips = \case 
     TAC.Comment str -> tell1 $ Comment str
 
-    Var _ name offs size -> do
-      let 
-        var = (VarDescrip Nothing False (Local offs))
-      variables %= Map.insert (R name) var
+    Var _ name offs _ -> 
+
+      home %= Map.insert name offs
 
 
     -- op := operation -> undefined
@@ -147,7 +162,7 @@ instance Gmips TAC where
     Call proc -> tell 
       [ BinOpi SubI SP SP (IC $ 12)
       , StoreW FP (0, SP)
-      , Jal $ "_proc_" <> proc ]
+      , Jal $ "proc_" <> proc ]
 
     
     -- Operand :<- Function ->

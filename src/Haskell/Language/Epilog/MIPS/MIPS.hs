@@ -26,7 +26,7 @@ class Emips a where
   emips :: a -> String
 
 instance Emips Label where
-  emips = ("_" <>) . IR.lblstr
+  emips = IR.lblstr
 
 --------------------------------------------------------------------------------
 
@@ -107,7 +107,7 @@ data MIPS
 instance Emips MIPS where
   emips l = tab l <> case l of
     Comment str -> "# " <> str
-    MLabel lbl  -> "_" <> emit lbl <> ":"
+    MLabel lbl  -> emit lbl <> ":"
     Data dName dSpace ->
       dName <> ": .space " <> show dSpace 
     MString dName dString ->
@@ -139,7 +139,7 @@ instance Emips MIPS where
       "lw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
 
     Move r1 r2 ->  
-      "mv " <> intercalate ", " (emips <$> [r1,r2])
+      "move " <> intercalate ", " (emips <$> [r1,r2])
 
     StoreW r1 (c,r2) ->
       "sw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
