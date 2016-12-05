@@ -7,16 +7,13 @@
 
 module Language.Epilog.MIPS.MIPS
   ( MIPS (..)
-  , EmitMIPS (..)
+  , Emips (..)
   , BOp (..)
   , Register (..)
   , Constant (..)
   , Program (..)
   , Block (..)
   , TAC.Label
-  -- , v0, v1, a0, a1, a2, a3
-  -- , t0, t1, t2, t3, t4, t5, t6, t7, t8, t9
-  -- , s0, s1, s2, s3, s4, s5, s6, s7
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
@@ -26,36 +23,42 @@ import qualified Language.Epilog.IR.TAC as TAC
 import           Data.List              (intercalate)
 import           Data.Sequence          ((|>))
 import           GHC.Generics           (Generic)
+import           Safe                   (atDef)
 --------------------------------------------------------------------------------
 
-class EmitMIPS a where
-  emitMIPS :: a -> String
+class Emips a where
+  emips :: a -> String
 
 
-instance EmitMIPS TAC.Label where
-  emitMIPS = ("_" <>) . TAC.lblstr
+instance Emips TAC.Label where
+  emips = ("_" <>) . TAC.lblstr
 
 --------------------------------------------------------------------------------
 
-data Register = Zero | V Int | A Int | T Int | S Int | GP | SP | FP | RA
+data Register -- = Zero | V Int | A Int | T Int | S Int | GP | SP | FP | RA
+  = Zero
+  | Scratch Word
+  | General Word
+  | GP
+  | SP
+  | FP
   deriving (Eq, Show, Read, Ord)
 
--- v0,v1,a0,a1,a2,a3,t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,s0,s1,s2,s3,s4,s5,s6,s7 :: Register
--- [v0,v1]                         = V <$> [0..]
--- [a0,a1,a2,a3]                   = A <$> [0..]
--- [t0,t1,t2,t3,t4,t5,t6,t7,t8,t9] = T <$> [0..]
--- [s0,s1,s2,s3,s4,s5,s6,s7]       = S <$> [0..]
-
-instance EmitMIPS Register where
-  emitMIPS Zero  = "$0"
-  emitMIPS (V i) = "$v" <> show i
-  emitMIPS (A i) = "$a" <> show i
-  emitMIPS (T i) = "$t" <> show i
-  emitMIPS (S i) = "$s" <> show i
-  emitMIPS GP    = "$gp"
-  emitMIPS FP    = "$fp"
-  emitMIPS SP    = "$sp"
-  emitMIPS RA    = "$ra"
+instance Emips Register where
+  emips Zero = "$0"
+  emips (Scratch n) = atDef
+    (internal $ "can't scratch" <> show n)
+    ["$v0", "$v1", "$a0", "$ra"]
+    n
+  emips (General n) = atDef
+    (internal $ "no general use register " <> show n)
+    [ "$a1", "$a2", "$a3", "$t0", "$t1", "$t2", "$t3"
+    , "$t4", "$t5", "$t6", "$t7", "$s0", "$s1", "$s2"
+    , "$s3", "$s4", "$s5", "$s6", "$s7", "$t8", "$t9" ]
+    n
+  emips GP = "$gp"
+  emips SP = "$sp"
+  emips FP = "$fp"
 
 --------------------------------------------------------------------------------
 
@@ -65,47 +68,47 @@ data Constant
   | CC Word8
   deriving (Eq, Show, Read)
 
-instance EmitMIPS Constant where
-  emitMIPS = \case
+instance Emips Constant where
+  emips = \case
     IC i -> show i
     FC f -> show f
     CC w -> show w
 
 --------------------------------------------------------------------------------
 
-instance (EmitMIPS a, Foldable f) => EmitMIPS (f a) where
-  emitMIPS = concat . fmap emitMIPS . toList
+instance (Emips a, Foldable f) => Emips (f a) where
+  emips = concat . fmap emips . toList
 
 
 
 --------------------------------------------------------------------------------
-instance EmitMIPS TAC.Data where
-  emitMIPS = \case
-    VarData { dName, dSpace } -> 
+instance Emips TAC.Data where
+  emips = \case
+    VarData { dName, dSpace } ->
       dName <> ": .space " <> show dSpace <> "\n"
     StringData { dName, dString } ->
       dName <> ": .ascii" <> show dString <> "\n"
 
 --------------------------------------------------------------------------------
 
-data Block = Block 
+data Block = Block
   { bLabel :: TAC.Label
   , bCode  :: Seq MIPS }
 
-instance EmitMIPS Block where
-  emitMIPS Block { bLabel, bCode } =
-    (<> "\n") . unlines . ((emitMIPS bLabel <> ":") :) . toList $
-      fmap (("\t" <>) . emitMIPS) bCode
+instance Emips Block where
+  emips Block { bLabel, bCode } =
+    (<> "\n") . unlines . ((emips bLabel <> ":") :) . toList $
+      fmap (("\t" <>) . emips) bCode
 
 data Program = Program
   { pData   :: Seq TAC.Data
   , pBlocks :: Seq Block
   }
 
-instance EmitMIPS Program where 
-  emitMIPS Program { pData, pBlocks } =
-    (if null pData then "" else "\t.data\n" <> emitMIPS pData <> "\n") <>
-    "\t.text\n" <> emitMIPS pBlocks
+instance Emips Program where
+  emips Program { pData, pBlocks } =
+    (if null pData then "" else "\t.data\n" <> emips pData <> "\n") <>
+    "\t.text\n" <> emips pBlocks
 --------------------------------------------------------------------------------
 data MIPS
   = Comment String
@@ -129,58 +132,58 @@ data MIPS
   deriving (Eq, Show, Read)
 
 
-instance EmitMIPS MIPS where
-  emitMIPS (Comment str) = "# " <> str
-  emitMIPS (BinOp  op r1 r2 r3) = case op of 
-    DivI -> emitMIPS op <> intercalate ", " (emitMIPS <$> [r2,r3]) <> "\n\t" <>
+instance Emips MIPS where
+  emips (Comment str) = "# " <> str
+  emips (BinOp  op r1 r2 r3) = case op of
+    DivI -> emips op <> intercalate ", " (emips <$> [r2,r3]) <> "\n\t" <>
             -- Handle divide by zero exception
-            "mflo " <> emitMIPS r1 
-    RemI -> emitMIPS op <> intercalate ", " (emitMIPS <$> [r2,r3]) <> "\n\t" <>
+            "mflo " <> emips r1
+    RemI -> emips op <> intercalate ", " (emips <$> [r2,r3]) <> "\n\t" <>
             -- Handle divide by zero exception
-            "mfhi " <> emitMIPS r1 
-    _    -> emitMIPS op <> intercalate ", " (emitMIPS <$> [r1,r2,r3])
-  
-  emitMIPS (BinOpi op r1 r2 c ) = case op of
-    DivI -> emitMIPS op <>  ", " <> emitMIPS r2 <> ", " <> emitMIPS c <> "\n\t" <>
+            "mfhi " <> emips r1
+    _    -> emips op <> intercalate ", " (emips <$> [r1,r2,r3])
+
+  emips (BinOpi op r1 r2 c ) = case op of
+    DivI -> emips op <>  ", " <> emips r2 <> ", " <> emips c <> "\n\t" <>
             -- Handle divide by zero exception
-            "mflo " <> emitMIPS r1 
-    RemI -> emitMIPS op <>  ", " <> emitMIPS r2 <> ", " <> emitMIPS c <> "\n\t" <>
+            "mflo " <> emips r1
+    RemI -> emips op <>  ", " <> emips r2 <> ", " <> emips c <> "\n\t" <>
             -- Handle divide by zero exception
-            "mfhi " <> emitMIPS r1 
-    _    -> emitMIPS op <> intercalate ", " (emitMIPS <$> [r1,r2]) <> ", " <> emitMIPS c
-  
-  emitMIPS (LoadI r1 i)    = "li " <> emitMIPS r1 <> ", " <> show i
+            "mfhi " <> emips r1
+    _    -> emips op <> intercalate ", " (emips <$> [r1,r2]) <> ", " <> emips c
 
-  emitMIPS (LoadW r1 (c,r2))    = 
-    "lw " <> emitMIPS r1 <> ", " <> show c <> "(" <> emitMIPS r2 <> ")"
-  
-  emitMIPS (Move r1 r2) =  "mv " <> intercalate ", " (emitMIPS <$> [r1,r2])
-  
-  emitMIPS (StoreW r1 (c,r2))    = 
-    "sw " <> emitMIPS r1 <> ", " <> show c <> "(" <> emitMIPS r2 <> ")"
+  emips (LoadI r1 i)    = "li " <> emips r1 <> ", " <> show i
 
-  emitMIPS Syscall = "syscall"
+  emips (LoadW r1 (c,r2))    =
+    "lw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
 
-  emitMIPS (Slt r1 r2 r3) = "slt " <> intercalate ", " (emitMIPS <$> [r1,r2,r3])
+  emips (Move r1 r2) =  "mv " <> intercalate ", " (emips <$> [r1,r2])
 
-  emitMIPS t = case t of
+  emips (StoreW r1 (c,r2))    =
+    "sw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
+
+  emips Syscall = "syscall"
+
+  emips (Slt r1 r2 r3) = "slt " <> intercalate ", " (emips <$> [r1,r2,r3])
+
+  emips t = case t of
     Beq  r1 r2 label ->
-      "beq " <> intercalate ", " (emitMIPS <$> [r1,r2]) <> ", " <> emitMIPS label
-    
-    Bne  r1 r2 label ->
-      "bne " <> intercalate ", " (emitMIPS <$> [r1,r2]) <> ", " <> emitMIPS label
+      "beq " <> intercalate ", " (emips <$> [r1,r2]) <> ", " <> emips label
 
-    Bc1t r  -> "bc2t " <> emitMIPS r
-    Bc1f r  -> "bc2f " <> emitMIPS r
-    J label -> "j "    <> emitMIPS label   
-    Jr r    -> "jr "   <> emitMIPS r  
+    Bne  r1 r2 label ->
+      "bne " <> intercalate ", " (emips <$> [r1,r2]) <> ", " <> emips label
+
+    Bc1t r  -> "bc2t " <> emips r
+    Bc1f r  -> "bc2f " <> emips r
+    J label -> "j "    <> emips label
+    Jr r    -> "jr "   <> emips r
     Jal str -> "jal "  <> str
 
-instance EmitMIPS BOp where
-  emitMIPS = (<> " ") . \case
+instance Emips BOp where
+  emips = (<> " ") . \case
     AddI -> "add"
     SubI -> "sub"
-    MulI -> "mult"       
+    MulI -> "mult"
     DivI -> "div"
     RemI -> "div"
     AddF -> "add.s"
@@ -192,6 +195,3 @@ instance EmitMIPS BOp where
     BAnd -> "and"
     BOr  -> "or"
     BXor -> "xor"
-
-
-

@@ -14,7 +14,7 @@ import           Language.Epilog.Parser
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
 import           Language.Epilog.MIPS.Monad
-import           Language.Epilog.MIPS.MIPS    (emitMIPS)
+import           Language.Epilog.MIPS.MIPS    (emips)
 import           Language.Epilog.MIPS.Program (mipsProgram)
 --------------------------------------------------------------------------------
 import           Control.Lens                (makeLenses, (.~), (^.))
@@ -157,7 +157,7 @@ doMIPS filename handle = do
     (code, _s) <- runIR irProgram ast
     -- putStrLn $ emit code
     (mcode, ms) <- runMIPS mipsProgram code
-    putStrLn $ emitMIPS mcode
+    putStrLn $ emips mcode
 
 -- Main --------------------------------
 main :: IO ()
