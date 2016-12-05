@@ -115,6 +115,7 @@ data MIPS
   | LoadW   Register (Int32, Register)
   | Move    Register Register
   | StoreW  Register (Int32, Register)
+  | StoreWG Register String
   | Syscall
   | Slt  Register Register Register
   -- Terminators
@@ -158,6 +159,9 @@ instance EmitMIPS MIPS where
   
   emitMIPS (StoreW r1 (c,r2))    = 
     "sw " <> emitMIPS r1 <> ", " <> show c <> "(" <> emitMIPS r2 <> ")"
+
+  emitMIPS (StoreWG r name)    = 
+    "sw " <> emitMIPS r <> ", " <> name
 
   emitMIPS Syscall = "syscall"
 
