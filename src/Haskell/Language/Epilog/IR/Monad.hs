@@ -7,9 +7,6 @@
 module Language.Epilog.IR.Monad
   ( IRState (..)
   , IRMonad
-  , runStateT
-  , execStateT
-  , evalStateT
   , runIR
   , initialIR
   , newLabel
@@ -50,8 +47,7 @@ import           Language.Epilog.SymbolTable (Scope, SymbolTable)
 import           Control.Lens                (at, makeLenses, use, (%%=), (%=),
                                               (&), (.=), (<<+=), (?=), (?~), _2,
                                               _Just, _head)
-import           Control.Monad.Trans.State   (StateT, evalStateT, execStateT,
-                                              runStateT)
+import           Control.Monad.Trans.State   (StateT, runStateT)
 import           Data.Graph                  (Edge, buildG)
 import qualified Data.Map                    as Map (empty, lookup)
 import           Data.Maybe                  (fromMaybe)

@@ -20,6 +20,7 @@ module Language.Epilog.IR.TAC
   , Constant (..)
   , Label (..)
   , targets
+  , divZeroLabel
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
@@ -36,6 +37,11 @@ class Emit a where
 
 data Label = Label { lblstr :: String, lblnum :: Int  }
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
+
+divZeroLabel :: Label
+divZeroLabel = Label 
+  { lblstr = "__divZero"
+  , lblnum = -1 }
 
 instance Emit Label where
   emit = lblstr

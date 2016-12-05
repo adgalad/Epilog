@@ -913,8 +913,17 @@ checkBinOp p op = aux opTypes
       pure $ noJoy { jPos = p }
     aux ((et1, et2, rt) : ts) j1@Joy { jType = t1 } j2@Joy { jType = t2 } =
       if t1 == et1 && t2 == et2
-        then pure $ joy
-          { jType = rt, jPos = p, jExp = theBinExp }
+        then if op `elem` ([IntDiv, Rem, FAop, NFop] :: [BinaryOp])
+          then if (exp' . fromJust . jExp $ j2) == LitInt 0
+            then do
+              err $ DivZero op p
+              pure $ noJoy { jPos = p }
+            else 
+              pure $ joy
+              { jType = rt, jPos = p, jExp = theBinExp }
+          else
+            pure $ joy
+              { jType = rt, jPos = p, jExp = theBinExp }
         else aux ts j1 j2
       where
         theBinExp = Just Expression

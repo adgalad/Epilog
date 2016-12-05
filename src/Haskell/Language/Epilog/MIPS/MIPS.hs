@@ -11,26 +11,22 @@ module Language.Epilog.MIPS.MIPS
   , BOp (..)
   , Register (..)
   , Constant (..)
-  , Program (..)
-  , Block (..)
-  , IR.Label
+  , Label
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
-import           Language.Epilog.IR.TAC (BOp(..), Data(..))
+import           Language.Epilog.IR.TAC (BOp (..), Label (..), divZeroLabel, emit)
 import qualified Language.Epilog.IR.TAC as IR
 --------------------------------------------------------------------------------
 import           Data.List              (intercalate)
-import           Data.Sequence          ((|>))
-import           GHC.Generics           (Generic)
 import           Safe                   (atDef)
 --------------------------------------------------------------------------------
 
 class Emips a where
   emips :: a -> String
 
-instance Emips TAC.Label where
-  emips = ("_" <>) . TAC.lblstr
+instance Emips Label where
+  emips = ("_" <>) . IR.lblstr
 
 --------------------------------------------------------------------------------
 
@@ -41,6 +37,7 @@ data Register -- = Zero | V Int | A Int | T Int | S Int | GP | SP | FP | RA
   | GP
   | SP
   | FP
+  | RA
   deriving (Eq, Show, Read, Ord)
 
 instance Emips Register where
@@ -48,19 +45,18 @@ instance Emips Register where
   emips (Scratch n) = atDef
     (internal $ "can't scratch" <> show n)
     ["$v0", "$v1", "$a0", "$ra"]
-    n
+    (fromIntegral n)
   emips (General n) = atDef
     (internal $ "no general use register " <> show n)
     [ "$a1", "$a2", "$a3", "$t0", "$t1", "$t2", "$t3"
     , "$t4", "$t5", "$t6", "$t7", "$s0", "$s1", "$s2"
     , "$s3", "$s4", "$s5", "$s6", "$s7", "$t8", "$t9" ]
-    n
+    (fromIntegral n)
   emips GP = "$gp"
   emips SP = "$sp"
   emips FP = "$fp"
 
 --------------------------------------------------------------------------------
-
 data Constant
   = IC Word32
   | FC Float
@@ -74,43 +70,20 @@ instance Emips Constant where
     CC w -> show w
 
 --------------------------------------------------------------------------------
-
 instance (Emips a, Foldable f) => Emips (f a) where
   emips = concat . fmap emips . toList
 
-
-
---------------------------------------------------------------------------------
-instance Emips IR.Data where
-  emips = \case
-    VarData { dName, dSpace } ->
-      dName <> ": .space " <> show dSpace <> "\n"
-    StringData { dName, dString } ->
-      dName <> ": .ascii " <> show dString <> "\n"
-
---------------------------------------------------------------------------------
-
-data Block = Block
-  { bLabel :: IR.Label
-  , bCode  :: Seq MIPS }
-
-instance Emips Block where
-  emips Block { bLabel, bCode } =
-    (<> "\n") . unlines . ((emips bLabel <> ":") :) . toList $
-      fmap (("\t" <>) . emips) bCode
-
-data Program = Program
-  { pData   :: Seq IR.Data
-  , pBlocks :: Seq Block
-  }
-
-instance Emips Program where
-  emips Program { pData, pBlocks } =
-    (if null pData then "" else "\t.data\n" <> emips pData <> "\n") <>
-    "\t.text\n" <> emips pBlocks
 --------------------------------------------------------------------------------
 data MIPS
   = Comment String
+  | MLabel   Label
+  -- Sections
+  | DataSection
+  | TextSection
+  -- Declarations
+  | Data    Name Int32
+  | MString Name String
+  -- Instructions
   | BinOp   BOp Register Register Register
   | BinOpi  BOp Register Register Constant
   | LoadI   Register (Int32)
@@ -121,55 +94,64 @@ data MIPS
   | Syscall
   | Slt     Register Register Register
   -- Terminators
-  | Beq  Register Register IR.Label
-  | Bne  Register Register IR.Label
-  | Bc1t IR.Label
-  | Bc1f IR.Label
-  | J    IR.Label
+  | Beq  Register Register Label
+  | Bne  Register Register Label
+  | Bc1t Label
+  | Bc1f Label
+  | J    Label
   | Jr   Register
   | Jal  String
-
   deriving (Eq, Show, Read)
 
-
 instance Emips MIPS where
-  emips (Comment str) = "# " <> str
-  emips (BinOp  op r1 r2 r3) = case op of
-    DivI -> emips op <> intercalate ", " (emips <$> [r2,r3]) <> "\n\t" <>
-            -- Handle divide by zero exception
-            "mflo " <> emips r1
-    RemI -> emips op <> intercalate ", " (emips <$> [r2,r3]) <> "\n\t" <>
-            -- Handle divide by zero exception
-            "mfhi " <> emips r1
-    _    -> emips op <> intercalate ", " (emips <$> [r1,r2,r3])
+  emips = \case
+    Comment str -> "# " <> str
+    MLabel lbl  -> emit lbl
+    DataSection -> "\t.data\n"
+    TextSection -> "\t.text\n"
+    Data dName dSpace ->
+      dName <> ": .space " <> show dSpace <> "\n"
+    MString dName dString ->
+      dName <> ": .asciiz " <> show dString <> "\n"
+    BinOp  op r1 r2 r3 -> case op of
+      DivI -> unlines
+        [         emips (Beq r3 Zero divZeroLabel)
+        , "\t" <> emips DivI <> intercalate ", " (emips <$> [r1, r2,r3]) ]
+      RemI -> unlines 
+        [         emips (Beq r3 Zero divZeroLabel)
+        , "\t" <> emips DivI <> intercalate ", " (emips <$> [r2,r3])
+        , "\t" <> "mfhi " <> emips r1 ]
+        
+      _    -> emips op <> intercalate ", " (emips <$> [r1,r2,r3])
 
-  emips (BinOpi op r1 r2 c ) = case op of
-    DivI -> emips op <>  ", " <> emips r2 <> ", " <> emips c <> "\n\t" <>
-            -- Handle divide by zero exception
-            "mflo " <> emips r1
-    RemI -> emips op <>  ", " <> emips r2 <> ", " <> emips c <> "\n\t" <>
-            -- Handle divide by zero exception
-            "mfhi " <> emips r1
-    _    -> emips op <> intercalate ", " (emips <$> [r1,r2]) <> ", " <> emips c
+    BinOpi op r1 r2 c -> case op of
+      DivI -> emips DivI <> intercalate ", " (fmap emips [r1, r2] <> [emips c])
+      RemI -> unlines
+        [ emips DivI <> intercalate ", " [emips r2, emips c] 
+        , "\t" <> "mfhi " <> emips r1 ]
 
-  emips (LoadI r1 i)    = "li " <> emips r1 <> ", " <> show i
+      _    -> emips op <> intercalate ", " (fmap emips [r1, r2] <> [emips c])
 
-  emips (LoadW r1 (c,r2))    =
-    "lw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
+    LoadI r1 i -> "li " <> emips r1 <> ", " <> show i
 
-  emips (Move r1 r2) =  "mv " <> intercalate ", " (emips <$> [r1,r2])
+    LoadW r1 (c,r2) ->
+      "lw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
 
-  emips (StoreW r1 (c,r2))    =
-    "sw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
+    Move r1 r2 ->  
+      "mv " <> intercalate ", " (emips <$> [r1,r2])
 
-  emips Syscall = "syscall"
+    StoreW r1 (c,r2) ->
+      "sw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
+
+    Syscall ->
+      "syscall"
   
-  emips (StoreWG r name)    = 
-    "sw " <> emips r <> ", " <> name
+    StoreWG r name ->
+      "sw " <> emips r <> ", " <> name
 
-  emips (Slt r1 r2 r3) = "slt " <> intercalate ", " (emips <$> [r1,r2,r3])
+    Slt r1 r2 r3 ->
+      "slt " <> intercalate ", " (emips <$> [r1,r2,r3])
 
-  emips t = case t of
     Beq  r1 r2 label ->
       "beq " <> intercalate ", " (emips <$> [r1,r2]) <> ", " <> emips label
 

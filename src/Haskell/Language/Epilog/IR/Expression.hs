@@ -26,7 +26,7 @@ import qualified Data.Sequence                  as Seq (reverse)
 --------------------------------------------------------------------------------
 
 irExpression :: Expression -> IRMonad Operand
-irExpression e@Expression { exp' } = case exp' of
+irExpression e@Expression { exp', expPos } = case exp' of
   LitBool  b -> pure . C . BC $ b
   LitChar  c -> pure . C . CC $ c
   LitInt   i -> pure . C . IC $ i
@@ -77,7 +77,10 @@ irExpression e@Expression { exp' } = case exp' of
               Xor -> (/=)
               _ -> internal "badOp"
 
-        (C (IC i0), C (IC i1)) -> pure . C . IC $ i0 `op'` i1
+        (C (IC i0), C (IC i1)) -> if op `elem` [IntDiv, Rem] && i1 == 0
+          then internal $ "Division by zero " <> show expPos
+          else pure . C . IC $ i0 `op'` i1
+
           where
             op' = case op of
               Band   -> (.&.)
@@ -222,7 +225,7 @@ toIRUOp atom = \case
 
 
 irBoolean :: Label -> Label -> Expression -> IRMonad ()
-irBoolean true false e@Expression { exp' } = case exp' of
+irBoolean true false e@Expression { exp', expPos } = case exp' of
   LitBool   b -> terminate . Br $ if b then true else false
 
   LitChar   _ -> internal "litChar cannot be a boolean expression"
@@ -274,7 +277,9 @@ irBoolean true false e@Expression { exp' } = case exp' of
               NEop -> (/=)
               _ -> internal "badOp"
 
-        (C (IC i0), C (IC i1)) -> terminate . Br $ if i0 `cond` i1 then true else false
+        (C (IC i0), C (IC i1)) -> if op `elem` [FAop, NFop] && i1 == 0
+          then internal $ "Division by zero " <> show expPos
+          else terminate . Br $ if i0 `cond` i1 then true else false
           where
             cond = case op of
               LTop -> (<)

@@ -10,36 +10,36 @@ module Language.Epilog.MIPS.Monad
   , RegDescrip (..)
   , VarDescrip (..)
   , VarLoc (..)
-  , runStateT
-  , execStateT
-  , evalStateT
   , runMIPS
+  , tell
+  , tell1
   , initialMIPS
   , addMIPS
   , registers
   , variables
   , instructions
-  , blocks
   , resetRegDescrips
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
 import qualified Language.Epilog.IR.TAC      as IR
 import           Language.Epilog.MIPS.MIPS
-import           Language.Epilog.SymbolTable (Scope, SymbolTable)
 --------------------------------------------------------------------------------
 import           Control.Lens                (at, makeLenses, use, (%%=), (%=),
                                               (&), (.=), (<<+=), (?~), _2,
                                               _Just)
-import           Control.Monad.Trans.State   (StateT, evalStateT, execStateT,
-                                              runStateT)
+import           Control.Monad.Trans.RWS     (RWST, evalRWST, execRWST,
+                                              runRWST, tell)
 import           Data.Graph                  (Edge, buildG)
 import qualified Data.Map                    as Map (empty, lookup, fromList)
 import           Data.Array                  (Array, listArray)
-import           Data.Sequence               as Seq (empty)
+import qualified Data.Sequence               as Seq (empty, singleton)
 --------------------------------------------------------------------------------
 
-type MIPSMonad a = StateT MIPSState IO a
+type MIPSMonad a = RWST () (Seq MIPS) MIPSState IO a
+
+tell1 :: Monad m => w -> RWST r (Seq w) s m ()
+tell1 = tell . Seq.singleton
 
 data VarLoc 
   = Global { name   :: String }
@@ -47,32 +47,28 @@ data VarLoc
   | None
 
 data RegDescrip = RegDescrip
-    { values     :: [IR.Operand]
-    , genPurpose :: Bool
-    , dirty      :: Bool
-    }
+  { values     :: [IR.Operand]
+  , genPurpose :: Bool
+  , dirty      :: Bool }
 
 data VarDescrip = VarDescrip
-    { reg      :: Maybe Register
-    , taint    :: Bool 
-    , location :: VarLoc
-  }
+  { reg      :: Maybe Register
+  , taint    :: Bool 
+  , location :: VarLoc }
 
 data MIPSState = MIPSState
   { _registers    :: Map Register RegDescrip 
   , _variables    :: Map IR.Operand VarDescrip 
-  , _instructions :: Seq MIPS
-  , _blocks       :: Seq Block }
+  , _instructions :: Seq MIPS }
 
 regs :: [Register]    
-regs = (A <$> [1..3]) <> (T <$> [0..9]) <> (S <$> [0..7]) -- Only general use Regs
+regs = (Scratch <$> [0..20]) -- Only general use Regs
 
 initialMIPS :: MIPSState
 initialMIPS = MIPSState
   { _registers    = Map.fromList [(x,RegDescrip [] True False) | x <- regs]
   , _variables    = Map.empty
-  , _instructions = Seq.empty
-  , _blocks       = Seq.empty }
+  , _instructions = Seq.empty }
 
 makeLenses ''MIPSState
 
@@ -84,8 +80,8 @@ resetRegDescrips = do
 addMIPS :: MIPS -> MIPSMonad ()
 addMIPS = (instructions |>=)
 
-runMIPS :: (a -> MIPSMonad b) -> a -> IO (b, MIPSState)
-runMIPS x inp = runStateT (x inp) initialMIPS
+runMIPS :: (a -> MIPSMonad ()) -> a -> IO (Seq MIPS)
+runMIPS x inp = snd <$> execRWST (x inp) () initialMIPS
 
 spill :: Register
 spill = undefined

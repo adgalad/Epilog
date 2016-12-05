@@ -29,7 +29,7 @@ irProgram Program { procs, scope, strings } = do
   forM_ (Map.toList strings) $ \(str, idx) ->
     dataSegment |>= StringData ("_str" <> show idx) str
 
-  newLabel "Entry" >>= (#)
+  newLabel "main" >>= (#)
   forM_ (sEntries scope) $ \Entry { eName, eType, eInitialValue } -> do
     dataSegment |>= VarData
       { dName  = eName
