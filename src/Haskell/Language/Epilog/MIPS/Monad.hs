@@ -52,10 +52,6 @@ data RegDescrip = RegDescrip
     , dirty      :: Bool
     }
 
-instance Ord RegDescrip where
-  compare r1 r2 = 
-    compare (length . values $ r1) (length . values $ r2)
-
 data VarDescrip = VarDescrip
     { reg      :: Maybe Register
     , taint    :: Bool 
@@ -94,11 +90,11 @@ runMIPS x inp = runStateT (x inp) initialMIPS
 spill :: Register
 spill = undefined
 
-getOpReg :: Operand -> Register
-getOpReg = undefined
+getOpReg :: IR.Operand -> Register
+getOpReg o = undefined
 
 getReg :: IR.TAC -> (Register, Register, Register)
-getReg = undefined
+getReg t = undefined
 
 
 

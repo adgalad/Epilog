@@ -25,7 +25,7 @@ mipsProgram TAC.Program { TAC.datas, TAC.modules } = do
 mipsModule :: TAC.Module -> MIPSMonad ()
 mipsModule TAC.Module {TAC.mBlocks} = forM_ mBlocks $ \m -> do
   mipsBlock m
-  resetRegDescriptors
+  resetRegDescrips
   variables .= Map.empty
 
 mipsBlock :: TAC.Block -> MIPSMonad ()
@@ -110,7 +110,7 @@ mipsTAC = \case
 
   TAC.Var _ name offs size -> do
     let 
-      var = (VarDescriptor Nothing False (Local offs))
+      var = (VarDescrip Nothing False (Local offs))
     variables %= Map.insert (TAC.R name) var
 
 

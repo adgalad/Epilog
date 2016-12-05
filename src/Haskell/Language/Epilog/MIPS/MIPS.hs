@@ -13,7 +13,7 @@ module Language.Epilog.MIPS.MIPS
   , Constant (..)
   , Program (..)
   , Block (..)
-  , TAC.Label
+  , IR.Label
   -- , v0, v1, a0, a1, a2, a3
   -- , t0, t1, t2, t3, t4, t5, t6, t7, t8, t9
   -- , s0, s1, s2, s3, s4, s5, s6, s7
@@ -21,7 +21,7 @@ module Language.Epilog.MIPS.MIPS
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
 import           Language.Epilog.IR.TAC (BOp(..), Data(..))
-import qualified Language.Epilog.IR.TAC as TAC
+import qualified Language.Epilog.IR.TAC as IR
 --------------------------------------------------------------------------------
 import           Data.List              (intercalate)
 import           Data.Sequence          ((|>))
@@ -32,8 +32,8 @@ class EmitMIPS a where
   emitMIPS :: a -> String
 
 
-instance EmitMIPS TAC.Label where
-  emitMIPS = ("_" <>) . TAC.lblstr
+instance EmitMIPS IR.Label where
+  emitMIPS = ("_" <>) . IR.lblstr
 
 --------------------------------------------------------------------------------
 
@@ -79,17 +79,17 @@ instance (EmitMIPS a, Foldable f) => EmitMIPS (f a) where
 
 
 --------------------------------------------------------------------------------
-instance EmitMIPS TAC.Data where
+instance EmitMIPS IR.Data where
   emitMIPS = \case
     VarData { dName, dSpace } -> 
       dName <> ": .space " <> show dSpace <> "\n"
     StringData { dName, dString } ->
-      dName <> ": .ascii" <> show dString <> "\n"
+      dName <> ": .ascii " <> show dString <> "\n"
 
 --------------------------------------------------------------------------------
 
 data Block = Block 
-  { bLabel :: TAC.Label
+  { bLabel :: IR.Label
   , bCode  :: Seq MIPS }
 
 instance EmitMIPS Block where
@@ -98,7 +98,7 @@ instance EmitMIPS Block where
       fmap (("\t" <>) . emitMIPS) bCode
 
 data Program = Program
-  { pData   :: Seq TAC.Data
+  { pData   :: Seq IR.Data
   , pBlocks :: Seq Block
   }
 
@@ -117,13 +117,13 @@ data MIPS
   | StoreW  Register (Int32, Register)
   | StoreWG Register String
   | Syscall
-  | Slt  Register Register Register
+  | Slt     Register Register Register
   -- Terminators
-  | Beq  Register Register TAC.Label
-  | Bne  Register Register TAC.Label
-  | Bc1t TAC.Label
-  | Bc1f TAC.Label
-  | J    TAC.Label
+  | Beq  Register Register IR.Label
+  | Bne  Register Register IR.Label
+  | Bc1t IR.Label
+  | Bc1f IR.Label
+  | J    IR.Label
   | Jr   Register
   | Jal  String
 
