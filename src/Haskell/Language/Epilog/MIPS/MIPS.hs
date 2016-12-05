@@ -44,7 +44,7 @@ instance Emips Register where
   emips Zero = "$0"
   emips (Scratch n) = atDef
     (internal $ "can't scratch" <> show n)
-    ["$v0", "$v1", "$a0", "$ra"]
+    ["$v0", "$v1", "$a0"]
     (fromIntegral n)
   emips (General n) = atDef
     (internal $ "no general use register " <> show n)
@@ -55,6 +55,7 @@ instance Emips Register where
   emips GP = "$gp"
   emips SP = "$sp"
   emips FP = "$fp"
+  emips RA = "$ra"
 
 --------------------------------------------------------------------------------
 data Constant
@@ -104,15 +105,15 @@ data MIPS
   deriving (Eq, Show, Read)
 
 instance Emips MIPS where
-  emips = \case
+  emips l = tab l <> case l of
     Comment str -> "# " <> str
-    MLabel lbl  -> emit lbl
-    DataSection -> "\t.data\n"
-    TextSection -> "\t.text\n"
+    MLabel lbl  -> "_" <> emit lbl <> ":"
     Data dName dSpace ->
-      dName <> ": .space " <> show dSpace <> "\n"
+      dName <> ": .space " <> show dSpace 
     MString dName dString ->
-      dName <> ": .asciiz " <> show dString <> "\n"
+      dName <> ": .asciiz " <> show dString 
+    DataSection -> ".data"
+    TextSection -> ".text"
     BinOp  op r1 r2 r3 -> case op of
       DivI -> unlines
         [         emips (Beq r3 Zero divZeroLabel)
@@ -127,10 +128,10 @@ instance Emips MIPS where
     BinOpi op r1 r2 c -> case op of
       DivI -> emips DivI <> intercalate ", " (fmap emips [r1, r2] <> [emips c])
       RemI -> unlines
-        [ emips DivI <> intercalate ", " [emips r2, emips c] 
+        [         emips DivI <> intercalate ", " [emips r2, emips c] 
         , "\t" <> "mfhi " <> emips r1 ]
 
-      _    -> emips op <> intercalate ", " (fmap emips [r1, r2] <> [emips c])
+      _ -> emips op <> intercalate ", " (fmap emips [r1, r2] <> [emips c])
 
     LoadI r1 i -> "li " <> emips r1 <> ", " <> show i
 
@@ -163,6 +164,14 @@ instance Emips MIPS where
     J label -> "j "    <> emips label
     Jr r    -> "jr "   <> emips r
     Jal str -> "jal "  <> str
+
+    where
+      tab = \case
+        Comment {} -> ""
+        MLabel  {} -> ""
+        Data    {} -> ""
+        MString {} -> ""
+        _          -> "\t"
 
 instance Emips BOp where
   emips = (<> " ") . \case
