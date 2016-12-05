@@ -87,6 +87,7 @@ data MIPS
   -- Instructions
   | BinOp   BOp Register Register Register
   | BinOpi  BOp Register Register Constant
+  | LoadA   Register String
   | LoadI   Register (Int32)
   | LoadW   Register (Int32, Register)
   | Move    Register Register
@@ -132,6 +133,8 @@ instance Emips MIPS where
         , "\t" <> "mfhi " <> emips r1 ]
 
       _ -> emips op <> intercalate ", " (fmap emips [r1, r2] <> [emips c])
+
+    LoadA r1 s -> "la " <> emips r1 <> ", " <> s 
 
     LoadI r1 i -> "li " <> emips r1 <> ", " <> show i
 

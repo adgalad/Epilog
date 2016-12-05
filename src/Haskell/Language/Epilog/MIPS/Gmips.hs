@@ -22,18 +22,17 @@ import qualified Data.Map                      as Map (toList, empty, insert)
 spill :: Register
 spill = undefined
 
-getOpReg :: Operand -> Register
-getOpReg o = undefined
-
 getReg3 :: TAC -> (Register, Register, Register)
 getReg3 t = undefined
 
 getReg2 :: TAC -> (Register, Register)
 getReg2 t = undefined
 
+getReg1 :: TAC -> Register
+getReg1 t = undefined
 
-
-
+-- copy :: Operand -> Operand -> ()
+-- copy dest orig = undefined
 
 class Gmips a where
   gmips :: a -> MIPSMonad ()
@@ -133,7 +132,7 @@ instance Gmips Terminator where
     _ -> internal "wut"
 
 instance Gmips TAC where
-  gmips = \case 
+  gmips tac = case tac of
     TAC.Comment str -> tell1 $ Comment str
 
     Var _ name offs _ -> 
@@ -141,32 +140,94 @@ instance Gmips TAC where
       home %= Map.insert name offs
 
 
-    -- op := operation -> undefined
+    op := operation -> case operation of
+      B o l r -> do
+        (x, y, z) <- getReg3 tac
+        tell $ BinOp o x y z
+        -- TODO: conmutatividad con constantes
 
-    -- op1 :=# (op2, op3) ->
+      U o u -> do
+        (x, y) <- getReg2 tac
+        case o of
+          NegF -> undefined -- jeje que es flout?
+          NegI -> tell $ BinOp SubI x Zero y
+          BNot -> tell $ BinOp Xor  x Zero y
+          Id   -> pure ()
 
-    -- (Operand, Operand) :#= Operand ->
+    _ :=# (_, C (IC n)) -> do
+      (x, y) <- getReg2 tac
+      tell1 $ LoadW x (n, y)
 
-    -- Operand :=* Operand ->
+    _ :=# (_, _) -> do
+      (x, y, z) <- getReg3
+      tell
+        [ BinOp AddI x y z
+        , LoadW x (0, x) ]
 
-    -- Operand :*= Operand ->
+    (_, C (IC n)) :#= _ -> do
+      (x, y) <- getReg2 tac
+      tell1 $ StoreW y (n, x)
 
+    (_, _) :#= _ -> do
+      (x, y, z) <- getReg3 tac
+      tell
+        [ BinOp AddI (Scratch 0) x y
+        , StoreW z (0, (Scratch 0)) ]
 
-    -- Operand :=& Operand ->
+    _ :=* _ -> do
+      (x, y) <- getReg2 tac
+      tell1 $ LoadW x (0, y) 
 
+    _ :*= _ -> do
+      (x, y) <- getReg2 tac
+      tell1 $ StoreW y (0, x) 
 
-    -- Param Operand ->
+    _ :=& (R name) -> do
+      x <- getReg1 tac
+      use home
+      tell1 $ case name `Map.lookup` home of
+        Nothing     -> LoadA x name
+        Just offset -> BinOpi AddI x FP offset
 
-    -- RefParam Operand ->
+    Param _ -> do
+      x <- getReg1 tac
+      tell 
+        [ BinOpi AddI SP SP (-4)
+        , StoreW x (0, SP) ]
+
+    RefParam _ -> do
+      use home
+      tell
+        [ BinOpi AddI SP SP (-4)
+        , case name `Map.lookup` home of
+            Nothing     -> LoadA (Scratch 0) name
+            Just offset -> BinOpi AddI (Scratch 0) FP offset
+        , StoreW (Scratch 0) (0, SP) ]
 
     Call proc -> tell 
       [ BinOpi SubI SP SP (IC $ 12)
       , StoreW FP (0, SP)
-      , Jal $ "proc_" <> proc ]
+      , Jal $ "proc_" <> proc 
+      -- prolog
+      -- ???
+      -- profit
+      -- epilog
+      -- Cleanup
+      ]
 
-    
-    -- Operand :<- Function ->
-
+    _ :<- proc -> do
+      x <- getReg1 tac
+      tell
+        [ BinOpi SubI SP SP (IC $ 12)
+        , StoreW FP (0, SP)
+        , Jal $ "proc_" <> proc
+        -- prolog
+        -- ???
+        -- profit
+        -- epilog
+        , LoadW x (8, FP) 
+        -- Cleanup
+        ]
 
     Cleanup n -> tell 
       [ LoadW FP (0, FP)
@@ -183,6 +244,8 @@ instance Gmips TAC where
       [ LoadW RA (4, FP)
       , Move SP FP ]
 
-    -- Answer op -> do
+    Answer op -> do
+      x <- getReg1 tac
+      tell1 $ StoreW x (8, FP)
 
     c -> tell1 $ Comment (emit c)
