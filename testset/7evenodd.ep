@@ -1,0 +1,57 @@
+/% Par o impar
+ %
+ % El programa debe operar en un ciclo infinito, preguntando al usuario si
+ % desea determinar la paridad/imparidad de un número entero, o terminar. Si
+ % el usuario decide continuar, el programa solicitará un número entero
+ % (posiblemente con signo) y debe determinar si es «par» o «impar».
+ %
+ % Las funciones par e impar deben escribirse de manera co-recursiva.
+ %/
+
+procedure even (integer N) -> boolean.
+procedure odd  (integer N) -> boolean.
+
+procedure main () :-
+  boolean Done is false,
+  integer Choice,
+  integer N,
+
+  write "Estudio de paridad/imparidad.",
+
+  while not Done ->
+      write "Introduzca\n"
+    , write "\tel número cero (0) para salir,\n"
+    , write "\tel número uno (1) para determinar imparidad,\n"
+    , write "\tel número dos (2) para determinar paridad, u\n"
+    , write "\totro número para mostrar este mensaje de nuevo.\n"
+    , write "> "
+
+    , read Choice,
+
+    , if Choice = 0 -> write "Adios.\n", Done is true
+      ;  Choice = 1 ->
+          write "Introduzca un número entero para determinar su imparidad\n> "
+        , read N
+        , if odd (N) -> write "El número ", write N, write " es impar."
+          ;  true    -> write "El número ", write N, write " no es impar."
+          end
+      ;  Choice = 2 ->
+          write "Introduzca un número entero para determinar su paridad\n> "
+        , read N
+        , if even (N) -> write "El número ", write N, write " es par."
+          ;  true     -> write "El número ", write N, write " no es par."
+          end
+      end
+  end.
+
+procedure even (integer N) -> boolean :-
+  if N = 0 -> answer true
+  ;  N = 1 -> answer false
+  ;  true  -> answer odd (N - 1)
+  end.
+
+procedure odd  (integer N) -> boolean :-
+  if N = 0 -> answer false
+  ;  N = 1 -> answer true
+  ;  true  -> answer even (N - 1)
+  end.

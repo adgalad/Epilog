@@ -1,0 +1,62 @@
+/% Factorial iterativo y recursivo.
+ %
+ % El programa debe operar en un ciclo infinito en el cual pregunta cuál
+ % método usar para calcular el factorial, solicitar un número entero no
+ % negativo, y mostrar el factorial calculado, hasta que el usuario indique
+ % que no quiere continuar.
+ % Las implantaciones de factorial deben estar en funciones separadas,
+ % usando pasaje por valor.
+ %/
+
+procedure itfact  (integer N) -> integer.
+
+procedure recfact (integer N) -> integer.
+
+procedure main () :-
+  boolean Done is false,
+  integer Metodo,
+  integer X,
+
+  write "Factorial Iterativo/Recursivo\n.",
+
+  while not Done ->
+      write "Introduzca\n"
+    , write "\tel número 0 para salir,\n"
+    , write "\tun número par para utilizar el método recursivo, o\n"
+    , write "\tun número impar para utilizar el método iterativo.\n"
+    , write "> "
+
+    , read Metodo,
+
+    , if 0  = Metodo ->
+          write "Adios.\n"
+        , Done is true
+      ;  0 != Metodo ->
+          write "Introduzca x, (entero, no negativo) para calcular x! con el método "
+
+        , if 2  | Metodo -> "recursivo"
+          ;  2 !| Metodo -> "iterativo"
+          end
+
+        , write "\n> "
+        , read X
+
+        , if X < 0       -> write "Ha ingresado un número negativo.\n"
+          ;  2  | Metodo -> write "< ", write recfact(X), write "\n"
+          ;  2 !| Metodo -> write "< ", write  itfact(X), write "\n"
+          end
+      end
+  end.
+
+procedure itfact (integer N) -> integer :-
+  integer I,
+  integer R is 1,
+  for I from 1 to N ->
+    R is R * I
+  end,
+  answer R.
+
+procedure recfact (integer N) -> integer :-
+  if N  = 0 -> answer 1
+  ;  N != 0 -> answer N * recfact (N - 1)
+  end.
