@@ -8,13 +8,13 @@ module Language.Epilog.MIPS.Monad
   ( MIPSState (..)
   , MIPSMonad
   , RegDesc (..)
-  , VarDesc
   , runMIPS
   , tell
   , tell1
   , registers
   , variables
   , home
+  , vsp
   , resetRegDescs
   ) where
 --------------------------------------------------------------------------------
@@ -22,16 +22,14 @@ import           Language.Epilog.Common
 import qualified Language.Epilog.IR.TAC    as IR
 import           Language.Epilog.MIPS.MIPS
 --------------------------------------------------------------------------------
-import           Control.Lens              (at, makeLenses, use, (%%=), (%=),
-                                            (&), (.=), (<<+=), (<<~), (?~), _2,
-                                            _Just)
+import           Control.Lens              ( makeLenses, (.=) )
 import           Control.Monad.Trans.RWS   (RWST, evalRWST, execRWST, runRWST,
                                             tell)
 import           Data.Array.IO             (IOArray)
 import           Data.Array.MArray         (newArray)
 import           Data.Graph                (Edge, buildG)
-import qualified Data.Map                  as Map (empty, fromList, lookup)
-import qualified Data.Sequence             as Seq (empty, singleton)
+import qualified Data.Map                  as Map (empty)
+import qualified Data.Sequence             as Seq (singleton)
 --------------------------------------------------------------------------------
 
 type MIPSMonad a = RWST () (Seq MIPS) MIPSState IO a
@@ -41,21 +39,22 @@ tell1 = tell . Seq.singleton
 
 data RegDesc = RegDesc
   { values :: [IR.Operand]
-  , ss     :: Int
+  , ss     :: Word32
   , dirty  :: Bool }
 
-type VarDesc = Maybe Register
 
 data MIPSState = MIPSState
-  { _registers :: IOArray Word       RegDesc
-  , _variables :: Map     IR.Operand VarDesc
-  , _home      :: Map     Name       Offset }
+  { _registers :: IOArray Word32     RegDesc
+  , _variables :: Map     IR.Operand Word32
+  , _home      :: Map     IR.Operand Offset 
+  , _vsp        :: Int32 }
 
 initialMIPS :: MIPSState
 initialMIPS = MIPSState
   { _registers = undefined
   , _variables = Map.empty
-  , _home      = Map.empty }
+  , _home      = Map.empty
+  , _vsp        = 0 }
 
 makeLenses ''MIPSState
 

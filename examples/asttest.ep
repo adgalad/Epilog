@@ -2,9 +2,11 @@
 
 integer Return is 5.
 
-procedure f(integer H) :- 
-	integer H is 6+5 div 6*7.
+procedure f(character H) -> character :- 
+	answer H.
+
 	
 procedure main() :-
 	write "hola",
-	integer H is 6+5 div 6*7.
+	^integer H,
+	H^ is H^.

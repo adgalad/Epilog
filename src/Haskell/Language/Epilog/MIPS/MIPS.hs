@@ -32,8 +32,8 @@ instance Emips Label where
 
 data Register -- = Zero | V Int | A Int | T Int | S Int | GP | SP | FP | RA
   = Zero
-  | Scratch Word
-  | General Word
+  | Scratch Word32
+  | General Word32
   | GP
   | SP
   | FP
@@ -59,7 +59,7 @@ instance Emips Register where
 
 --------------------------------------------------------------------------------
 data Constant
-  = IC Word32
+  = IC Int32
   | FC Float
   | CC Word8
   deriving (Eq, Show, Read)
@@ -88,7 +88,7 @@ data MIPS
   | BinOp   BOp Register Register Register
   | BinOpi  BOp Register Register Constant
   | LoadA   Register String
-  | LoadI   Register (Int32)
+  | LoadI   Register (Constant)
   | LoadW   Register (Int32, Register)
   | Move    Register Register
   | StoreW  Register (Int32, Register)
@@ -136,7 +136,7 @@ instance Emips MIPS where
 
     LoadA r1 s -> "la " <> emips r1 <> ", " <> s 
 
-    LoadI r1 i -> "li " <> emips r1 <> ", " <> show i
+    LoadI r1 i -> "li " <> emips r1 <> ", " <> emips i
 
     LoadW r1 (c,r2) ->
       "lw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"

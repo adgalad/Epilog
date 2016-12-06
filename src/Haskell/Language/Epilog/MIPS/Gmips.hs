@@ -14,25 +14,134 @@ import           Language.Epilog.MIPS.MIPS
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Type          (sizeT)
 --------------------------------------------------------------------------------
-import           Control.Lens                  (use, (.=),(%=))
+import           Control.Lens                  (use, (.=),(%=), (+~), (+=), 
+                                                (<-=), ix, (&))
+import           Data.Array.IO                 (IOArray)
+import           Data.Array.MArray             (readArray, writeArray)
 import qualified Data.Sequence                 as Seq (empty)
-import qualified Data.Map                      as Map (toList, empty, insert)
+import qualified Data.Map                      as Map (toList, empty, insert, lookup)
 --------------------------------------------------------------------------------
 
 spill :: Register
 spill = undefined
 
-getReg3 :: TAC -> (Register, Register, Register)
+getReg3 :: TAC -> MIPSMonad (Register, Register, Register)
 getReg3 t = undefined
 
-getReg2 :: TAC -> (Register, Register)
-getReg2 t = undefined
+getReg2 :: TAC -> MIPSMonad (Register, Register)
+getReg2 t = do 
+  vd <- use variables
+  h  <- use home
+  rd <- use registers 
+  let 
+    (op1, op2) = case t of 
+      (op1 := U o op2)   -> (op1,op2)
+      op1 :=# (op2, C _) -> (op1,op2)
+      (op1, C _) :#= op2 -> (op1,op2)
+      op1 :=* op2        -> (op1,op2)
+      op1 :*= op2        -> (op1,op2)
+      _ -> internal $ "wut? " <> emit t 
 
-getReg1 :: TAC -> Register
-getReg1 t = undefined
+  if op1 == op2
+    then getReg1 t >>= \r -> pure (r,r)
+    else undefined
 
--- copy :: Operand -> Operand -> ()
--- copy dest orig = undefined
+
+  
+
+
+getReg1 :: TAC -> MIPSMonad Register
+getReg1 t = do 
+  vd <- use variables
+  h  <- use home
+  rd <- use registers
+  let 
+    op = case t of
+      op :=& (R name) -> op
+      Param op        -> op
+      op :<- _        -> op
+      Answer op       -> op
+      -- getreg2 using getreg1
+      op := U o _     -> op
+      op :=# (_, C _) -> op
+      (op, C _) :#= _ -> op
+      op :=* _        -> op
+      op :*= _        -> op
+      _ -> internal $ "wut? " <> emit t 
+
+  case op `Map.lookup` vd of
+    Nothing -> do 
+      
+      case op `Map.lookup` h of
+        Nothing -> do 
+          n <- bestReg False
+          case op of 
+            T _ -> do
+              variables %= Map.insert op n
+              liftIO $ writeArray rd n (RegDesc [op] 10 False)
+            _ -> internal $ "Operand not found: " <> emit op
+          pure $ General n
+
+        Just offset -> do
+          General <$> case t of
+            op :=& (R name) -> bestReg False
+            op :<- _        -> bestReg False
+            _ -> do
+              n <- bestReg True
+              tell1 $ LoadW (General n) (offset, FP)
+              liftIO $ writeArray rd n (RegDesc [op] 1 False)
+              pure n
+
+    Just regNum -> do
+      pure $ General regNum
+    where 
+      bestReg :: Bool -> MIPSMonad Word32
+      bestReg spillear = do
+        rd <- use registers
+        h  <- use home
+        n  <- min' rd
+        d@RegDesc {values, ss, dirty} <- liftIO $ readArray rd (fromIntegral n)
+
+        when (dirty && spillear) . forM_ values $ \v -> do
+          case v `Map.lookup` h of
+            Nothing     -> case v of 
+              (R name) -> tell1 $ StoreWG (General n) name
+              
+              t@(T _)  -> do 
+                tell [ BinOpi AddI SP SP (IC $ -4)
+                     , StoreW (General n) (0, SP) ]
+                toffs <- vsp <-= 4
+                home %= Map.insert t toffs
+              _        -> internal "trying to save a constant operand as global"
+            Just offset ->
+              tell1 $ StoreW (General n) (offset, FP)
+        pure n
+
+      min' :: IOArray Word32 RegDesc -> MIPSMonad Word32
+      min' regs = do
+        r0 <- liftIO $ readArray regs 0
+        if not (dirty r0) || ss r0 == 0
+          then pure 0
+          else min'' 1 (0, ss r0)
+
+        where
+          min'' :: Word32 -> (Word32, Word32) -> MIPSMonad Word32
+          min'' 21 (b, bc) = pure b
+          min'' i  (b, bc) = do
+            ri <- liftIO $ readArray regs i
+            if not (dirty ri) || ss ri == 0
+              then pure i
+              else min'' (i+1) $ if ss ri < bc
+                then (i, ss ri)
+                else (b, bc)
+
+contantToMips :: TAC.Constant -> Constant 
+contantToMips = \case
+  TAC.IC a -> IC a
+  TAC.FC f -> FC f
+  TAC.BC b -> IC $ if b then 1 else 0
+  TAC.CC c -> CC c
+
 
 class Gmips a where
   gmips :: a -> MIPSMonad ()
@@ -126,7 +235,7 @@ instance Gmips Terminator where
       tell1 $ Jr RA
 
     Exit -> do
-      tell1 $ LoadI (Scratch 0) 10
+      tell1 $ LoadI (Scratch 0) (IC 10)
       tell1 Syscall
 
     _ -> internal "wut"
@@ -137,42 +246,42 @@ instance Gmips TAC where
 
     Var _ name offs _ -> 
 
-      home %= Map.insert name offs
+      home %= Map.insert (R name) offs
 
 
     op := operation -> case operation of
       B o l r -> do
         (x, y, z) <- getReg3 tac
-        tell $ BinOp o x y z
+        tell1 $ BinOp o x y z
         -- TODO: conmutatividad con constantes
 
       U o u -> do
         (x, y) <- getReg2 tac
         case o of
           NegF -> undefined -- jeje que es flout?
-          NegI -> tell $ BinOp SubI x Zero y
-          BNot -> tell $ BinOp Xor  x Zero y
+          NegI -> tell1 $ BinOp SubI x Zero y
+          BNot -> tell1 $ BinOp BXor x Zero y
           Id   -> pure ()
 
-    _ :=# (_, C (IC n)) -> do
-      (x, y) <- getReg2 tac
-      tell1 $ LoadW x (n, y)
+    -- _ :=# (_, C (TAC.IC n)) -> do
+    --   (x, y) <- getReg2 tac
+    --   tell1 $ LoadW x (n, y)
 
-    _ :=# (_, _) -> do
-      (x, y, z) <- getReg3
-      tell
-        [ BinOp AddI x y z
-        , LoadW x (0, x) ]
+    -- _ :=# (_, _) -> do
+    --   (x, y, z) <- getReg3 tac
+    --   tell
+    --     [ BinOp AddI x y z
+    --     , LoadW x (0, x) ]
 
-    (_, C (IC n)) :#= _ -> do
-      (x, y) <- getReg2 tac
-      tell1 $ StoreW y (n, x)
+    -- (_, C (TAC.IC n)) :#= _ -> do
+    --   (x, y) <- getReg2 tac
+    --   tell1 $ StoreW y (n, x)
 
-    (_, _) :#= _ -> do
-      (x, y, z) <- getReg3 tac
-      tell
-        [ BinOp AddI (Scratch 0) x y
-        , StoreW z (0, (Scratch 0)) ]
+    -- (_, _) :#= _ -> do
+    --   (x, y, z) <- getReg3 tac
+    --   tell
+    --     [ BinOp AddI (Scratch 0) x y
+    --     , StoreW z (0, (Scratch 0)) ]
 
     _ :=* _ -> do
       (x, y) <- getReg2 tac
@@ -182,26 +291,33 @@ instance Gmips TAC where
       (x, y) <- getReg2 tac
       tell1 $ StoreW y (0, x) 
 
-    _ :=& (R name) -> do
+    _ :=& o@(R name) -> do
       x <- getReg1 tac
-      use home
-      tell1 $ case name `Map.lookup` home of
+      h <- use home
+      tell1 $ case o `Map.lookup` h of
         Nothing     -> LoadA x name
-        Just offset -> BinOpi AddI x FP offset
+        Just offset -> BinOpi AddI x FP (IC offset)
+
+    Param (C c) -> case c of
+      TAC.FC _ -> undefined
+      _    -> tell 
+        [ LoadI (Scratch 0) $ contantToMips c 
+        , BinOpi AddI SP SP (IC $ -4)
+        , StoreW (Scratch 0) (0, SP) ]
 
     Param _ -> do
       x <- getReg1 tac
       tell 
-        [ BinOpi AddI SP SP (-4)
+        [ BinOpi AddI SP SP (IC $ -4)
         , StoreW x (0, SP) ]
 
-    RefParam _ -> do
-      use home
+    RefParam o@(R name) -> do
+      h <- use home
       tell
-        [ BinOpi AddI SP SP (-4)
-        , case name `Map.lookup` home of
+        [ BinOpi AddI SP SP (IC $ -4)
+        , case o `Map.lookup` h of
             Nothing     -> LoadA (Scratch 0) name
-            Just offset -> BinOpi AddI (Scratch 0) FP offset
+            Just offset -> BinOpi AddI (Scratch 0) FP (IC offset)
         , StoreW (Scratch 0) (0, SP) ]
 
     Call proc -> tell 
@@ -215,7 +331,7 @@ instance Gmips TAC where
       -- Cleanup
       ]
 
-    _ :<- proc -> do
+    op :<- proc -> do
       x <- getReg1 tac
       tell
         [ BinOpi SubI SP SP (IC $ 12)
@@ -231,20 +347,28 @@ instance Gmips TAC where
 
     Cleanup n -> tell 
       [ LoadW FP (0, FP)
-      , BinOpi AddI SP SP (IC $ n+12) ]
+      , BinOpi AddI SP SP (IC . fromIntegral $ n+12) ]
 
 
-    Prolog n -> tell
-      [ Move FP SP
-      , StoreW RA (4, FP)
-      , BinOpi SubI SP SP (IC $ n) ]
+    Prolog n -> do
+      tell [ Move FP SP
+           , StoreW RA (4, FP)
+           , BinOpi SubI SP SP (IC . fromIntegral $ n) ]
+      vsp .= fromIntegral (-n)
 
 
-    Epilog _ -> tell 
-      [ LoadW RA (4, FP)
-      , Move SP FP ]
+    Epilog _ -> do 
+      tell [ LoadW RA (4, FP)
+           , Move SP FP ]
 
-    Answer op -> do
+
+    Answer (C c) -> case c of
+      TAC.FC _ -> undefined
+      _    -> tell 
+        [ LoadI (Scratch 0) $ contantToMips c 
+        , StoreW (Scratch 0) (8, FP) ]
+
+    Answer _ -> do
       x <- getReg1 tac
       tell1 $ StoreW x (8, FP)
 

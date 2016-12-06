@@ -155,6 +155,7 @@ doMIPS filename handle = do
 
   when (s^.parseOK) $ do
     (code, _s) <- runIR irProgram ast
+    putStrLn $ emit code
     runMIPS gmips code >>= putStrLn . unlines . toList . fmap emips
 
 -- Main --------------------------------
