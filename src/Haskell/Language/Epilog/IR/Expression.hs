@@ -381,10 +381,6 @@ irLval Lval { lvalType, lval' } = case lval' of
       K.RefParam -> Star
       _          -> Pure
 
-  Ampersand lval -> do
-    r <- irLval lval
-    case r of 
-      Brackets b off -> 
   Member lval _name 0 -> irLval lval
 
   Member lval _name offset -> do
@@ -412,7 +408,7 @@ irLval Lval { lvalType, lval' } = case lval' of
     case r of
       Pure op -> case t0 of
         C (IC n) -> pure $ case n of
-          0 -> Pure op
+          0 -> Star op
           _ -> Brackets op (C . IC . (*n) . fromIntegral . sizeT $ lvalType)
         _ -> do
           t1 <- newTemp
@@ -438,7 +434,7 @@ irLval Lval { lvalType, lval' } = case lval' of
         addTAC $ t1 :=* op
         case t0 of
           C (IC n) -> pure $ case n of
-            0 -> Pure t1
+            0 -> Star t1
             _ -> Brackets t1 (C . IC . (*n) . fromIntegral . sizeT $ lvalType)
           _ -> do
             t2 <- newTemp
@@ -462,16 +458,14 @@ irLval Lval { lvalType, lval' } = case lval' of
 
 irLvalAddr :: Lval -> IRMonad Operand
 irLvalAddr lval = do
-  r <- irLval ( Ampersan lval)
+  r <- irLval lval
   case r of
     Pure op -> do
       t <- newTemp
       addTAC $ t :=& op
       pure t
     Brackets b off -> do
-      t1 <- newTemp
-      t2 <- newTemp
-      addTAC $ t1 :=& b
-      addTAC $ t2 := B AddI t1 off
-      pure t2
+      t <- newTemp
+      addTAC $ t :=@ (b, off)
+      pure t
     Star op -> pure op
