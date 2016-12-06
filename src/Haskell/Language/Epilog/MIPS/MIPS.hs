@@ -62,7 +62,7 @@ instance Emips Constant where
   emips = \case
     IC a -> show a
     FC f -> show f
-    BC b -> show $ if b then 1 else 0
+    BC b -> if b then "1" else "0"
     CC c -> show c
 
 --------------------------------------------------------------------------------
@@ -85,6 +85,7 @@ data MIPS
   | LoadA   Register String
   | LoadI   Register Constant
   | LoadW   Register (Int32, Register)
+  | LoadWG  Register String
   | Move    Register Register
   | StoreW  Register (Int32, Register)
   | StoreWG Register String
@@ -124,7 +125,7 @@ instance Emips MIPS where
     BinOpi op r1 r2 c -> case op of
       DivI -> emips DivI <> intercalate ", " (fmap emips [r1, r2] <> [emips c])
       RemI -> unlines
-        [         emips DivI <> intercalate ", " [emips r2, emips c]
+        [         emips DivI <> intercalate ", " [emips (Scratch 0), emips r2, emips c]
         , "\t" <> "mfhi " <> emips r1 ]
 
       _ -> emips op <> intercalate ", " (fmap emips [r1, r2] <> [emips c])
@@ -135,6 +136,9 @@ instance Emips MIPS where
 
     LoadW r1 (c,r2) ->
       "lw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
+
+    LoadWG r name ->
+      "lw " <> emips r <> ", " <> name
 
     Move r1 r2 ->
       "move " <> intercalate ", " (emips <$> [r1,r2])
@@ -183,7 +187,7 @@ instance Emips BOp where
     MulF -> "mul.s"
     DivF -> "div.s"
     BSL  -> "sll"
-    BSR  -> "sra"
+    BSR  -> "srl"
     BAnd -> "and"
     BOr  -> "or"
     BXor -> "xor"

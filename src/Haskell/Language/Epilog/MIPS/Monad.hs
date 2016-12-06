@@ -22,12 +22,10 @@ import           Language.Epilog.Common
 import qualified Language.Epilog.IR.TAC    as IR
 import           Language.Epilog.MIPS.MIPS
 --------------------------------------------------------------------------------
-import           Control.Lens              ( makeLenses, (.=) )
-import           Control.Monad.Trans.RWS   (RWST, evalRWST, execRWST, runRWST,
-                                            tell)
+import           Control.Lens              (makeLenses, (.=))
+import           Control.Monad.Trans.RWS   (RWST, execRWST, tell)
 import           Data.Array.IO             (IOArray)
 import           Data.Array.MArray         (newArray)
-import           Data.Graph                (Edge, buildG)
 import qualified Data.Map                  as Map (empty)
 import qualified Data.Sequence             as Seq (singleton)
 --------------------------------------------------------------------------------
@@ -45,8 +43,8 @@ data RegDesc = RegDesc
 data MIPSState = MIPSState
   { _registers :: IOArray Word32     RegDesc
   , _variables :: Map     IR.Operand Word32
-  , _home      :: Map     IR.Operand Offset 
-  , _vsp        :: Int32 }
+  , _home      :: Map     IR.Operand Offset
+  , _vsp       :: Int32 }
 
 
 initialMIPS :: MIPSState

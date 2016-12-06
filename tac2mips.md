@@ -148,7 +148,7 @@
 
     -  `BSL`     ->  `sll r, a, b`
 
-    -  `BSR`     ->  `sra r, a, b`
+    -  `BSR`     ->  `srl r, a, b`
 
     -  `BAnd`    ->  `and r, a, b`
 

@@ -184,6 +184,7 @@ instance Emit TAC where
     (b, o) :#= x  -> emit b <> "[" <> emit o <> "]" <> " := " <> emit x
     x :=* a       -> emit x <> " := *" <> emit a
     x :*= a       -> "*" <> emit x <> " := " <> emit a
+    x :=@ (a, b)  -> emit x <> " := &" <> emit a <> " + " <> emit b
     x :=& a       -> emit x <> " := &" <> emit a
     Param op      -> "param " <> emit op
     RefParam op   -> "param &" <> emit op
