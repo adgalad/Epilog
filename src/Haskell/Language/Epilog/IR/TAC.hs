@@ -147,8 +147,11 @@ data TAC
   | Operand :*= Operand
   -- ^ Pointer write, i.e. *a := b
 
+  | Operand :=@ (Operand, Operand)
+  -- ^ Offset operator, i.e. a := &b + c
+
   | Operand :=& Operand
-  -- ^ Address-of operator, i.e., t := &a
+  -- ^ Address-of operator, i.e., t := &a + 0
 
   | Param Operand
   -- ^ For storing procedure parameters

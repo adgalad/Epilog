@@ -44,11 +44,9 @@ data RegDesc = RegDesc
   , ss     :: Int
   , dirty  :: Bool }
 
-type VarDesc = Maybe Register
-
 data MIPSState = MIPSState
   { _registers :: IOArray Word       RegDesc
-  , _variables :: Map     IR.Operand VarDesc
+  , _variables :: Map     IR.Operand Word
   , _home      :: Map     Name       Offset }
 
 initialMIPS :: MIPSState

@@ -29,12 +29,18 @@ getReg2 :: TAC -> (Register, Register)
 getReg2 t = undefined
 
 getReg1 :: TAC -> Register
-getReg1 = \case
-  _ :=& (R name) -> do
-  Param _ -> do
-  _ :<- proc -> do
-  Answer op -> do
-  tac -> internal $ "Get reg of " <> emit tac
+getReg1 tac = do
+  vs <- use variables
+  h  <- use home
+  case tac of
+    op :=& (R _) -> case op `Map.lookup` vs of
+      Nothing  ->
+      Just reg -> pure reg
+
+    Param op -> do
+    op :<- proc -> do
+    Answer op -> do
+    _ -> internal $ "Get reg of " <> emit tac
 
 
 -- copy :: Operand -> Operand -> ()
@@ -196,6 +202,36 @@ instance Gmips TAC where
         Just offset -> BinOpi AddI x FP offset
 
     _ :=& _ -> internal $ "Invalid address-of"
+
+    _ :=@ (r@R name, C (IC n)) -> do
+      h <- use home
+      x <- getReg1 tac
+      case r `Map.lookup` h of
+        -- Global
+        Nothing -> if n == 0 
+          then tell1 $ LoadA x name
+          else tell 
+            [ LoadA (Scratch 0) name 
+            , BinOpi AddI x (Scratch 0) n ]
+
+        -- Local
+        Just offset -> tell1 $ BinOpi AddI x FP (n + offset)
+
+    _ :=@ (r@R name, _) -> do
+      h <- use home
+      (x, y) <- getReg2 tac
+      case r `Map.lookup` h of
+        -- Global
+        Nothing -> tell 
+          [ LoadA (Scratch 0) name 
+          , BinOp AddI x (Scratch 0) y ]
+
+        -- Local
+        Just offset -> tell
+          [ BinOpi AddI (Scratch 0) FP offset
+          , BinOp  AddI x (Scratch 0) y ]
+
+    a :=@ (b@T num, c) -> gmips (a := B AddI b c)
 
     Param _ -> do
       x <- getReg1 tac

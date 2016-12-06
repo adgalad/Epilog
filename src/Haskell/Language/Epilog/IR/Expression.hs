@@ -408,7 +408,7 @@ irLval Lval { lvalType, lval' } = case lval' of
     case r of
       Pure op -> case t0 of
         C (IC n) -> pure $ case n of
-          0 -> Pure op
+          0 -> Star op
           _ -> Brackets op (C . IC . (*n) . fromIntegral . sizeT $ lvalType)
         _ -> do
           t1 <- newTemp
@@ -434,7 +434,7 @@ irLval Lval { lvalType, lval' } = case lval' of
         addTAC $ t1 :=* op
         case t0 of
           C (IC n) -> pure $ case n of
-            0 -> Pure t1
+            0 -> Star t1
             _ -> Brackets t1 (C . IC . (*n) . fromIntegral . sizeT $ lvalType)
           _ -> do
             t2 <- newTemp
@@ -466,8 +466,6 @@ irLvalAddr lval = do
       pure t
     Brackets b off -> do
       t1 <- newTemp
-      t2 <- newTemp
-      addTAC $ t1 :=& b
-      addTAC $ t2 := B AddI t1 off
+      addTAC $ t1 :=@ (b, off)
       pure t2
     Star op -> pure op
