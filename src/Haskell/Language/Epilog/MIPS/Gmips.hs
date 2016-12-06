@@ -7,8 +7,8 @@ module Language.Epilog.MIPS.Gmips
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
-import           Language.Epilog.IR.TAC      hiding (Comment, Constant (..))
-import qualified Language.Epilog.IR.TAC      as TAC (TAC (Comment), Constant (..))
+import           Language.Epilog.IR.TAC      hiding (Comment)
+import qualified Language.Epilog.IR.TAC      as TAC (TAC (Comment))
 import           Language.Epilog.MIPS.Monad
 import           Language.Epilog.MIPS.MIPS     
 import           Language.Epilog.SymbolTable
@@ -134,14 +134,6 @@ getReg1 t = do
               else min'' (i+1) $ if ss ri < bc
                 then (i, ss ri)
                 else (b, bc)
-
-contantToMips :: TAC.Constant -> Constant 
-contantToMips = \case
-  TAC.IC a -> IC a
-  TAC.FC f -> FC f
-  TAC.BC b -> IC $ if b then 1 else 0
-  TAC.CC c -> CC c
-
 
 class Gmips a where
   gmips :: a -> MIPSMonad ()
@@ -298,16 +290,9 @@ instance Gmips TAC where
         Nothing     -> LoadA x name
         Just offset -> BinOpi AddI x FP (IC offset)
 
-    Param (C c) -> case c of
-      TAC.FC _ -> undefined
-      _    -> tell 
-        [ LoadI (Scratch 0) $ contantToMips c 
-        , BinOpi AddI SP SP (IC $ -4)
-        , StoreW (Scratch 0) (0, SP) ]
-
     _ :=& _ -> internal $ "Invalid address-of"
 
-    _ :=@ (r@(R name), C (TAC.IC n)) -> do
+    _ :=@ (r@(R name), C (IC n)) -> do
       h <- use home
       x <- getReg1 tac
       case r `Map.lookup` h of
@@ -336,6 +321,13 @@ instance Gmips TAC where
           , BinOp  AddI x (Scratch 0) y ]
 
     a :=@ (b@(T num), c) -> gmips (a := B AddI b c)
+
+    Param (C c) -> case c of
+      FC _ -> undefined
+      _    -> tell 
+        [ LoadI (Scratch 0) c 
+        , BinOpi AddI SP SP (IC $ -4)
+        , StoreW (Scratch 0) (0, SP) ]
 
     Param _ -> do
       x <- getReg1 tac
@@ -395,9 +387,9 @@ instance Gmips TAC where
 
 
     Answer (C c) -> case c of
-      TAC.FC _ -> undefined
+      FC _ -> undefined
       _    -> tell 
-        [ LoadI (Scratch 0) $ contantToMips c 
+        [ LoadI (Scratch 0) c
         , StoreW (Scratch 0) (8, FP) ]
 
     Answer _ -> do

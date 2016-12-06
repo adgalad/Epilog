@@ -10,12 +10,12 @@ module Language.Epilog.MIPS.MIPS
   , Emips (..)
   , BOp (..)
   , Register (..)
-  , Constant (..)
   , Label
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
-import           Language.Epilog.IR.TAC (BOp (..), Label (..), divZeroLabel, emit)
+import           Language.Epilog.IR.TAC (BOp (..), Constant (..), Label (..),
+                                         divZeroLabel, emit)
 import qualified Language.Epilog.IR.TAC as IR
 --------------------------------------------------------------------------------
 import           Data.List              (intercalate)
@@ -58,17 +58,12 @@ instance Emips Register where
   emips RA = "$ra"
 
 --------------------------------------------------------------------------------
-data Constant
-  = IC Int32
-  | FC Float
-  | CC Word8
-  deriving (Eq, Show, Read)
-
 instance Emips Constant where
   emips = \case
-    IC i -> show i
+    IC a -> show a
     FC f -> show f
-    CC w -> show w
+    BC b -> show $ if b then 1 else 0
+    CC c -> show c
 
 --------------------------------------------------------------------------------
 instance (Emips a, Foldable f) => Emips (f a) where
@@ -88,7 +83,7 @@ data MIPS
   | BinOp   BOp Register Register Register
   | BinOpi  BOp Register Register Constant
   | LoadA   Register String
-  | LoadI   Register (Constant)
+  | LoadI   Register Constant
   | LoadW   Register (Int32, Register)
   | Move    Register Register
   | StoreW  Register (Int32, Register)
@@ -110,38 +105,38 @@ instance Emips MIPS where
     Comment str -> "# " <> str
     MLabel lbl  -> emit lbl <> ":"
     Data dName dSpace ->
-      dName <> ": .space " <> show dSpace 
+      dName <> ": .space " <> show dSpace
     MString dName dString ->
-      dName <> ": .asciiz " <> show dString 
+      dName <> ": .asciiz " <> show dString
     DataSection -> ".data"
     TextSection -> ".text"
     BinOp  op r1 r2 r3 -> case op of
       DivI -> unlines
         [         emips (Beq r3 Zero divZeroLabel)
         , "\t" <> emips DivI <> intercalate ", " (emips <$> [r1, r2,r3]) ]
-      RemI -> unlines 
+      RemI -> unlines
         [         emips (Beq r3 Zero divZeroLabel)
         , "\t" <> emips DivI <> intercalate ", " (emips <$> [r2,r3])
         , "\t" <> "mfhi " <> emips r1 ]
-        
+
       _    -> emips op <> intercalate ", " (emips <$> [r1,r2,r3])
 
     BinOpi op r1 r2 c -> case op of
       DivI -> emips DivI <> intercalate ", " (fmap emips [r1, r2] <> [emips c])
       RemI -> unlines
-        [         emips DivI <> intercalate ", " [emips r2, emips c] 
+        [         emips DivI <> intercalate ", " [emips r2, emips c]
         , "\t" <> "mfhi " <> emips r1 ]
 
       _ -> emips op <> intercalate ", " (fmap emips [r1, r2] <> [emips c])
 
-    LoadA r1 s -> "la " <> emips r1 <> ", " <> s 
+    LoadA r1 s -> "la " <> emips r1 <> ", " <> s
 
     LoadI r1 i -> "li " <> emips r1 <> ", " <> emips i
 
     LoadW r1 (c,r2) ->
       "lw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
 
-    Move r1 r2 ->  
+    Move r1 r2 ->
       "move " <> intercalate ", " (emips <$> [r1,r2])
 
     StoreW r1 (c,r2) ->
@@ -149,7 +144,7 @@ instance Emips MIPS where
 
     Syscall ->
       "syscall"
-  
+
     StoreWG r name ->
       "sw " <> emips r <> ", " <> name
 
