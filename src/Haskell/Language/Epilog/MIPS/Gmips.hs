@@ -29,7 +29,13 @@ getReg2 :: TAC -> (Register, Register)
 getReg2 t = undefined
 
 getReg1 :: TAC -> Register
-getReg1 t = undefined
+getReg1 = \case
+  _ :=& (R name) -> do
+  Param _ -> do
+  _ :<- proc -> do
+  Answer op -> do
+  tac -> internal $ "Get reg of " <> emit tac
+
 
 -- copy :: Operand -> Operand -> ()
 -- copy dest orig = undefined
@@ -188,6 +194,8 @@ instance Gmips TAC where
       tell1 $ case name `Map.lookup` home of
         Nothing     -> LoadA x name
         Just offset -> BinOpi AddI x FP offset
+
+    _ :=& _ -> internal $ "Invalid address-of"
 
     Param _ -> do
       x <- getReg1 tac
