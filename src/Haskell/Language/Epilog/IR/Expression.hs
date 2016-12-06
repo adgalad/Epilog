@@ -381,6 +381,10 @@ irLval Lval { lvalType, lval' } = case lval' of
       K.RefParam -> Star
       _          -> Pure
 
+  Ampersand lval -> do
+    r <- irLval lval
+    case r of 
+      Brackets b off -> 
   Member lval _name 0 -> irLval lval
 
   Member lval _name offset -> do
@@ -458,7 +462,7 @@ irLval Lval { lvalType, lval' } = case lval' of
 
 irLvalAddr :: Lval -> IRMonad Operand
 irLvalAddr lval = do
-  r <- irLval lval
+  r <- irLval ( Ampersan lval)
   case r of
     Pure op -> do
       t <- newTemp

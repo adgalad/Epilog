@@ -305,6 +305,38 @@ instance Gmips TAC where
         , BinOpi AddI SP SP (IC $ -4)
         , StoreW (Scratch 0) (0, SP) ]
 
+    _ :=& _ -> internal $ "Invalid address-of"
+
+    _ :=@ (r@(R name), C (TAC.IC n)) -> do
+      h <- use home
+      x <- getReg1 tac
+      case r `Map.lookup` h of
+        -- Global
+        Nothing -> if n == 0 
+          then tell1 $ LoadA x name
+          else tell 
+            [ LoadA (Scratch 0) name 
+            , BinOpi AddI x (Scratch 0) (IC n) ]
+
+        -- Local
+        Just offset -> tell1 $ BinOpi AddI x FP (IC $ n + offset)
+
+    _ :=@ (r@(R name), _) -> do
+      h <- use home
+      (x, y) <- getReg2 tac
+      case r `Map.lookup` h of
+        -- Global
+        Nothing -> tell 
+          [ LoadA (Scratch 0) name 
+          , BinOp AddI x (Scratch 0) y ]
+
+        -- Local
+        Just offset -> tell
+          [ BinOpi AddI (Scratch 0) FP (IC offset)
+          , BinOp  AddI x (Scratch 0) y ]
+
+    a :=@ (b@(T num), c) -> gmips (a := B AddI b c)
+
     Param _ -> do
       x <- getReg1 tac
       tell 

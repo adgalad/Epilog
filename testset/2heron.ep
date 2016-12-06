@@ -1,0 +1,46 @@
+/% Cálculo de Raíz Cuadrada por el Método de Heron.
+ %
+ % El programa debe operar en un ciclo infinito en el cual solicita un número
+ % en punto flotante no negativo, y muestra la raíz cuadrada calculada según
+ % el método descrito, con una precisión de un millonésimo, hasta que el
+ % usuario indique que no quiere continuar.
+ % El cálculo de la raíz cuadrada debe estar en una función separada,
+ % usando pasaje por valor.
+ %/
+
+procedure heron (float X) -> float.
+
+procedure main () :-
+  boolean Done is false,
+  float X,
+
+  write "Cálculo de Raíz Cuadrada por el Método de Herón.",
+
+  while not Done ->
+      write "Introduzca\n"
+    , write "\tun número en punto flotante negativo para salir, o\n"
+    , write "\tun número en punto flotante no negativo para calcular su raíz cuadrada mediante el método de Heron.\n"
+    , write "> "
+
+    , read X,
+
+    , if X  < 0.0 -> write "Adios.\n", Done is true
+      ;  X >= 0.0 -> write "< ", write heron(X), write "\n"
+      end
+  end.
+
+procedure abs (float X) -> float.
+
+procedure heron (float X) -> float :-
+  float Sqrt is 0.0,
+
+  while abs((X - Sqrt * Sqrt) / X) > 0.000001 ->
+    Sqrt is (Sqrt + X / Sqrt) / 2
+  end,
+
+  answer Sqrt.
+
+procedure abs (float X) -> float :-
+  if X >= 0.0 -> answer X
+  ;  X <  0.0 -> answer -X
+  end.

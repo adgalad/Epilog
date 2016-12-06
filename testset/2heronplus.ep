@@ -1,0 +1,67 @@
+/% Cálculo de Raíz Cuadrada por el Método de Heron.
+ %
+ % El programa debe operar en un ciclo infinito en el cual solicita un número
+ % en punto flotante no negativo, y muestra la raíz cuadrada calculada según
+ % el método descrito, con una precisión de un millonésimo, hasta que el
+ % usuario indique que no quiere continuar.
+ % El cálculo de la raíz cuadrada debe estar en una función separada,
+ % usando pasaje por valor.
+ %/
+
+procedure heron (float X) -> float.
+
+procedure main () :-
+  boolean Done is false,
+  integer N,
+  float X,
+
+  write "Cálculo de Raíz Enésima por el Método de Herón.",
+
+  while not Done ->
+      write "Introduzca\n"
+    , write "\tun número entero no positivo para salir, o\n"
+    , write "\tun número entero positivo para usarlo como índice.\n"
+    , write "> "
+
+    , read N,
+
+    , if N <= 0 -> write "Adios.\n", Done is true
+      ;  N  > 0 ->
+          write "Introduzca\n"
+        , write "\tun número en punto flotante negativo para salir, o\n"
+        , write "\tun número en punto flotante no negativo para usarlo como radicando.\n"
+        , write "> "
+
+        , read X,
+
+        , if X  < 0.0 -> write "Adios.\n", Done is true
+          ;  X >= 0.0 -> write "< ", write heron(X, N), write "\n"
+          end
+      end
+  end.
+
+procedure pow (float X, integer N) -> float.
+
+procedure abs (float X) -> float.
+
+procedure heron (float X, integer N) -> float :-
+  float Rt is 0.0,
+
+  while abs((X - pow(Rt, N)) / X) > 0.000001 ->
+    Rt is (pow(Rt, N - 1) + X / pow(Rt, N - 1)) / 2
+  end,
+
+  answer Rt.
+
+procedure abs (float X) -> float :-
+  if X >= 0.0 -> answer X
+  ;  X <  0.0 -> answer -X
+  end.
+
+procedure pow (float X, integer N) -> float :-
+  integer I,
+  float R is X,
+  for I from 1 to N ->
+    R is R * X
+  end,
+  answer R.

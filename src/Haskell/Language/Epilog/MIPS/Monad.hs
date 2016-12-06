@@ -42,12 +42,12 @@ data RegDesc = RegDesc
   , ss     :: Word32
   , dirty  :: Bool }
 
-
 data MIPSState = MIPSState
   { _registers :: IOArray Word32     RegDesc
   , _variables :: Map     IR.Operand Word32
   , _home      :: Map     IR.Operand Offset 
   , _vsp        :: Int32 }
+
 
 initialMIPS :: MIPSState
 initialMIPS = MIPSState
