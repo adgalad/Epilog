@@ -32,8 +32,10 @@ instance Emips Label where
 
 data Register -- = Zero | V Int | A Int | T Int | S Int | GP | SP | FP | RA
   = Zero
-  | Scratch Word32
-  | General Word32
+  | Scratch { num :: Word32 }
+  | General { num :: Word32 }
+  | ScratchF{ num :: Word32 }
+  | FloatP  { num :: Word32 }
   | GP
   | SP
   | FP
@@ -46,12 +48,27 @@ instance Emips Register where
     (internal $ "can't scratch" <> show n)
     ["$v0", "$v1", "$a0"]
     (fromIntegral n)
+
   emips (General n) = atDef
     (internal $ "no general use register " <> show n)
     [ "$a1", "$a2", "$a3", "$t0", "$t1", "$t2", "$t3"
     , "$t4", "$t5", "$t6", "$t7", "$s0", "$s1", "$s2"
     , "$s3", "$s4", "$s5", "$s6", "$s7", "$t8", "$t9" ]
     (fromIntegral n)
+
+  emips (FloatP n) = "$f" <> atDef 
+    (internal $ "no float use register " <> show n)
+    [  "1", "2", "3", "4", "5", "6", "7", "8", "9"
+    , "10", "11", "13", "14", "15", "16", "17", "18" 
+    , "19", "20", "21", "22", "23", "24", "25", "26" 
+    , "27", "28", "29", "30", "31" ] 
+    (fromIntegral n)
+
+  emips (ScratchF n) = atDef
+    (internal $ "can't float scratch" <> show n)
+    ["$f0", "$f12" ]
+    (fromIntegral n)
+
   emips GP = "$gp"
   emips SP = "$sp"
   emips FP = "$fp"
@@ -74,8 +91,10 @@ data MIPS
   = Comment String
   | MLabel   Label
   -- Sections
+  | Align
   | DataSection
   | TextSection
+  | Global String
   -- Declarations
   | Data    Name Int32
   | MString Name String
@@ -86,9 +105,14 @@ data MIPS
   | LoadI   Register Constant
   | LoadW   Register (Int32, Register)
   | LoadWG  Register String
+  | LoadFI  Register Constant
+  | LoadF   Register (Int32, Register)
+  | LoadFG  Register String
   | Move    Register Register
   | StoreW  Register (Int32, Register)
   | StoreWG Register String
+  | StoreF  Register (Int32, Register)
+  | StoreFG Register String
   | Syscall
   | Slt     Register Register Register
   -- Terminators
@@ -109,8 +133,10 @@ instance Emips MIPS where
       dName <> ": .space " <> show dSpace
     MString dName dString ->
       dName <> ": .asciiz " <> show dString
+    Align       -> ".align 2"
     DataSection -> ".data"
     TextSection -> ".text"
+    Global name -> ".globl " <> name
     BinOp  op r1 r2 r3 -> case op of
       DivI -> unlines
         [         emips (Beq r3 Zero divZeroLabel)
@@ -140,17 +166,33 @@ instance Emips MIPS where
     LoadWG r name ->
       "lw " <> emips r <> ", " <> name
 
+    LoadFI r1 i -> "li.s " <> emips r1 <> ", " <> emips i
+
+    LoadF r1 (c,r2) ->
+      "l.s " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
+
+    LoadFG r name ->
+      "l.s " <> emips r <> ", " <> name
+
     Move r1 r2 ->
       "move " <> intercalate ", " (emips <$> [r1,r2])
 
     StoreW r1 (c,r2) ->
       "sw " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
+    
+    StoreWG r name ->
+      "sw " <> emips r <> ", " <> name
+
+    StoreF r1 (c,r2) ->
+      "s.s " <> emips r1 <> ", " <> show c <> "(" <> emips r2 <> ")"
+    
+    StoreFG r name ->
+      "s.s " <> emips r <> ", " <> name
 
     Syscall ->
       "syscall"
 
-    StoreWG r name ->
-      "sw " <> emips r <> ", " <> name
+
 
     Slt r1 r2 r3 ->
       "slt " <> intercalate ", " (emips <$> [r1,r2,r3])
@@ -166,6 +208,7 @@ instance Emips MIPS where
     J label -> "j "    <> emips label
     Jr r    -> "jr "   <> emips r
     Jal str -> "jal "  <> str
+    t -> internal $ show t
 
     where
       tab = \case

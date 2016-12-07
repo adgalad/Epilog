@@ -84,7 +84,8 @@ data Instruction
     { instP     :: Position
     , varName   :: Name
     , varOffset :: Offset
-    , varSize   :: Word32 }
+    , varSize   :: Word32
+    , varType   :: Type }
   deriving (Eq, Show)
 
 instance P Instruction where
@@ -144,7 +145,7 @@ instance Treelike Instruction where
     Finish p ->
       leaf (unwords ["Finish", showP p])
 
-    Var p n o s ->
+    Var p n o s _ ->
       Node (unwords ["Var", showP p])
         [ Node "name"   [ leaf n ]
         , Node "offset" [ leaf . show $ o ]

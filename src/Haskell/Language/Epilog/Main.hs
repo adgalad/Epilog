@@ -23,7 +23,7 @@ import           System.Console.GetOpt       (ArgDescr (..), ArgOrder (..),
                                               OptDescr (..), getOpt, usageInfo)
 import           System.Environment          (getArgs)
 import           System.Exit                 (exitSuccess)
-import           System.IO                   (Handle, IOMode (ReadMode),
+import           System.IO                   (Handle, IOMode (ReadMode, WriteMode),
                                               hGetContents, openFile, stdin)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
@@ -155,8 +155,10 @@ doMIPS filename handle = do
 
   when (s^.parseOK) $ do
     (code, _s) <- runIR irProgram ast
-    putStrLn $ emit code
-    runMIPS gmips code >>= putStrLn . unlines . toList . fmap emips
+    runMIPS gmips code >>= 
+      pure . unlines . toList . fmap emips >>= \m -> do
+        putStrLn m
+        writeFile "./out.asm" m
 
 -- Main --------------------------------
 main :: IO ()

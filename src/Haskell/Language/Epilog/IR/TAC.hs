@@ -24,6 +24,7 @@ module Language.Epilog.IR.TAC
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
+import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Lens           ((|>))
 import           Data.Char              (toLower)
@@ -48,16 +49,20 @@ instance Emit Label where
 --------------------------------------------------------------------------------
 
 data Operand
-  = R Name
-  | T Int
-  | C Constant
+  = R  Name
+  | RF Name
+  | T  Int
+  | TF Int
+  | C  Constant
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 instance Emit Operand where
   emit = \case
-    R s -> s
-    T i -> "_t" <> show i
-    C c -> "#" <> emit c
+    R  s -> s
+    RF s -> "f." <> s
+    T  i -> "_t" <> show i
+    TF i -> "_tf" <> show i
+    C  c -> "#" <> emit c
 
 data Constant
   = BC Bool
@@ -133,7 +138,7 @@ data TAC
   = Comment String
   -- ^ We're gonna need this
 
-  | Var Bool Name Offset Size
+  | Var Bool Name Offset Size Type
   -- ^ Variable allocation
 
   | Operand :=  Operation
@@ -177,7 +182,7 @@ infix 8 :=, :=#, :#=, :=*, :*=
 instance Emit TAC where
   emit = \case
     Comment s     -> "; " <> s
-    Var r n o s   -> (if r then "ref" else "var") <> " " <> n <> " " <>
+    Var r n o s _ -> (if r then "ref" else "var") <> " " <> n <> " " <>
       show o <> " " <> show s
     x := op       -> emit x <> " := " <> emit op
     x :=# (b, o)  -> emit x <> " := " <> emit b <> "[" <> emit o <> "]"

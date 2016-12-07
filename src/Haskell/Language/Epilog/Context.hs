@@ -379,7 +379,7 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
             { jPos
             , jType = t
             , jInsts =
-              [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off) ] }
+              [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off) t ] }
 
         Just Joy { jType, jExp }
           | jType == None -> pure noJoy { jPos }
@@ -400,7 +400,7 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
               { jPos
               , jType = t
               , jInsts =
-                [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off)
+                [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off) t
                 , Assign
                   { instP        = jPos
                   , assignTarget = Lval
