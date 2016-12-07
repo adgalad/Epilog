@@ -155,6 +155,7 @@ epilog :-
     <0> "write"                 { make TokenWrite }
     <0> "make"                  { make TokenMake }
     <0> "ekam"                  { make TokenEkam }
+    <0> "void"                  { make TokenVoid }
 
     -- Literals
     ---- Bools

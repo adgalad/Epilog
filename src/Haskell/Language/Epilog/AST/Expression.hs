@@ -43,6 +43,8 @@ data Expression'
   | LitFloat  Float
   | LitString Int32
 
+  | Void
+
   -- | Otherwise
 
   | Rval      Lval
@@ -72,6 +74,9 @@ instance Treelike Expression where
 
     LitString val ->
       leaf ("String #" <> unwords [show val])
+
+    Void ->
+      leaf "Void"
 
     -- Otherwise ->
     --   leaf (unwords ["otherwise"])

@@ -156,8 +156,8 @@ getReg2' t = do
               pure (General x, General y)
             Nothing -> do
               
-              variables %= Map.insert op n
-              liftIO $ writeArray rd n (RegDesc [op] ss False)
+              -- variables %= Map.insert op n
+              -- liftIO $ writeArray rd n (RegDesc [op] ss False)
 
               load x op2
               pure (General x, General x)
@@ -212,7 +212,7 @@ getReg1' t = do
     Just regNum -> do
       pure $ General regNum
 
-cost :: Operand -> MIPSMonad Int
+cost :: Operand -> MIPSMonad Word32
 cost op = do
   h <- use home  
   pure $ if temporary op && isNothing (op `Map.lookup` h) 

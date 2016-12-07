@@ -16,6 +16,7 @@ module Language.Epilog.Type
     , floatT
     , stringT
     , voidT
+    , ptrT
     , scalar
     ) where
 --------------------------------------------------------------------------------
@@ -211,12 +212,13 @@ showS t = show t <> case t of
 
 
 boolT, charT, intT, floatT, stringT, voidT :: Type
-boolT   = Basic EpBoolean   0 0
-charT   = Basic EpCharacter 0 0
-floatT  = Basic EpFloat     0 0
-intT    = Basic EpInteger   0 0
-stringT = EpStr             0 0
-voidT   = Basic EpVoid      0 0
+boolT   = Basic   EpBoolean   0 0
+charT   = Basic   EpCharacter 0 0
+floatT  = Basic   EpFloat     0 0
+intT    = Basic   EpInteger   0 0
+stringT = EpStr               0 0
+voidT   = Basic   EpVoid      0 0
+ptrT    = Pointer Any         0 0 
 
 scalar :: Type -> Bool
 scalar Basic {}   = True

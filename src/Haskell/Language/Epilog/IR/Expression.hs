@@ -34,6 +34,8 @@ irExpression e@Expression { exp', expPos } = case exp' of
 
   LitString idx -> pure $ R ("_str" <> show idx)
 
+  Void -> pure . C . IC $ 0
+
   Rval rval -> do
     r <- irLval rval
     case r of
