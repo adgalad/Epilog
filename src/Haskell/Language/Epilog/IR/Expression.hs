@@ -34,6 +34,8 @@ irExpression e@Expression { exp', expPos, expType = t } = case exp' of
 
   LitString idx -> pure $ R ("_str" <> show idx)
 
+  Void -> pure . C . IC $ 0
+
   Rval rval -> do
     r <- irLval rval
     case r of
@@ -55,8 +57,7 @@ irExpression e@Expression { exp', expPos, expType = t } = case exp' of
 
     t <- newTemp t
     addTAC $ t :<- callName
-
-    addTAC $ Cleanup 4
+    addTAC $ Cleanup (4 * fromIntegral (length callArgs))
 
     pure t
 

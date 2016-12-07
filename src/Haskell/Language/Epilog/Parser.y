@@ -118,6 +118,7 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
     write           { TokenWrite :@ _ }
     make            { TokenMake  :@ _ }
     ekam            { TokenEkam  :@ _ }
+    void            { TokenVoid  :@ _ }
 
     -- Literals
     boolLit         { TokenBoolLit   _ :@ _ }
@@ -404,11 +405,11 @@ TSizes
     { $1 |> $2 }
 
 TSize
-    : "[" Int "}"                      { (      0    , item $2 - 1) }
-    | "[" Int "," Int "]"              { (item $2    , item $4    ) }
-    | "[" Int "," Int "}"              { (item $2    , item $4 - 1) }
-    | "{" Int "," Int "]"              { (item $2 + 1, item $4    ) }
-    | "{" Int "," Int "}"              { (item $2 + 1, item $4 - 1) }
+    : "[" Int "]"                      { (      0    , item $2 - 1) }
+--  | "[" Int "," Int "]"              { (item $2    , item $4    ) }
+--  | "[" Int "," Int "}"              { (item $2    , item $4 - 1) }
+--  | "{" Int "," Int "]"              { (item $2 + 1, item $4    ) }
+--  | "{" Int "," Int "}"              { (item $2 + 1, item $4 - 1) }
 
 ------ Assignment ------------------------
 Assign
@@ -549,6 +550,14 @@ While
 Exp
     : "(" Exp ")"
     { $2 }
+
+    | void
+    {% return $ joy
+        { jType = ptrT
+        , jPos  = pos $1
+        , jExp  = Just . Expression (pos $1) ptrT $ Void
+        }
+    }
 
     | Bool
     {% return $ joy

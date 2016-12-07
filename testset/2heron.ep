@@ -22,7 +22,7 @@ procedure main () :-
     , write "\tun número en punto flotante no negativo para calcular su raíz cuadrada mediante el método de Heron.\n"
     , write "> "
 
-    , read X,
+    , read X
 
     , if X  < 0.0 -> write "Adios.\n", Done is true
       ;  X >= 0.0 -> write "< ", write heron(X), write "\n"

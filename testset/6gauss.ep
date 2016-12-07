@@ -11,3 +11,112 @@
  % Recibidos los datos, el programa debe aplicar el método de Gauss. Si el
  % sistema tiene solución, mostrar los valores para cada una de las
  % variables involucradas.
+ %/
+
+%%%%%%%%%%% GLOBAL %%%%%%%%%%%
+float[10][11] Coef.
+float[10] X.
+boolean Solvable.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+procedure gauss (integer N).
+
+procedure main () :-
+  boolean Done is false,
+  integer N,
+
+  write "Orientación a Peroles.",
+
+  while not Done ->
+      write "Introduzca\n"
+    , write "\tel número cero para salir, o\n"
+    , write "\tun número entero N entre uno y diez para resolver un sistema de N ecuaciones.\n"
+    , write "> "
+
+    , read N
+
+    , if N = 0                 -> write "Adios.\n", Done is true
+      ;  1 <= N andalso N < 11 -> gauss (N)
+      end
+  end.
+
+procedure elimination (integer N).
+procedure backSubstitution (integer N).
+procedure showSolution (integer N).
+
+procedure gauss (integer N) :-
+  integer Eq,
+  integer Var,
+
+  write "Introduzca los coeficientes de las ecuaciones, por filas\n"
+
+  for Eq from 0 to N-1 ->
+    for Var from 0 to N ->
+      write "c_", write Eq, write "_", write Var, write "? ",
+      read Coef[Eq][Var] end end
+
+  Solvable is true,
+  elimination (N),
+  if Solvable -> backSubstitution (N) end,
+
+  showSolution(N).
+
+procedure swapRows (integer A, integer B, integer N).
+
+procedure elimination (integer N) :-
+  integer K, integer IMax, integer I, integer J,
+  float C,
+
+  for K from 0 to N - 1 -> if Solvable ->
+    %% Find the K-th pivot:
+    IMax is max_pivot (K, N-1),
+    if 
+      Coef[IMax][K] = 0 -> 
+        Solvable is false;  
+      true ->
+        swapRows(K, IMax, N),
+        %% Do for all rows below pivot:
+        for I from K + 1 to N - 1 ->
+          C is Coef[I][K] / Coef[K][K],
+          %% Do for all remaining elements in current row:
+          for J from K + 1 to N ->
+            Coef[I][J] is Coef[I][J] - Coef[K][J] * C
+          end,
+          %% Fill lower triangular matrix with zeros:
+          Coef[I][K] is 0
+        end
+    end
+  end end.
+
+procedure swapRows (integer A, integer B, integer N) :-
+  if A /= B ->
+    integer I, float T,
+    for I from 0 to N - 1 ->
+      T          is Coef[A][I],
+      Coef[A][I] is Coef[B][I],
+      Coef[B][I] is T end end.
+
+procedure backSubstitution (integer N) :-
+  X[N-1] is Coef[N-1][N] / Coef[N-1][N-1],
+
+  integer L, integer I, integer J, float Sum,
+  for L from 2 to N ->
+    I is N - L,
+    Sum is 0.0,
+    for J from I to N-1 ->
+      Sum is Sum + Coef[I][J]*X[J]
+    end,
+    X[I] is (Coef[I][N]-Sum) / Coef[I][I]
+  end.
+
+procedure showSolution (integer N) :-
+  if 
+    Solvable -> 
+      write "La solución al sistema de ecuaciones dado es:\n",
+      integer I,
+      for I from 0 to N - 1 ->
+        write "X_", write I, write " = ", write X[I], write "\n"
+      end
+    not Solvable ->
+      write "El sistema de ecuaciones dado no tiene solución pues su matriz es singular.\n"
+  end.

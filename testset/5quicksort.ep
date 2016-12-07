@@ -12,9 +12,181 @@
  % Quicksort «en sitio» necesita una operación swap para intercambiar los
  % valores en dos posiciones de un arreglo. Resuelva esto usando funciones
  % auxiliares con pasaje por referencia, i.e.
-
+ %
  % void swapi(var int a, var int b) { int t; t = a; a = b; b = t; }
-
+ %
  % No puede escribir esta función usando apuntadores para simular pasaje
  % por referencia.
  %/
+
+%%%%%%%%%%% GLOBAL %%%%%%%%%%%
+  integer [100] Is.
+character [100] Cs.
+    float [100] Fs.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%% MAIN %%%%%%%%%%%%
+procedure sortI (integer N).
+procedure sortF (integer N).
+procedure sortC (integer N).
+
+procedure main () :-
+  boolean Done is false,
+  character C,
+  integer N,
+
+  write "Multi Quicksort \'In Situ\'.",
+
+  while not Done ->
+      write "Introduzca una letra:\n"
+    , write "\t(T)   para Terminar,\n"
+    , write "\t(I/E) para ordenar Enteros,\n"
+    , write "\t(F)   para ordenar numeros en punto Flotante, o\n"
+    , write "\t(C)   para ordenar Caracteres.\n"
+    , write "> "
+
+    , read C
+
+    , if C = 'T' orelse C = 't' -> 
+          write "Adios.\n", Done is true
+      ;  C = 'I' orelse C = 'i' orelse C = 'E' orelse C = 'e' -> 
+          write "Ordenar Enteros\n"
+        , write "Cuántos enteros desea ordenar? > "
+        , read N
+        , sortI (N)
+      ;  C = 'F' orelse C = 'f' -> 
+          write "Ordenar Numeros en Punto Flotante\n"
+        , write "Cuántos numeros en punto flotante desea ordenar? > "
+        , read N
+        , sortF (N)
+      ;  C = 'C' orelse C = 'c' -> 
+          write "Ordenar Caracteres\n"
+        , write "Cuántos caracteres desea ordenar? > "
+        , read N
+        , sortC (N)
+      end
+  end.
+
+%%%%%%%%%%%% SORT %%%%%%%%%%%%
+procedure quicksortI (integer L, integer H).
+procedure quicksortF (integer L, integer H).
+procedure quicksortC (integer L, integer H).
+procedure displayI   (integer N).
+procedure displayF   (integer N).
+procedure displayC   (integer N).
+
+procedure sortI (integer N) :-
+  integer I,
+  for I from 0 to N-1 ->
+      write "i", write I, write "> "
+    , read Is[I]
+  end,
+  quicksortI(0, N-1),
+  displayI(N).
+
+procedure sortF (integer N) :-
+  integer I,
+  for I from 0 to N-1 ->
+      write "f", write I, write "> "
+    , read Fs[I]
+  end,
+  quicksortF(0, N-1),
+  displayF(N).
+
+procedure sortC (integer N) :-
+  integer I,
+  for I from 0 to N-1 ->
+      write "c", write I, write "> "
+    , read Cs[I], write "\n"
+  end,
+  quicksortC(0, N-1),
+  displayC(N).
+
+%%%%%%%%%% QUICKSORT %%%%%%%%%
+procedure partitionI (integer L, integer H) -> integer.
+procedure partitionF (integer L, integer H) -> integer.
+procedure partitionC (integer L, integer H) -> integer.
+
+procedure quicksortI (integer L, integer H) :-
+  if L < H -> 
+    integer P is partitionI (L, H),
+    quicksortI(L, P – 1),
+    quicksortI(P + 1, H) end.
+
+procedure quicksortF (integer L, integer H) :-
+  if L < H -> 
+    integer P is partitionF (L, H),
+    quicksortF(L, P – 1),
+    quicksortF(P + 1, H) end.
+
+procedure quicksortC (integer L, integer H) :-
+  if L < H -> 
+    integer P is partitionC (L, H),
+    quicksortC(L, P – 1),
+    quicksortC(P + 1, H) end.
+
+%%%%%%%%%% PARTITION %%%%%%%%%
+procedure swapI (ref integer A, ref integer B).
+procedure swapF (ref float A, ref float B).
+procedure swapC (ref character A, ref character B).
+
+procedure partitionI (integer L, integer H) -> integer :-
+  integer Pivot is Is[H],
+  integer I is L,
+
+  integer J,
+  for J from L to H - 1 ->
+    if Is[J] <= Pivot ->
+      swapI (Is[I], Is[J]),
+      I is I + 1 end end
+  swapI (Is[I], Is[H]),
+  answer I.
+
+procedure partitionF (integer L, integer H) -> integer :-
+  float Pivot is Fs[H],
+  integer I is L,
+
+  integer J,
+  for J from L to H - 1 ->
+    if Fs[J] <= Pivot ->
+      swapF (Fs[I], Fs[J]),
+      I is I + 1 end end
+  swapF (Fs[I], Fs[H]),
+  answer I.
+
+procedure partitionC (integer L, integer H) -> integer :-
+  character Pivot is Cs[H],
+  integer I is L,
+
+  integer J,
+  for J from L to H - 1 ->
+    if Cs[J] <= Pivot ->
+      swapC (Cs[I], Cs[J]),
+      I is I + 1 end end
+  swapC (Cs[I], Cs[H]),
+  answer I.
+
+%%%%%%%%%% DISPLAY %%%%%%%%%%%
+procedure displayI (integer N) :-
+  integer I,
+  for I from 0 to N-1 ->
+    write "i", write I, write ":", write Is[I]
+  end.
+procedure displayF (integer N) :-
+  integer I,
+  for I from 0 to N-1 ->
+    write "f", write I, write ":", write Fs[I]
+  end.
+procedure displayC (integer N) :-
+  integer I,
+  for I from 0 to N-1 ->
+    write "c", write I, write ":", write Cs[I]
+  end.
+
+%%%%%%%%%%%% SWAP %%%%%%%%%%%%
+procedure swapI (ref integer A, ref integer B) :-
+  integer   T is A, A is B, B is T.
+procedure swapF (ref float A, ref float B) :-
+  float     T is A, A is B, B is T.
+procedure swapC (ref character A, ref character B) :-
+  character T is A, A is B, B is T.

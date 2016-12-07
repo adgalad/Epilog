@@ -26,7 +26,7 @@ procedure main () :-
     , write "\tun número impar para utilizar el método iterativo.\n"
     , write "> "
 
-    , read Metodo,
+    , read Metodo
 
     , if 0  = Metodo ->
           write "Adios.\n"

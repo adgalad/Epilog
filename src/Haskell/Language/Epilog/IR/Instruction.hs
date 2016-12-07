@@ -92,9 +92,11 @@ irInstruction = \case
     case r of
       Pure op ->
         addTAC $ op :<- readFunc
+        addTAC $ Cleanup 0
       _ -> do
         t <- newTemp (lvalType readTarget)
         addTAC $ t :<- readFunc
+        addTAC $ Cleanup 0
         case r of
           Star op ->
             addTAC $ op :*= t
@@ -123,7 +125,11 @@ irInstruction = \case
       _ -> internal "non-printable type"
 
     addTAC $ Call writeFunc
+<<<<<<< HEAD
     addTAC $ Cleanup 4
+=======
+    addTAC $ Cleanup 0
+>>>>>>> origin/mipsm
 
   Make { instP, makeTarget } -> do
     comment $ "Make at " <> showP instP

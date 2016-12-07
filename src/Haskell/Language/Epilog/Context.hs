@@ -992,11 +992,13 @@ typeBinOp GTop     = [ ( intT,   intT,   boolT  )
 typeBinOp GEop     = [ ( intT,   intT,   boolT  )
                      , ( floatT, floatT, boolT  )
                      , ( charT,  charT,  boolT  ) ]
-typeBinOp EQop     = [ ( intT,   intT,   boolT  )
+typeBinOp EQop     = [ ( ptrT,   ptrT,   boolT  )
+                     , ( intT,   intT,   boolT  )
                      , ( floatT, floatT, boolT  )
                      , ( charT,  charT,  boolT  )
                      , ( boolT,  boolT,  boolT  ) ]
-typeBinOp NEop     = [ ( intT,   intT,   boolT  )
+typeBinOp NEop     = [ ( ptrT,   ptrT,   boolT  )
+                     , ( intT,   intT,   boolT  )
                      , ( floatT, floatT, boolT  )
                      , ( charT,  charT,  boolT  )
                      , ( boolT,  boolT,  boolT  ) ]
