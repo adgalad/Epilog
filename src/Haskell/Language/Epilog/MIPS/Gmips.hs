@@ -766,9 +766,9 @@ instance Gmips TAC where
     Call proc -> do 
       rdg <- use registers
       rdf <- use floatregs
-      cleanReg [0..20] rdg False
-      cleanReg [0..29] rdf True
-      variables .= Map.empty
+      -- cleanReg [0..20] rdg False
+      -- cleanReg [0..29] rdf True
+      -- variables .= Map.empty
         
       tell
         [ BinOpi SubI SP SP (IC $ 12)
@@ -792,17 +792,17 @@ instance Gmips TAC where
                   (R  name) -> tell1 $ StoreWG (General i) name
                   (RF name) -> tell1 $ StoreFG (FloatP i) name
 
-                  temp@(T _)  -> do
+                  temp@(T _)  -> pure () {-do
                     tell [ BinOpi AddI SP SP (IC $ -4)
                          , StoreW (General i) (0, SP) ]
                     toffs <- vsp <-= 4
-                    home %= Map.insert temp toffs
+                    home %= Map.insert temp toffs-}
 
-                  temp@(TF _)  -> do
+                  temp@(TF _)  -> pure () {-do
                     tell [ BinOpi AddI SP SP (IC $ -4)
                          , StoreF (FloatP i) (0, SP) ]
                     toffs <- vsp <-= 4
-                    home %= Map.insert temp toffs
+                    home %= Map.insert temp toffs-}
 
                   _        -> internal $ "trying to save a constant operand as global " <> emit v
                 Just offset ->

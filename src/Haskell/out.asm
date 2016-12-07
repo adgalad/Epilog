@@ -5,18 +5,12 @@ _base_header: .space 8
 _last_used: .space 4
 _true: .asciiz "true\n"
 _false: .asciiz "false\n"
-_str1: .asciiz "\n"
-_str0: .asciiz "B = "
-	.align 2
-Return: .space 4
+_str0: .asciiz "\n"
 	.text
 	.globl main
 # _entry
 main:
-#   Return := #i100
-	li $a1, 100
 #   call "main"
-	sw $a1, Return
 	sub $sp, $sp, 12
 	sw $fp, 0($sp)
 	jal proc_main
@@ -25,30 +19,10 @@ main:
 	add $sp, $sp, 12
 	li $v0, 10
 	syscall
-# f
-proc_f:
-#   ; Procedure at (5,1)
-# Procedure at (5,1)
-#   prolog 0
-	move $fp, $sp
-	sw $ra, 4($fp)
-	sub $sp, $sp, 0
-#   var H 12 4
-#   answer H
-	lw $a1, 12($fp)
-	sw $a1, 8($fp)
-	j Return_1
-Return_1:
-#   ; Epilog for procedure f
-# Epilog for procedure f
-#   epilog 0
-	move $sp, $fp
-	lw $ra, 4($fp)
-	jr $ra
 # main
 proc_main:
-#   ; Procedure at (9,1)
-# Procedure at (9,1)
+#   ; Procedure at (2,1)
+# Procedure at (2,1)
 #   prolog 8
 	move $fp, $sp
 	sw $ra, 4($fp)
@@ -57,8 +31,8 @@ proc_main:
 #   A0 := #i0
 	li $a1, 0
 #   var B -8 4
-#   B := #i3
-	li $a2, 3
+#   f.B := #f3.0
+	li.s $f1, 3.0
 #   A0 := #i1
 	li $a1, 1
 	j ForHeader
@@ -73,48 +47,31 @@ ForBody:
 	la $v0, _str0
 	sw $v0, 0($sp)
 #   call "_writeStr"
-	sw $a1, -4($fp)
-	sw $a2, -8($fp)
 	sub $sp, $sp, 12
 	sw $fp, 0($sp)
 	jal proc__writeStr
 #   cleanup 4
 	lw $fp, 0($fp)
 	add $sp, $sp, 16
-#   _t0 := addi B #i100
-	lw $a2, -8($fp)
-	add $a1, $a2, 100
-#   param _t0
+#   _tf0 := addf f.B #f100.0
+	li.s $f0, 100.0
+	add.s $f2, $f1, $f0
+#   param _tf0
 	add $sp, $sp, -4
-	sw $a1, 0($sp)
-#   call "_writeInteger"
-	add $sp, $sp, -4
-	sw $a1, 0($sp)
-	sw $a2, -8($fp)
+	s.s $f2, 0($sp)
+#   call "_writeFloat"
 	sub $sp, $sp, 12
 	sw $fp, 0($sp)
-	jal proc__writeInteger
-#   cleanup 4
-	lw $fp, 0($fp)
-	add $sp, $sp, 16
-#   param &_str1
-	add $sp, $sp, -4
-	la $v0, _str1
-	sw $v0, 0($sp)
-#   call "_writeStr"
-	sub $sp, $sp, 12
-	sw $fp, 0($sp)
-	jal proc__writeStr
+	jal proc__writeFloat
 #   cleanup 4
 	lw $fp, 0($fp)
 	add $sp, $sp, 16
 #   A0 := addi A0 #i1
-	lw $a1, -4($fp)
 	add $a1, $a1, 1
 	j ForHeader
 ForExit:
-	j Return_2
-Return_2:
+	j Return
+Return:
 #   ; Epilog for procedure main
 # Epilog for procedure main
 #   epilog 8

@@ -1,13 +1,6 @@
-
-
-integer Return is 100.
-
-procedure f(character H) -> character :- 
-	answer H.
-
 	
 procedure main() :-
 	integer A0 is 0,
-	integer B is 3,
-	for A0 from 1 to 10 -> write "B = ", write (B + 100), write "\n"
+	float B is 3.0,
+	for A0 from 1 to 10 -> write("\n"), write (B + 100.0)
 	end.
