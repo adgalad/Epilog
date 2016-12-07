@@ -328,6 +328,12 @@ reading t op = case t of
   IT (_ :=* x     ) -> x == op
   IT (x :*= y     ) -> x == op || y == op
 
+  TT (Br _)             -> False
+  TT (IfBr x _ _)       -> x == op
+  TT (CondBr _ x y _ _) -> x == op || y == op
+  TT (Return)           -> False
+  TT (Exit)             -> False
+
 -- writing :: TAC' -> Operand -> Bool
 -- writing t op = case t of
 --   IT (Param  x    ) -> False

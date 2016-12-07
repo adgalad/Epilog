@@ -57,8 +57,8 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
     ---- Array / Record / Either
     "["             { TokenLeftBracket  :@ _ }
     "]"             { TokenRightBracket :@ _ }
-    "{"             { TokenLeftBrace    :@ _ }
-    "}"             { TokenRightBrace   :@ _ }
+--  "{"             { TokenLeftBrace    :@ _ }
+--  "}"             { TokenRightBrace   :@ _ }
     "^"             { TokenCaret        :@ _ }
     "_"             { TokenUnderscore   :@ _ }
 

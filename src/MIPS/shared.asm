@@ -1,15 +1,42 @@
-
-
-#    .data
-#_true: .asciiz "true\n"
-#_false: .asciiz "false\n"
+    .data
+_true: .asciiz "true\n"
+_false: .asciiz "false\n"
+_divZeroM: .asciiz "exception: division by zero."
 
 ## Malloc static variables
-#_base_header: .word 0, 0    # base_header {next, size}
-#_last_used: .word 0
+_base_header: .word 0, 0    # base_header {next, size}
+_last_used:   .word 0
 
-#    .text
+    .text
+    .globl __start
+__start:
+    lw $a0 0($sp)       # argc
+    addiu $a1 $sp 4     # argv
+    addiu $a2 $a1 4     # envp
+    sll $v0 $a0 2
+    addu $a2 $a2 $v0
+    jal main
+    nop
+
+    li $v0 10
+    syscall         # syscall 10 (exit)
+
+    .globl __eoth
+__eoth:
+
+
+    .globl __divZero
+__divZero:
+    li   $v0, 4
+    la   $a0, _divZeroM
+    syscall
+
+    li   $a0, 1
+    li   $v0, 17
+    syscall
+
 # writeBoolean
+    .globl proc__writeBoolean
 proc__writeBoolean:
     move $fp, $sp          # Save the frame pointer
     sw   $ra, 4($fp)       # Store the return address
@@ -27,6 +54,7 @@ _wBend:
 
 
 # writeFloat:
+    .globl proc__writeFloat
 proc__writeFloat:
     move $fp, $sp
     sw   $ra, 4($fp)
@@ -40,6 +68,7 @@ proc__writeFloat:
 
 
 # writeInteger:
+    .globl proc__writeInteger
 proc__writeInteger:
     move $fp, $sp
     sw   $ra, 4($fp)
@@ -53,6 +82,7 @@ proc__writeInteger:
 
 
 # writeChar:
+    .globl proc__writeChar
 proc__writeChar:
     move $fp, $sp
     sw   $ra, 4($fp)
@@ -66,6 +96,7 @@ proc__writeChar:
 
 
 # writeStr:
+    .globl proc__writeStr
 proc__writeStr:
     move $fp, $sp
     sw   $ra, 4($fp)
@@ -79,6 +110,7 @@ proc__writeStr:
 
 
 # readBoolean:
+    .globl proc__readBoolean
 proc__readBoolean:
     move $fp, $sp
     sw   $ra, 4($fp)
@@ -95,6 +127,7 @@ _rBz:
 
 
 # readFloat:
+    .globl proc__readFloat
 proc__readFloat:
     move $fp, $sp
     sw   $ra, 4($fp)
@@ -108,6 +141,7 @@ proc__readFloat:
 
 
 # readInteger:
+    .globl proc__readInteger
 proc__readInteger:
     move $fp, $sp
     sw   $ra, 4($fp)
@@ -121,6 +155,7 @@ proc__readInteger:
 
 
 # readChar:
+    .globl proc__readChar
 proc__readChar:
     move $fp, $sp
     sw   $ra, 4($fp)
@@ -149,9 +184,9 @@ _toInt:
     move $fp, $sp
     sw   $ra, 4($fp)
 
-    l.s  $SCRATCHF, 12($fp)
-    cvt.w.s $SCRATCHF, $SCRATCHF
-    s.s  $SCRATCHF, 8($fp)
+    l.s  $f0, 12($fp)
+    cvt.w.s $f0, $f0
+    s.s  $f0, 8($fp)
 
     lw   $ra, 4($fp)
     jr   $ra
@@ -161,9 +196,9 @@ _toFloat:
     move $fp, $sp
     sw   $ra, 4($fp)
 
-    l.s  $SCRATCHF, 12($fp)
-    cvt.s.w $SCRATCHF, $SCRATCHF
-    s.s  $SCRATCHF, 8($fp)
+    l.s  $f0, 12($fp)
+    cvt.s.w $f0, $f0
+    s.s  $f0, 8($fp)
 
     lw   $ra, 4($fp)
     jr   $ra
@@ -173,6 +208,7 @@ _toFloat:
 ##################        MAKE       #########################
 ##############################################################
 ##############################################################
+    .globl proc__make
 proc__make:
   # a0: nbytes       <--- malloc argument
   # a1: &base_header
@@ -296,6 +332,7 @@ jr $ra
 ##############################################################
 ##############################################################
 
+    .globl proc__ekam
 proc__ekam:
   # a2: pointer (insertp)  <-- argument
   # t3: current
@@ -375,18 +412,3 @@ lw $ra, 4($fp)
 jr $ra
 
 
-    .globl __start
-__start:
-    lw $a0 0($sp)       # argc
-    addiu $a1 $sp 4     # argv
-    addiu $a2 $a1 4     # envp
-    sll $v0 $a0 2
-    addu $a2 $a2 $v0
-    jal main
-    nop
-
-    li $v0 10
-    syscall         # syscall 10 (exit)
-
-    .globl __eoth
-__eoth:

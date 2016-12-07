@@ -222,7 +222,7 @@ instance Emips BOp where
   emips = (<> " ") . \case
     AddI -> "add"
     SubI -> "sub"
-    MulI -> "mult"
+    MulI -> "mul"
     DivI -> "div"
     RemI -> "div"
     AddF -> "add.s"

@@ -213,10 +213,14 @@ storeProcedure' _ Nothing = do
       t <- use curProcType
       pendProcs . at n ?= (t :@ p)
     Just (_ :@ p') -> err $ ReForwardDec n p p'
+  curProcType .= None
+  current .= Nothing
+  parameters .= Seq.empty
+
 
 storeProcedure' procParamsSize (Just Joy { jType = blockType, jBlock }) = do
     Just (n :@ p) <- use current
-    t@(_ :-> retType)<- use curProcType
+    t@(_ :-> retType) <- use curProcType
 
     sameType <- use (pendProcs . at n) >>= \case
       Nothing -> pure True
