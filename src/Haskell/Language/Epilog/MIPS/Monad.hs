@@ -12,6 +12,7 @@ module Language.Epilog.MIPS.Monad
   , tell
   , tell1
   , registers
+  , floatregs
   , variables
   , home
   , vsp
@@ -42,7 +43,8 @@ data RegDesc = RegDesc
 
 data MIPSState = MIPSState
   { _registers :: IOArray Word32     RegDesc
-  , _variables :: Map     IR.Operand Word32
+  , _floatregs :: IOArray Word32     RegDesc
+  , _variables :: Map     IR.Operand Register
   , _home      :: Map     IR.Operand Offset
   , _vsp       :: Int32 }
 
@@ -50,16 +52,19 @@ data MIPSState = MIPSState
 initialMIPS :: MIPSState
 initialMIPS = MIPSState
   { _registers = undefined
+  , _floatregs = undefined
   , _variables = Map.empty
   , _home      = Map.empty
-  , _vsp        = 0 }
+  , _vsp       = 0 }
 
 makeLenses ''MIPSState
 
 resetRegDescs :: MIPSMonad ()
 resetRegDescs = do
   x <- liftIO $ newArray (0, 20) (RegDesc [] 0 False)
-  registers .= x
+  y <- liftIO $ newArray (0, 31) (RegDesc [] 0 False)
+  registers  .= x
+  floatregs  .= y
 
 runMIPS :: (a -> MIPSMonad ()) -> a -> IO (Seq MIPS)
 runMIPS x inp = snd <$> execRWST x' () initialMIPS

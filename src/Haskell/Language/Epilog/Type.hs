@@ -1,5 +1,7 @@
 {-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveGeneric     #-}
 
 module Language.Epilog.Type
     ( Atom (..)
@@ -27,6 +29,8 @@ import qualified Data.Foldable            as Foldable
 import           Data.List                (intercalate)
 import qualified Data.Map                 as Map
 import           Prelude                  hiding (Either)
+import           Data.Serialize         (Serialize)
+import           GHC.Generics           (Generic)
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
 type Types = Map Name (Type, Position)
@@ -38,7 +42,7 @@ data Atom
     | EpInteger
     | EpFloat
     | EpVoid
-    deriving (Eq)
+    deriving (Eq, Ord, Read, Generic, Serialize)
 
 
 instance Show Atom where
@@ -56,7 +60,7 @@ instance Treelike Atom where
 data Mode
     = RefMode
     | ValMode
-    deriving (Eq)
+    deriving (Eq, Ord, Read, Generic, Serialize)
 
 instance Show Mode where
     show = \case
@@ -102,7 +106,7 @@ data Type
     | Any
     | None
     | Undef { name :: Name }
-
+    deriving (Ord, Read, Generic, Serialize)
 
 instance Eq Type where
     Basic { atom = a } == Basic { atom = b } =

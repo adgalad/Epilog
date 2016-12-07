@@ -36,9 +36,9 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
       addTAC $ Prolog procStackSize
 
       forM_ procParams $
-        \Parameter { parName, parOffset, parSize, parRef } -> do
+        \Parameter { parName, parOffset, parSize, parRef, parType } -> do
           parName' <- insertVar parName
-          addTAC $ TAC.Var parRef parName' (parOffset + 12) parSize
+          addTAC $ TAC.Var parRef parName' (parOffset + 12) parSize parType
 
       irIBlock iblock
 

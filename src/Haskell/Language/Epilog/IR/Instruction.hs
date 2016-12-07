@@ -93,7 +93,7 @@ irInstruction = \case
       Pure op ->
         addTAC $ op :<- readFunc
       _ -> do
-        t <- newTemp
+        t <- newTemp (lvalType readTarget)
         addTAC $ t :<- readFunc
         case r of
           Star op ->
@@ -123,11 +123,12 @@ irInstruction = \case
       _ -> internal "non-printable type"
 
     addTAC $ Call writeFunc
+    addTAC $ Cleanup 4
 
   Make { instP, makeTarget } -> do
     comment $ "Make at " <> showP instP
 
-    t <- newTemp
+    t <- newTempG
     addTAC . Param . C . IC . fromIntegral . sizeT . lvalType $ makeTarget
     addTAC $ t :<- "_make"
     addTAC $ Cleanup 4
@@ -150,11 +151,11 @@ irInstruction = \case
       Pure op ->
         pure op
       Brackets b off -> do
-        t <- newTemp
+        t <- newTempG
         addTAC $ t :=# (b, off)
         pure t
       Star op -> do
-        t <- newTemp
+        t <- newTempG
         addTAC $ t :=* op
         pure t
 
@@ -186,9 +187,9 @@ irInstruction = \case
       Nothing -> internal "nowhere to return after finish"
       Just l  -> terminate $ Br l
 
-  Var { varName, varOffset, varSize } -> do
+  Var { varName, varOffset, varSize, varType } -> do
     varName' <- insertVar varName
-    addTAC $ TAC.Var False varName' (negate $ 4 + varOffset) varSize
+    addTAC $ TAC.Var False varName' (negate $ 4 + varOffset) varSize varType
 
 irGuards :: Label -> [(Position, Expression, IBlock)] -> IRMonad ()
 irGuards _ [] = internal "impossible call to irGuards"
@@ -242,11 +243,11 @@ irRange iterator ((rangeP, low, high, iblock) : rs) = do
   it <- case iterator of
     Pure op -> pure op
     Brackets b off -> do
-      t <- newTemp
+      t <- newTempG
       addTAC $ t :=# (b, off)
       pure t
     Star op -> do
-      t <- newTemp
+      t <- newTempG
       addTAC $ t :=* op
       pure t
   terminate $ CondBr LEI it hOp gBody next
@@ -264,15 +265,15 @@ irRange iterator ((rangeP, low, high, iblock) : rs) = do
     Pure op -> addTAC $ op := B AddI op one
 
     Brackets b off -> do
-      t1 <- newTemp
-      t2 <- newTemp
+      t1 <- newTempG
+      t2 <- newTempG
       addTAC $ t1 :=# (b, off)
       addTAC $ t2 := B AddI t1 one
       addTAC $ (b, off) :#= t2
 
     Star op -> do
-      t1 <- newTemp
-      t2 <- newTemp
+      t1 <- newTempG
+      t2 <- newTempG
       addTAC $ t1 :=* op
       addTAC $ t2 := B AddI t1 one
       addTAC $ op :*= t2

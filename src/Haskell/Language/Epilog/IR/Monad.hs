@@ -12,6 +12,7 @@ module Language.Epilog.IR.Monad
   , newLabel
   , newUnLabel
   , newTemp
+  , newTempG
   , (#)
   , addTAC
   , comment
@@ -43,6 +44,7 @@ module Language.Epilog.IR.Monad
 import           Language.Epilog.Common
 import           Language.Epilog.IR.TAC      hiding (modules)
 import           Language.Epilog.SymbolTable (Scope, SymbolTable)
+import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Lens                (at, ix, makeLenses, use, (%%=),
                                               (%=), (&), (+~), (.=), (<<+=),
@@ -103,8 +105,11 @@ newVar name = nameSupply %%= \supply -> case name `Map.lookup` supply of
   Nothing -> (name                 , supply & at name ?~ 1)
   Just i  -> (name <> "_" <> show i, supply & ix name +~ 1)
 
-newTemp :: IRMonad Operand
-newTemp = T <$> (tempCount <<+= 1)
+newTemp :: Type -> IRMonad Operand
+newTemp Basic {atom = EpFloat} = TF <$> (tempCount <<+= 1)
+newTemp _                      = T  <$> (tempCount <<+= 1)
+
+newTempG = newTemp Any
 
 (#) :: Label -> IRMonad ()
 (#) label = -- do
