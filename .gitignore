@@ -17,3 +17,5 @@ cabal.sandbox.config
 
 # PDFs
 *.pdf
+
+src/Haskell/out.asm

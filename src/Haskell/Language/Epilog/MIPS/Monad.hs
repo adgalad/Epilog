@@ -16,6 +16,7 @@ module Language.Epilog.MIPS.Monad
   , variables
   , home
   , vsp
+  , fstParam
   , resetRegDescs
   ) where
 --------------------------------------------------------------------------------
@@ -46,7 +47,8 @@ data MIPSState = MIPSState
   , _floatregs :: IOArray Word32     RegDesc
   , _variables :: Map     IR.Operand Register
   , _home      :: Map     IR.Operand Offset
-  , _vsp       :: Int32 }
+  , _vsp       :: Int32 
+  , _fstParam  :: Bool }
 
 
 initialMIPS :: MIPSState
@@ -55,7 +57,8 @@ initialMIPS = MIPSState
   , _floatregs = undefined
   , _variables = Map.empty
   , _home      = Map.empty
-  , _vsp       = 0 }
+  , _vsp       = 0
+  , _fstParam = False}
 
 makeLenses ''MIPSState
 

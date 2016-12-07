@@ -18,7 +18,7 @@ import           Language.Epilog.Type
 import           Control.Lens               (use, (%=), (.=), (<-=))
 import           Data.Array.IO              (IOArray)
 import           Data.Array.MArray          (readArray, writeArray)
-import qualified Data.Map                   as Map (empty, insert, lookup, delete)
+import qualified Data.Map                   as Map (empty, insert, lookup, delete, toList)
 import           Data.Maybe                 (fromMaybe)
 --------------------------------------------------------------------------------
 import           Debug.Trace                (traceM)
@@ -752,13 +752,24 @@ instance Gmips TAC where
         , StoreW (Scratch 0) (0, SP) ]
 
     Param op -> do
+      fstp <- use fstParam
+      when fstp $ do
+        spillAll
+        fstParam .= False
+      
       x <- getReg1 tac
+
       tell1 $ BinOpi AddI SP SP (IC $ -4)
       tell1 $ if isFloat op 
         then StoreF x (0, SP) 
         else StoreW x (0, SP)
 
+
     RefParam o@(R name) -> do
+      fstp <- use fstParam
+      when fstp $ do
+        spillAll
+        fstParam .= False
       h <- use home
       tell
         [ BinOpi AddI SP SP (IC $ -4)
@@ -766,16 +777,14 @@ instance Gmips TAC where
             Nothing     -> LoadA (Scratch 0) name
             Just offset -> BinOpi AddI (Scratch 0) FP (IC offset)
         , StoreW (Scratch 0) (0, SP) ]
+      
+ 
 
     RefParam _ -> internal "RefParam (Const/Temp)"
 
     Call proc -> do 
-      rdg <- use registers
-      rdf <- use floatregs
-      -- cleanReg [0..20] rdg False
-      -- cleanReg [0..29] rdf True
-      -- variables .= Map.empty
-        
+      resetRegDescs
+      fstParam .= True
       tell
         [ BinOpi SubI SP SP (IC $ 12)
         , StoreW FP (0, SP)
@@ -786,36 +795,8 @@ instance Gmips TAC where
         -- epilog
         -- Cleanup
         ]
-      where 
-        cleanReg :: [ Word32 ] -> IOArray Word32 RegDesc -> Bool -> MIPSMonad ()
-        cleanReg range rd isF = do
-          h <- use home
-          forM_ range $ \i -> do
-            RegDesc {dirty, values} <- liftIO $ readArray rd i
-            when dirty . forM_ values $ \v -> do
-              case v `Map.lookup` h of
-                Nothing     -> case v of
-                  (R  name) -> tell1 $ StoreWG (General i) name
-                  (RF name) -> tell1 $ StoreFG (FloatP i) name
 
-                  temp@(T _)  -> pure () {-do
-                    tell [ BinOpi AddI SP SP (IC $ -4)
-                         , StoreW (General i) (0, SP) ]
-                    toffs <- vsp <-= 4
-                    home %= Map.insert temp toffs-}
-
-                  temp@(TF _)  -> pure () {-do
-                    tell [ BinOpi AddI SP SP (IC $ -4)
-                         , StoreF (FloatP i) (0, SP) ]
-                    toffs <- vsp <-= 4
-                    home %= Map.insert temp toffs-}
-
-                  _        -> internal $ "trying to save a constant operand as global " <> emit v
-                Just offset ->
-                  tell1 $ if isF
-                    then StoreF (FloatP  i) (offset, FP)
-                    else StoreW (General i) (offset, FP)
-            liftIO $ writeArray rd i (RegDesc [] 0 False)
+      
 
     op :<- proc -> do
       x <- getReg1 tac
@@ -831,9 +812,11 @@ instance Gmips TAC where
         -- Cleanup
         ]
 
-    Cleanup n -> tell
-      [ LoadW FP (0, FP)
-      , BinOpi AddI SP SP (IC . fromIntegral $ n+12) ]
+    Cleanup n -> do 
+      tell
+        [ LoadW FP (0, FP)
+        , BinOpi AddI SP SP (IC . fromIntegral $ n+12) ]
+      llAllips
 
 
     Prolog n -> do
@@ -857,3 +840,64 @@ instance Gmips TAC where
       tell1 $ StoreW x (8, FP)
 
     -- c -> tell1 $ Comment (emit c)
+
+llAllips :: MIPSMonad ()
+llAllips = do
+  rdg <- use registers
+  rdf <- use floatregs
+  vd  <- use variables
+  h   <- use home
+
+  forM_ (Map.toList vd) $ \(op, r) -> do 
+    let 
+      (rd, i, load') = case r of 
+        FloatP  n -> (rdf, n, LoadF)
+        General n -> (rdg, n, LoadW)
+    ss' <- cost op
+    RegDesc {values, ss} <- liftIO $ readArray rd i
+    if ss == 0 
+      then case op `Map.lookup` h of 
+        Nothing -> internal "wut"
+        Just offset -> do
+          liftIO $ writeArray rd i (RegDesc [op] ss' False)
+          tell1 $ load' r (offset, FP)
+      else 
+        liftIO $ writeArray rd i (RegDesc (op:values) (ss + ss') False)
+
+spillAll :: MIPSMonad ()
+spillAll = do 
+      rdg <- use registers
+      rdf <- use floatregs
+      cleanReg [0..20] rdg False
+      cleanReg [0..29] rdf True       
+      
+      where 
+        cleanReg :: [ Word32 ] -> IOArray Word32 RegDesc -> Bool -> MIPSMonad ()
+        cleanReg range rd isF = do
+          h <- use home
+          forM_ range $ \i -> do
+            RegDesc {dirty, values} <- liftIO $ readArray rd i
+            when dirty . forM_ values $ \v -> do
+              case v `Map.lookup` h of
+                Nothing     -> case v of
+                  (R  name) -> tell1 $ StoreWG (General i) name
+                  (RF name) -> tell1 $ StoreFG (FloatP i) name
+
+                  temp@(T _)  -> do
+                    tell [ BinOpi AddI SP SP (IC $ -4)
+                         , StoreW (General i) (0, SP) ]
+                    toffs <- vsp <-= 4
+                    home %= Map.insert temp toffs
+
+                  temp@(TF _)  -> do
+                    tell [ BinOpi AddI SP SP (IC $ -4)
+                         , StoreF (FloatP i) (0, SP) ]
+                    toffs <- vsp <-= 4
+                    home %= Map.insert temp toffs
+
+                  _        -> internal $ "trying to save a constant operand as global " <> emit v
+                Just offset ->
+                  tell1 $ if isF
+                    then StoreF (FloatP  i) (offset, FP)
+                    else StoreW (General i) (offset, FP)
+            
