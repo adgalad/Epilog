@@ -132,6 +132,41 @@ proc__readChar:
     lw   $ra, 4($fp)
     jr   $ra
 
+# readChar:
+_readChar:
+    move $fp, $sp
+    sw   $ra, 4($fp)
+    li   $v0, 12           # Read Char syscall
+    syscall
+
+    sw   $v0, 8($fp)
+
+    lw   $ra, 4($fp)
+    jr   $ra
+
+# toInt:
+_toInt:
+    move $fp, $sp
+    sw   $ra, 4($fp)
+
+    l.s  $SCRATCHF, 12($fp)
+    cvt.w.s $SCRATCHF, $SCRATCHF
+    s.s  $SCRATCHF, 8($fp)
+
+    lw   $ra, 4($fp)
+    jr   $ra
+
+# toFloat:
+_toFloat:
+    move $fp, $sp
+    sw   $ra, 4($fp)
+
+    l.s  $SCRATCHF, 12($fp)
+    cvt.s.w $SCRATCHF, $SCRATCHF
+    s.s  $SCRATCHF, 8($fp)
+
+    lw   $ra, 4($fp)
+    jr   $ra
 
 ##############################################################
 ##############################################################
