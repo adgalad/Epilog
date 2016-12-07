@@ -8,6 +8,6 @@ procedure f(character H) -> character :-
 	
 procedure main() :-
 	integer A0 is 0,
-	float B is 3.0,
-	for A0 from 1 to 10 -> write "B = ", write (B + 100.0), write "\n"
+	integer B is 3,
+	for A0 from 1 to 10 -> write "B = ", write (B + 100), write "\n"
 	end.

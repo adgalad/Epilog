@@ -57,8 +57,8 @@ proc_main:
 #   A0 := #i0
 	li $a1, 0
 #   var B -8 4
-#   f.B := #f3.0
-	li.s $f1, 3.0
+#   B := #i3
+	li $a2, 3
 #   A0 := #i1
 	li $a1, 1
 	j ForHeader
@@ -74,26 +74,26 @@ ForBody:
 	sw $v0, 0($sp)
 #   call "_writeStr"
 	sw $a1, -4($fp)
-	s.s $f1, -8($fp)
+	sw $a2, -8($fp)
 	sub $sp, $sp, 12
 	sw $fp, 0($sp)
 	jal proc__writeStr
 #   cleanup 4
 	lw $fp, 0($fp)
 	add $sp, $sp, 16
-#   _tf0 := addf f.B #f100.0
-	l.s $f1, -8($fp)
-	li.s $f0, 100.0
-	add.s $f1, $f0, $f1
-#   param _tf0
+#   _t0 := addi B #i100
+	lw $a2, -8($fp)
+	add $a1, $a2, 100
+#   param _t0
 	add $sp, $sp, -4
-	s.s $f1, 0($sp)
-#   call "_writeFloat"
+	sw $a1, 0($sp)
+#   call "_writeInteger"
 	add $sp, $sp, -4
-	s.s $f1, 0($sp)
+	sw $a1, 0($sp)
+	sw $a2, -8($fp)
 	sub $sp, $sp, 12
 	sw $fp, 0($sp)
-	jal proc__writeFloat
+	jal proc__writeInteger
 #   cleanup 4
 	lw $fp, 0($fp)
 	add $sp, $sp, 16

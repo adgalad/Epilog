@@ -220,8 +220,11 @@ getReg2' t = do
             Just y -> do
               pure (x, y)
             Nothing -> do
-              load x op2
-              pure (x, x)
+              y <- freshReg' [num x] op2 -- spill x op1
+              load y op2
+              variables %= Map.insert op2 y
+              liftIO $ writeArray rd2 (num y) (RegDesc [op2] ss2 True)
+              pure (x, y)
 
         Just x -> do
           liftIO $ writeArray rd1 (num x) (RegDesc [op1] ss1 True)
@@ -587,12 +590,12 @@ instance Gmips TAC where
           (x, y) <- getReg2 tac
           tell
             [ LoadFI (ScratchF 0) (extract r)
-            , BinOp o x (ScratchF 0) y ]
+            , BinOp o x y (ScratchF 0) ]
         | floatconst l -> do
           (x, y) <- getReg2 tac
           tell
             [ LoadFI (ScratchF 0) (extract l)
-            , BinOp o x y (ScratchF 0) ]
+            , BinOp o x (ScratchF 0) y ]
         | otherwise -> do
           (x, y, z) <- getReg3 tac
           tell1 $ BinOp o x y z
