@@ -34,7 +34,7 @@ procedure main () :-
     , write "\tun número positivo N para calcular los estadísticos de una secuencia de N números.\n"
     , write "> "
 
-    , read N,
+    , read N
 
     , if N <= 0 -> write "Adios.\n", Done is true
       ;  N  > 0 -> stats (N)

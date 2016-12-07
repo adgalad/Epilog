@@ -405,11 +405,11 @@ TSizes
     { $1 |> $2 }
 
 TSize
-    : "[" Int "}"                      { (      0    , item $2 - 1) }
-    | "[" Int "," Int "]"              { (item $2    , item $4    ) }
-    | "[" Int "," Int "}"              { (item $2    , item $4 - 1) }
-    | "{" Int "," Int "]"              { (item $2 + 1, item $4    ) }
-    | "{" Int "," Int "}"              { (item $2 + 1, item $4 - 1) }
+    : "[" Int "]"                      { (      0    , item $2 - 1) }
+--  | "[" Int "," Int "]"              { (item $2    , item $4    ) }
+--  | "[" Int "," Int "}"              { (item $2    , item $4 - 1) }
+--  | "{" Int "," Int "]"              { (item $2 + 1, item $4    ) }
+--  | "{" Int "," Int "}"              { (item $2 + 1, item $4 - 1) }
 
 ------ Assignment ------------------------
 Assign

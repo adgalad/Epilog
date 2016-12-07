@@ -23,7 +23,7 @@ procedure main () :-
     , write "\tun número entero positivo para usarlo como índice.\n"
     , write "> "
 
-    , read N,
+    , read N
 
     , if N <= 0 -> write "Adios.\n", Done is true
       ;  N  > 0 ->
