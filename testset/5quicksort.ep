@@ -67,7 +67,7 @@ procedure main () :-
       end
   end.
 
-%%%%%%%%%%% SORT %%%%%%%%%%%%
+%%%%%%%%%%%% SORT %%%%%%%%%%%%
 procedure quicksortI (integer L, integer H).
 procedure quicksortF (integer L, integer H).
 procedure quicksortC (integer L, integer H).
@@ -102,7 +102,7 @@ procedure sortC (integer N) :-
   quicksortC(0, N-1),
   displayC(N).
 
-%%%%%%%%% QUICKSORT %%%%%%%%%
+%%%%%%%%%% QUICKSORT %%%%%%%%%
 procedure partitionI (integer L, integer H) -> integer.
 procedure partitionF (integer L, integer H) -> integer.
 procedure partitionC (integer L, integer H) -> integer.
@@ -125,7 +125,7 @@ procedure quicksortC (integer L, integer H) :-
     quicksortC(L, P – 1),
     quicksortC(P + 1, H) end.
 
-%%%%%%%%% PARTITION %%%%%%%%%
+%%%%%%%%%% PARTITION %%%%%%%%%
 procedure swapI (ref integer A, ref integer B).
 procedure swapF (ref float A, ref float B).
 procedure swapC (ref character A, ref character B).
@@ -166,7 +166,7 @@ procedure partitionC (integer L, integer H) -> integer :-
   swapC (Cs[I], Cs[H]),
   answer I.
 
-%%%%%%%%%% DISPLAY %%%%%%%%%%
+%%%%%%%%%% DISPLAY %%%%%%%%%%%
 procedure displayI (integer N) :-
   integer I,
   for I from 0 to N-1 ->
@@ -183,7 +183,7 @@ procedure displayC (integer N) :-
     write "c", write I, write ":", write Cs[I]
   end.
 
-%%%%%%%%%%% SWAP %%%%%%%%%%%%
+%%%%%%%%%%%% SWAP %%%%%%%%%%%%
 procedure swapI (ref integer A, ref integer B) :-
   integer   T is A, A is B, B is T.
 procedure swapF (ref float A, ref float B) :-

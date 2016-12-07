@@ -41,6 +41,7 @@ irProgram Program { procs, scope, strings } = do
         t <- irExpression e
         addTAC $ R eName := U Id t
   addTAC $ Call "main"
+  addTAC $ Cleanup 0
   terminate $ Exit
   closeModule "_entry"
 

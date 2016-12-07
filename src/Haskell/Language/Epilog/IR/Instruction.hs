@@ -92,9 +92,11 @@ irInstruction = \case
     case r of
       Pure op ->
         addTAC $ op :<- readFunc
+        addTAC $ Cleanup 0
       _ -> do
         t <- newTemp
         addTAC $ t :<- readFunc
+        addTAC $ Cleanup 0
         case r of
           Star op ->
             addTAC $ op :*= t
@@ -123,6 +125,7 @@ irInstruction = \case
       _ -> internal "non-printable type"
 
     addTAC $ Call writeFunc
+    addTAC $ Cleanup 0
 
   Make { instP, makeTarget } -> do
     comment $ "Make at " <> showP instP

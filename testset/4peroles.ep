@@ -25,7 +25,7 @@
  % en el arreglo y todo el trabajo debe completarse sobre el mismo arreglo.
  %/
 
-%%%%%%%%%%% GLOBAL %%%%%%%%%%%
+%%%%%%%%%%%% TYPES %%%%%%%%%%%
 either perol1 :-
   boolean   B,
   character C,
@@ -35,7 +35,9 @@ either perol1 :-
 record perol :-
   character Kind,
   perol1  P.
- 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%% GLOBAL %%%%%%%%%%%
 perol[20] Perolero.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

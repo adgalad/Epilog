@@ -57,8 +57,7 @@ irExpression e@Expression { exp', expPos } = case exp' of
 
     t <- newTemp
     addTAC $ t :<- callName
-
-    addTAC $ Cleanup 4
+    addTAC $ Cleanup (4 * fromIntegral (length callArgs))
 
     pure t
 
