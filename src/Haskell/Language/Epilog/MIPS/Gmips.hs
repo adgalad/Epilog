@@ -220,8 +220,11 @@ getReg2' t = do
             Just y -> do
               pure (x, y)
             Nothing -> do
-              load x op2
-              pure (x, x)
+              y <- freshReg' [num x] op2 -- spill x op1
+              load y op2
+              variables %= Map.insert op2 y
+              liftIO $ writeArray rd2 (num y) (RegDesc [op2] ss2 True)
+              pure (x, y)
 
         Just x -> do
           liftIO $ writeArray rd1 (num x) (RegDesc [op1] ss1 True)
@@ -593,12 +596,12 @@ instance Gmips TAC where
           (x, y) <- getReg2 tac
           tell
             [ LoadFI (ScratchF 0) (extract r)
-            , BinOp o x (ScratchF 0) y ]
+            , BinOp o x y (ScratchF 0) ]
         | floatconst l -> do
           (x, y) <- getReg2 tac
           tell
             [ LoadFI (ScratchF 0) (extract l)
-            , BinOp o x y (ScratchF 0) ]
+            , BinOp o x (ScratchF 0) y ]
         | otherwise -> do
           (x, y, z) <- getReg3 tac
           tell1 $ BinOp o x y z
@@ -769,9 +772,9 @@ instance Gmips TAC where
     Call proc -> do 
       rdg <- use registers
       rdf <- use floatregs
-      cleanReg [0..20] rdg False
-      cleanReg [0..29] rdf True
-      variables .= Map.empty
+      -- cleanReg [0..20] rdg False
+      -- cleanReg [0..29] rdf True
+      -- variables .= Map.empty
         
       tell
         [ BinOpi SubI SP SP (IC $ 12)
@@ -795,17 +798,17 @@ instance Gmips TAC where
                   (R  name) -> tell1 $ StoreWG (General i) name
                   (RF name) -> tell1 $ StoreFG (FloatP i) name
 
-                  temp@(T _)  -> do
+                  temp@(T _)  -> pure () {-do
                     tell [ BinOpi AddI SP SP (IC $ -4)
                          , StoreW (General i) (0, SP) ]
                     toffs <- vsp <-= 4
-                    home %= Map.insert temp toffs
+                    home %= Map.insert temp toffs-}
 
-                  temp@(TF _)  -> do
+                  temp@(TF _)  -> pure () {-do
                     tell [ BinOpi AddI SP SP (IC $ -4)
                          , StoreF (FloatP i) (0, SP) ]
                     toffs <- vsp <-= 4
-                    home %= Map.insert temp toffs
+                    home %= Map.insert temp toffs-}
 
                   _        -> internal $ "trying to save a constant operand as global " <> emit v
                 Just offset ->
