@@ -1,6 +1,6 @@
     .data
-_true: .asciiz "true\n"
-_false: .asciiz "false\n"
+_true: .asciiz "true"
+_false: .asciiz "false"
 _divZeroM: .asciiz "exception: division by zero."
 
 ## Malloc static variables

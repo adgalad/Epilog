@@ -1,0 +1,183 @@
+/% Orientacion a Peroles.
+ % Considere un tipo de datos
+ %
+ %   struct {
+ %     int  tipo;
+ %     union {
+ %       bool  b;
+ %       char  c;
+ %       int   i;
+ %       float f;
+ %     }
+ %   }
+ %
+ % El programa debe operar en un ciclo infinito, preguntando al usuario si
+ % quiere organizar elementos, o terminar. Si el usuario indica que quiere
+ % organizar elementos, debe preguntar cuantos elementos organizar, y luego
+ % solicitarlos uno por uno. Al solicitar cada elemento debe preguntarse el
+ % tipo particular antes de leerlo.
+ % Los elementos leidos deben almacenarse en un arreglo, y luego deben
+ % reorganizarse (usando la tecnica de la «Bandera Holandesa») para tener
+ % primero los booleanos, luego los caracteres, siguiendo los enteros y
+ % finalmente los flotantes, antes de imprimir el arreglo en pantalla
+ % (un elemento por linea).
+ % Su programa debe ser capaz de operar con no mas de veinte (20) elementos
+ % en el arreglo y todo el trabajo debe completarse sobre el mismo arreglo.
+ %/
+
+%%%%%%%%%%%% TYPES %%%%%%%%%%%
+either perol1 :-
+  boolean   B,
+  character C,
+  integer   I,
+  float     F.
+ 
+record perol :-
+  character Kind,
+  perol1  P.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%% GLOBAL %%%%%%%%%%%
+perol[20] Ps.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+procedure peroles (integer N).
+
+procedure main () :-
+  boolean Done is false,
+  integer N,
+
+  write "Orientacion a Peroles.\n",
+
+  while not Done ->
+      write "Introduzca\n"
+    , write "\tel numero cero para salir, o\n"
+    , write "\tun numero entero N entre uno y veinte para ordenar N peroles.\n"
+    , write "> "
+
+    , read N
+
+    , if N = 0                 -> write "Adios.\n", Done is true
+      ;  1 =< N andalso N < 21 -> peroles (N)
+      end
+  end.
+
+procedure mauritius (integer N).
+
+procedure printOut (integer N).
+
+procedure peroles (integer N) :-
+  integer J,
+  for J from 0 to N - 1 ->
+      boolean Done is false
+    , character K
+    , while not Done ->
+          write "Introduzca la letra correspondiente al tipo que desea para el perol #", write J, write "\n"
+        , write "\t(B)ooleano, (C)aracter, (I/E)ntero, (F)lotante\n"
+        , write "> "
+
+        , read K
+        , write "\n"
+
+        , if K = 'B' orelse K = 'b' ->
+              Done is true
+            , Ps[J]_Kind is 'B'
+            , write "Introduzca un Booleano > "
+            , read Ps[J]_P_B
+          ;  K = 'C' orelse K = 'c' ->
+              Done is true
+            , Ps[J]_Kind is 'C'
+            , write "Introduzca un Caracter > "
+            , read Ps[J]_P_C, write "\n"
+          ;  K = 'I' orelse K = 'i' orelse K = 'E' orelse K = 'e' ->
+              Done is true
+            , Ps[J]_Kind is 'I'
+            , write "Introduzca un Entero > "
+            , read Ps[J]_P_I
+          ;  K = 'F' orelse K = 'f' ->
+              Done is true
+            , Ps[J]_Kind is 'F'
+            , write "Introduzca un Flotante > "
+            , read Ps[J]_P_F
+          end
+      end
+  end,
+
+  mauritius (N),
+
+  printOut (N).
+
+procedure swap (integer P, integer Q).
+
+procedure mauritius (integer N) :-
+  integer BC is 0,
+  integer CI is N - 1,
+  integer IF is N - 1,
+
+  integer J is 0,
+
+  while J =< CI ->
+      if Ps[J]_Kind = 'B' ->
+          swap (J, BC)
+        , BC is BC + 1
+        , J  is J  + 1
+
+      ;  Ps[J]_Kind = 'C' -> 
+          J is J + 1
+
+      ;  Ps[J]_Kind = 'I' ->
+          swap (J, CI)
+        , CI is CI - 1
+
+      ;  Ps[J]_Kind = 'F' ->
+          if CI /= IF andalso CI /= J -> swap (CI, IF) end
+        , swap (J, IF)
+        , CI is CI - 1
+        , IF is IF - 1
+      end
+  end.
+
+procedure swap (integer P, integer Q) :-
+  perol T,
+
+  %% T is P
+  T_Kind is Ps[P]_Kind,
+  if T_Kind = 'B' -> T_P_B is Ps[P]_P_B
+  ;  T_Kind = 'C' -> T_P_C is Ps[P]_P_C
+  ;  T_Kind = 'I' -> T_P_I is Ps[P]_P_I
+  ;  T_Kind = 'F' -> T_P_F is Ps[P]_P_F
+  end,
+
+  %% P is Q
+  Ps[P]_Kind is Ps[Q]_Kind,
+  if Ps[P]_Kind = 'B' -> Ps[P]_P_B is Ps[Q]_P_B
+  ;  Ps[P]_Kind = 'C' -> Ps[P]_P_C is Ps[Q]_P_C
+  ;  Ps[P]_Kind = 'I' -> Ps[P]_P_I is Ps[Q]_P_I
+  ;  Ps[P]_Kind = 'F' -> Ps[P]_P_F is Ps[Q]_P_F
+  end,
+
+  %% Q is T
+  Ps[Q]_Kind is T_Kind,
+  if Ps[Q]_Kind = 'B' -> Ps[Q]_P_B is T_P_B
+  ;  Ps[Q]_Kind = 'C' -> Ps[Q]_P_C is T_P_C
+  ;  Ps[Q]_Kind = 'I' -> Ps[Q]_P_I is T_P_I
+  ;  Ps[Q]_Kind = 'F' -> Ps[Q]_P_F is T_P_F
+  end.
+
+procedure printOne (integer J).
+
+procedure printOut (integer N) :-
+  write "Resultado:\n",
+  integer J,
+  for J from 0 to N - 1 ->
+    printOne(J)
+  end.
+
+procedure printOne (integer J) :-
+  write J, write ": (", write Ps[J]_Kind, write ") ",
+  if Ps[J]_Kind = 'B' -> write Ps[J]_P_B
+  ;  Ps[J]_Kind = 'C' -> write Ps[J]_P_C
+  ;  Ps[J]_Kind = 'I' -> write Ps[J]_P_I
+  ;  Ps[J]_Kind = 'F' -> write Ps[J]_P_F
+  end,
+  write "\n".
