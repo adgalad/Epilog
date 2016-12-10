@@ -42,47 +42,34 @@ instance Emit TAC' where
 
 class GetReg i where
   getReg1 :: i -> MIPSMonad  Register
-  getReg1Read :: i -> MIPSMonad  Register
   getReg2 :: i -> MIPSMonad (Register, Register)
-  getReg2Read :: i -> MIPSMonad (Register, Register)
   getReg3 :: i -> MIPSMonad (Register, Register, Register)
-  getReg3Read :: i -> MIPSMonad (Register, Register, Register)
 
 instance GetReg TAC where
   getReg1 = getReg1' . IT
-  getReg1Read = getReg1Read' . IT
   getReg2 = getReg2' . IT
-  getReg2Read = getReg2Read' . IT
   getReg3 = getReg3' . IT
-  getReg3Read = getReg3Read' . IT
 
 instance GetReg Terminator where
   getReg1 = getReg1' . TT
-  getReg1Read = getReg1Read' . TT
   getReg2 = getReg2' . TT
-  getReg2Read = getReg2Read' . TT
   getReg3 = getReg3' . TT
-  getReg3Read = getReg3Read' . TT
 
 instance GetReg TAC' where
   getReg1 = getReg1'
-  getReg1Read = getReg1Read'
   getReg2 = getReg2'
-  getReg2Read = getReg2Read'
   getReg3 = getReg3'
-  getReg3Read = getReg3Read'
-
-getReg3Read' :: TAC' -> MIPSMonad (Register, Register, Register)
-getReg3Read' = undefined
 
 getReg3' :: TAC' -> MIPSMonad (Register, Register, Register)
-getReg3' t = do
+getReg3' tac = do
   vd <- use variables
   let
-    (op1, op2, op3) = case t of
-      IT (a := B _o b c) -> (a, b, c)
-      -- IT (a :=# (b, c)) -> (a, b, c)
-      -- (_, _) :#= _ -> (a, b, c) -- FIXME!!!
+    (writing, op1, op2, op3) = case tac of
+      IT (a := B _o b c) -> (True , a, b, c)
+      IT (a :=#  (b, c)) -> (True , a, b, c)
+      IT ((a, b)  :#= c) -> (False, a, b, c)
+
+      _ -> internal $ emit tac
 
   if| op1 == op2 && op1 == op3 -> do
       x <- case op1 `Map.lookup` vd of
@@ -92,17 +79,17 @@ getReg3' t = do
           pure x
 
         Just x -> do
-          spill' x (except op1)
+          when writing $ spill' x (except op1)
           pure x
 
-      x `nowHas` (Dirty, op1)
+      when writing $ x `nowHas` (Dirty, op1)
       pure (x, x, x)
 
     | op1 == op2 -> do
       y <- case op3 `Map.lookup` vd of
         Nothing -> do
           y <- case op1 `Map.lookup` vd of
-            Nothing -> freshReg op3
+            Nothing -> freshReg  op3
             Just x  -> freshReg' op3 (except [x])
           load y op3
           pure y
@@ -115,17 +102,17 @@ getReg3' t = do
           load x op1
           pure x
         Just x -> do
-          spill' x (except op1) -- We do this since x/op1 is the target
+          when writing $ spill' x (except op1)
           pure x
 
-      x `nowHas` (Dirty, op1)
+      when writing $ x `nowHas` (Dirty, op1)
       pure (x, x, y)
 
     | op1 == op3 -> do
       y <- case op2 `Map.lookup` vd of
         Nothing -> do
           y <- case op1 `Map.lookup` vd of
-            Nothing -> freshReg op2
+            Nothing -> freshReg  op2
             Just x  -> freshReg' op2 (except [x])
           load y op2
           pure y
@@ -138,10 +125,10 @@ getReg3' t = do
           load x op1
           pure x
         Just x -> do
-          spill' x (except op1) -- We do this since x/op1 is the target
+          when writing $ spill' x (except op1)
           pure x
 
-      x `nowHas` (Dirty, op1)
+      when writing $ x `nowHas` (Dirty, op1)
       pure (x, y, x)
 
     | otherwise {- op2 == op3 || All different -} -> do
@@ -153,9 +140,10 @@ getReg3' t = do
               Just x  -> freshReg' op2 (except [x])
             load y op2
             pure (y, y)
+
           Just y -> pure (y, y)
 
-        else do
+        else {- op2 /= op3 -} do
           y <- case op2 `Map.lookup` vd of
             Nothing -> do
               y <- case (op1 `Map.lookup` vd, op3 `Map.lookup` vd) of
@@ -183,75 +171,38 @@ getReg3' t = do
       x <- case op1 `Map.lookup` vd of
         Nothing -> do
           x <- freshReg' op1 (except [y, z])
-          op1 `nowAt` x -- Don't load it, it's going to be overwritten!
-          -- No need to spill here, it's guaranteed fresh.
+          if writing
+            then op1 `nowAt` x
+            else load x op1
           pure x
+
         Just x -> do
-          spill' x (except op1) -- We do this since x/op1 is the target.
+          when writing $ spill' x (except op1)
           pure x
 
-      x `nowHas` (Dirty, op1)
+      when writing $ x `nowHas` (Dirty, op1)
 
-        -- Any other variable that lived here, now doesn't, and op1 must be
-        -- stored to memory eventually.
       pure (x, y, z)
-
-getReg2Read' :: TAC' -> MIPSMonad (Register, Register)
-getReg2Read' t = do
-  vd <- use variables
-
-  let
-    (op1, op2) = case t of
-      TT (CondBr _ a b _ _)  -> (a, b)
-
-  if op1 == op2
-    then case op1 `Map.lookup` vd of
-      Nothing -> do
-        y <- freshReg op1
-        load y op1
-        pure (y, y)
-      Just y -> pure (y, y)
-
-    else do
-      y <- case op1 `Map.lookup` vd of
-        Nothing -> do
-          y <- case op2 `Map.lookup` vd of
-            Nothing -> freshReg  op1
-            Just z  -> freshReg' op1 (except [z])
-          load y op1
-          pure y
-
-        Just y -> pure y
-
-      z <- case op2 `Map.lookup` vd of
-        Nothing -> do
-          z <- freshReg' op2 (except [y])
-          load z op2
-          pure z
-
-        Just z -> pure z
-
-      pure (y, z)
 
 
 getReg2' :: TAC' -> MIPSMonad (Register, Register)
-getReg2' t = do
+getReg2' tac = do
   vd <- use variables
-
   let
-    (op1, op2) = case t of
-      IT (a := B _o b (C _)) -> (a, b)
-      IT (a := B _o (C _) b) -> (a, b)
-      IT (a := U _o b    )   -> (a, b)
-      IT (a :=@ (R  _, b))   -> (a, b)
-      IT (a :=@ (RF _, b))   -> (a, b)
-      -- IT (a :=# (b, C _))    -> (a, b)
-      -- IT (a :=* b       )    -> (a, b)
-      -- IT ((a, C _) :#= b)  -> (a, b) -- FIXME!!!
-      -- IT (a :*= b       )  -> (a, b) -- FIXME!!!
-      -- TT (CondBr _ a b _ _)  -> (a, b)
-      IT _                   -> internal $ emit t
-      TT _                   -> internal $ emit t
+    (writing, op1, op2) = case tac of
+      IT (a := B _o b (C _)) -> (True , a, b)
+      IT (a := B _o (C _) b) -> (True , a, b)
+      IT (a := U _o b    )   -> (True , a, b)
+      IT (a :=@ (R  _, b))   -> (True , a, b)
+      IT (a :=@ (RF _, b))   -> (True , a, b)
+      IT (a :=# (b, C _))    -> (True , a, b)
+      IT (a :=* b       )    -> (True , a, b)
+
+      IT ((a, C _) :#= b)    -> (False, a, b) 
+      IT (a :*= b       )    -> (False, a, b) 
+      TT (CondBr _ a b _ _)  -> (False, a, b)
+
+      _ -> internal $ emit tac
 
   if op1 == op2
     then do
@@ -262,13 +213,13 @@ getReg2' t = do
           pure x
 
         Just x -> do
-          spill' x (except op1)
+          when writing $ spill' x (except op1)
           pure x
 
-      x `nowHas` (Dirty, op1)
+      when writing $ x `nowHas` (Dirty, op1)
       pure (x, x)
 
-    else {- different ops -} do
+    else {- op1 /= op2 -} do
       y <- case op2 `Map.lookup` vd of
         Nothing -> do
           y <- case op1 `Map.lookup` vd of
@@ -276,89 +227,66 @@ getReg2' t = do
             Just x  -> freshReg' op2 (except [x])
           load y op2
           pure y
+
         Just y -> pure y
 
       x <- case op1 `Map.lookup` vd of
         Nothing -> do
           x <- freshReg' op1 (except [y])
-          op1 `nowAt` x -- Don't load it, it's going to be overwritten!
-          -- No need to spill here, it's guaranteed fresh.
-          pure x
-        Just x -> do
-          spill' x (except op1)
-          pure x
+          if writing
+            then op1 `nowAt` x
+            else load y op2
+          pure y
 
-      x `nowHas` (Dirty, op1)
-      -- Any other variable that lived here, now doesn't, and op1 must be
-      -- stored to memory eventually.
+        Just x -> do
+          when writing $ spill' x (except op1)
+          pure y
+
+      when writing $ x `nowHas` (Dirty, op1)
       pure (x, y)
 
+
 getReg1' :: TAC' -> MIPSMonad Register
-getReg1' t = do
+getReg1' tac = do
   vd <- use variables
-
   let
-    op = case t of
-      -- Special case (value)
-      IT (x := B _o (C _) (C _)) -> x
-      IT (x := U _o (C _))       -> x
+    (writing, op) = case tac of
+      IT (x := U Id (C _))       -> (True , x)
+      IT (x := B _o (C _) (C _)) -> (True , x)
+      IT (x := U _o (C _))       -> (True , x)
 
-      -- IT (Param (C _)   )       -> internal "Constant Param"
-      -- IT (Param x       )       -> x
-      -- IT (Answer (C _)  )       -> internal "Constant Answer"
-      -- IT (Answer x      )       -> x
+      IT (x :=@ (R  _,C _))      -> (True , x)
+      IT (x :=@ (RF _,C _))      -> (True , x)
+      IT (x :=& R _name   )      -> (True , x)
+      IT (x :<- _         )      -> (True , x)
 
-      IT (x :=@ (R  _,C _))      -> x
-      IT (x :=@ (RF _,C _))      -> x
-      IT (x :=& R _name  )       -> x
-      IT (x :<- _       )        -> x
+      IT (_ := U Id     x)       -> (False, x)
+      IT (Param (C _)   )        -> internal "Constant Param"
+      IT (Param x       )        -> (False, x)
+      IT (Answer (C _)  )        -> internal "Constant Answer"
+      IT (Answer x      )        -> (False, x)
+      TT (IfBr x _ _)            -> (False, x)
+      TT (CondBr _ x (C _) _ _)  -> (False, x)
+      TT (CondBr _ (C _) x _ _)  -> (False, x)
 
-      _ -> trace (emit t) undefined
-
-      -- TT (IfBr x _ _)           -> x
-      -- TT (CondBr _ x (C _) _ _) -> x
-      -- TT (CondBr _ (C _) x _ _) -> x
+      _ -> internal $ emit tac
 
   x <- case op `Map.lookup` vd of
     Nothing -> do
       x <- freshReg op
-      op `nowAt` x -- Don't load it, it's going to be overwritten!
+      if writing
+        then op `nowAt` x
+        else load x op
       -- No need to spill here, it's guaranteed fresh.
       pure x
 
     Just x -> do
-      spill' x (except op)
+      when writing $ spill' x (except op)
       pure x
 
-  x `nowHas` (Dirty, op)
-
+  when writing $ x `nowHas` (Dirty, op)
   pure x
 
-getReg1Read' :: TAC' -> MIPSMonad Register
-getReg1Read' t = do
-  vd <- use variables
-
-  let
-    op = case t of
-      IT (_ := U Id x)          -> x
-
-      IT (Param (C _)   )       -> internal "Constant Param"
-      IT (Param x       )       -> x
-      IT (Answer (C _)  )       -> internal "Constant Answer"
-      IT (Answer x      )       -> x
-
-      TT (IfBr x _ _)           -> x
-      TT (CondBr _ x (C _) _ _) -> x
-      TT (CondBr _ (C _) x _ _) -> x
-
-  case op `Map.lookup` vd of
-    Nothing -> do
-      x <- freshReg op
-      load x op
-      -- No need to spill here, it's guaranteed fresh.
-      pure x
-
-    Just x -> pure x
 
 load :: Register -> Operand -> MIPSMonad ()
 load r op = do
@@ -405,6 +333,7 @@ freshReg' :: Operand -> Except [Register] -> MIPSMonad Register
 freshReg' op (Except exceptions) = do
   r <- fromMaybe msg <$> min'
   spill r
+
   pure r
 
   where
@@ -489,7 +418,7 @@ instance Gmips Terminator where
     Br dest -> tell1 $ J dest
 
     IfBr _cond trueDest falseDest -> do
-      x <- getReg1Read term
+      x <- getReg1 term
       tell
         [ Bne x Zero trueDest
         , J falseDest ]
@@ -509,15 +438,15 @@ instance Gmips Terminator where
 
         (   _, C c1) -> do
           tell1 $ load' (scratch 0) c1
-          x <- getReg1Read term
+          x <- getReg1 term
           pure (x, scratch 0)
 
         (C c0, _   ) -> do
           tell1 $ load' (scratch 0) c0
-          y <- getReg1Read term
+          y <- getReg1 term
           pure (scratch 0, y)
 
-        _            -> getReg2Read term
+        _            -> getReg2 term
 
       case rel of
         LTF -> tell
@@ -652,7 +581,7 @@ instance Gmips TAC where
             else LoadI  x c
 
       U Id _u -> do
-        x <- getReg1Read tac
+        x <- getReg1 tac
 
         vd <- use variables
         case op `Map.lookup` vd of
@@ -687,6 +616,7 @@ instance Gmips TAC where
 
       U o _u -> do
         (x, y) <- getReg2 tac
+
         case o of
           NegF -> tell
             [ LoadFI (ScratchF 0) (FC 0.0)
@@ -817,7 +747,7 @@ instance Gmips TAC where
         spillAll
         fstParam .= False
 
-      x <- getReg1Read tac
+      x <- getReg1 tac
 
       tell1 $ BinOpi AddI SP SP (IC $ -4)
       tell1 $ if isFloatOp op
@@ -892,7 +822,7 @@ instance Gmips TAC where
         , StoreW (Scratch 0) (8, FP) ]
 
     Answer _ -> do
-      x <- getReg1Read tac
+      x <- getReg1 tac
       tell1 $ if isFloatReg x
         then StoreF x (8, FP)
         else StoreW x (8, FP)
