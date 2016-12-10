@@ -48,12 +48,12 @@ procedure gauss (integer N) :-
   integer Eq,
   integer Var,
 
-  write "Introduzca los coeficientes de las ecuaciones, por filas\n"
+  write "Introduzca los coeficientes de las ecuaciones, por filas\n",
 
   for Eq from 0 to N-1 ->
     for Var from 0 to N ->
       write "c_", write Eq, write "_", write Var, write "? ",
-      read Coef[Eq][Var] end end
+      read Coef[Eq][Var] end end,
 
   Solvable is true,
   elimination (N),
@@ -63,15 +63,17 @@ procedure gauss (integer N) :-
 
 procedure swapRows (integer A, integer B, integer N).
 
+procedure maxPivot (integer K, integer N) -> integer.
+
 procedure elimination (integer N) :-
   integer K, integer IMax, integer I, integer J,
   float C,
 
   for K from 0 to N - 1 -> if Solvable ->
     %% Find the K-th pivot:
-    IMax is max_pivot (K, N-1),
+    IMax is maxPivot (K, N-1),
     if 
-      Coef[IMax][K] = 0 -> 
+      Coef[IMax][K] < 0.00001 -> 
         Solvable is false;  
       true ->
         swapRows(K, IMax, N),
@@ -83,10 +85,27 @@ procedure elimination (integer N) :-
             Coef[I][J] is Coef[I][J] - Coef[K][J] * C
           end,
           %% Fill lower triangular matrix with zeros:
-          Coef[I][K] is 0
+          Coef[I][K] is 0.0
         end
     end
   end end.
+
+procedure abs (float X) -> float :-
+  if X < 0.0 -> answer -X
+  ;  true    -> answer X
+  end.
+
+procedure maxPivot (integer K, integer N) -> integer :-
+  integer Best is K,
+  float BestVal is Coef[K][K],
+
+  integer I,
+  for I from K + 1 to N - 1 ->
+    float Val is abs(Coef[I][K]),
+    if Val > BestVal -> Best is I
+                      , BestVal is Val
+    end end,
+  answer Best.
 
 procedure swapRows (integer A, integer B, integer N) :-
   if A /= B ->
@@ -117,6 +136,6 @@ procedure showSolution (integer N) :-
       for I from 0 to N - 1 ->
         write "X_", write I, write " = ", write X[I], write "\n"
       end
-    not Solvable ->
+  ; not Solvable ->
       write "El sistema de ecuaciones dado no tiene solucion pues su matriz es singular.\n"
   end.

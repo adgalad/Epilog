@@ -155,34 +155,40 @@ data MIPS
   | Align
   | DataSection
   | TextSection
-  | Global String
+  | Global   String
   -- Declarations
-  | Data    Name Int32
-  | MString Name String
+  | Data     Name Int32
+  | MString  Name String
   -- Instructions
-  | BinOp   BOp Register Register Register
-  | BinOpi  BOp Register Register Constant
-  | I2F     Register Register
-  | I2Fi    Register Constant
-  | F2I     Register Register
-  | F2Ii    Register Constant
-  | LoadA   Register String
-  | LoadI   Register Constant
-  | LoadW   Register (Int32, Register)
-  | LoadWG  Register String
-  | LoadFI  Register Constant
-  | LoadF   Register (Int32, Register)
-  | LoadFG  Register String
-  | Move    Register Register
-  | StoreW  Register (Int32, Register)
-  | StoreWG Register String
-  | StoreF  Register (Int32, Register)
-  | StoreFG Register String
+  | BinOp    BOp Register Register Register
+  | BinOpi   BOp Register Register Constant
+  | I2F      Register Register
+  | I2Fi     Register Constant
+  | F2I      Register Register
+  | F2Ii     Register Constant
+  | LoadA    Register String
+  | LoadI    Register Constant
+  | LoadW    Register (Int32, Register)
+  | LoadWG   Register (String, Int32)
+  | LoadWGR  Register (String, Register)
+  -- | LoadWGRO Register (String, Int32, Register)
+  | LoadFI   Register Constant
+  | LoadF    Register (Int32, Register)
+  | LoadFG   Register (String, Int32)
+  | LoadFGR  Register (String, Register)
+  -- | LoadFGRO Register (String, Int32, Register)
+  | Move     Register Register
+  | StoreW   Register (Int32, Register)
+  | StoreWG  Register (String, Int32)
+  | StoreWGR Register (String, Register)
+  | StoreF   Register (Int32, Register)
+  | StoreFG  Register (String, Int32)
+  | StoreFGR Register (String, Register)
   | Syscall
-  | Slt     Register Register Register
-  | Clts    Register Register
-  | Cles    Register Register
-  | Ceqs    Register Register
+  | Slt      Register Register Register
+  | Clts     Register Register
+  | Cles     Register Register
+  | Ceqs     Register Register
   -- Terminators
   | Beq  Register Register Label
   | Bne  Register Register Label
@@ -295,8 +301,18 @@ instance Emips MIPS where
           tpack "lw " >> emips r1 >> tpack ", " >> chow c >> 
           tpack "(" >> emips r2 >> tpack ")"
 
-        LoadWG r name ->
-          tpack "lw " >> emips r >> tpack ", " >> tpack name
+        LoadWG r (name, c) ->
+          tpack "lw " >> emips r >> tpack ", " >>
+          tpack name >> tpack "+" >> chow c
+
+        LoadWGR r1 (name, r2) ->
+          tpack "lw " >> emips r1 >> tpack ", " >>
+          tpack name >> tpack "(" >> emips r2 >> tpack ")"
+
+        -- LoadWGRO r1 (name, c, r2) ->
+        --   tpack "lw " >> emips r1 >> tpack ", " >>
+        --   tpack name >> tpack "+" >> chow c >>
+        --   tpack "(" >> emips r2 >> tpack ")"
 
         LoadFI r1 i -> tpack "li.s " >> emips r1 >> tpack ", " >> emips i
 
@@ -304,8 +320,18 @@ instance Emips MIPS where
           tpack "l.s " >> emips r1 >> tpack ", " >> chow c >> 
           tpack "(" >> emips r2 >> tpack ")"
 
-        LoadFG r name ->
-          tpack "l.s " >> emips r >> tpack ", " >> tpack name
+        LoadFG r (name, c) ->
+          tpack "l.s " >> emips r >> tpack ", " >>
+          tpack name >> tpack "+" >> chow c
+
+        LoadFGR r1 (name, r2) ->
+          tpack "l.s " >> emips r1 >> tpack ", " >>
+          tpack name >> tpack "(" >> emips r2 >> tpack ")"
+
+        -- LoadFGRO r1 (name, c, r2) ->
+        --   tpack "l.s " >> emips r1 >> tpack ", " >>
+        --   tpack name >> tpack "+" >> chow c >>
+        --   tpack "(" >> emips r2 >> tpack ")"
 
         Move r1 r2 ->
           tpack "move " >> 
@@ -316,15 +342,25 @@ instance Emips MIPS where
           tpack "sw " >> emips r1 >> tpack ", " >> chow c >> 
           tpack "(" >> emips r2 >> tpack ")"
         
-        StoreWG r name ->
-          tpack "sw " >> emips r >> tpack ", " >> tpack name
+        StoreWG r (name, c) ->
+          tpack "sw " >> emips r >> tpack ", " >>
+          tpack name >> tpack "+" >> chow c
+
+        StoreWGR r1 (name, r2) ->
+          tpack "sw " >> emips r1 >> tpack ", " >>
+          tpack name >> tpack "(" >> emips r2 >> tpack ")"
 
         StoreF r1 (c,r2) ->
           tpack "s.s " >> emips r1 >> tpack ", " >> chow c >> 
           tpack "(" >> emips r2 >> tpack ")"
         
-        StoreFG r name ->
-          tpack "s.s " >> emips r >> tpack ", " >> tpack name
+        StoreFG r (name, c) ->
+          tpack "s.s " >> emips r >> tpack ", " >>
+          tpack name >> tpack "+" >> chow c
+
+        StoreFGR r1 (name, r2) ->
+          tpack "s.s " >> emips r1 >> tpack ", " >>
+          tpack name >> tpack "(" >> emips r2 >> tpack ")"
 
         Syscall -> tpack "syscall"
 

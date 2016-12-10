@@ -44,7 +44,7 @@ $idchar      = [$alpha $digit \'] --'
 @varid       = $upper $idchar*
 @genid       = $lower $idchar*
 
-$symbol      = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\^\|\-\~\(\)\,\:\;\[\]\`\{\}\ ]
+$symbol      = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\^\|\-\~\(\)\,\:\;\[\]\`\{\}\ \_]
 $graphic     = [$alpha $digit $symbol]
 
 $charesc     = [0nt\\\'\"]

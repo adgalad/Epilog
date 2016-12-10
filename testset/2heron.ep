@@ -35,8 +35,7 @@ procedure heron (float X) -> float :-
   float Sqrt is 1.0,
 
   while abs((X - Sqrt * Sqrt) / X) > 0.000001 ->
-    Sqrt is (Sqrt + X / Sqrt) / 2.0,
-    write Sqrt, write "\n"
+    Sqrt is (Sqrt + X / Sqrt) / 2.0
   end,
 
   answer Sqrt.

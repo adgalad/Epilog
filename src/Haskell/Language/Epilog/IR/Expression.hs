@@ -418,9 +418,10 @@ irLval Lval { lvalType, lval' } = case lval' of
   Variable name k _offset -> do
     comment $ "Lval " <> show k <> " variable `" <> name <> "`"
     name' <- getVarName name
-    pure . ($ (regKind lvalType) name') $ case k of
-      K.RefParam -> Star
-      _          -> Pure
+
+    pure $ case k of
+      K.RefParam -> Star . regKind ptrT     $ name'
+      _          -> Pure . regKind lvalType $ name'
 
   Member lval _name 0 -> irLval lval
 
@@ -439,9 +440,10 @@ irLval Lval { lvalType, lval' } = case lval' of
           pure $ Brackets b t
 
       Star op -> do
-        t <- newTempG
-        addTAC $ t :=* op
-        pure $ Brackets t (C . IC . fromIntegral $ offset)
+        -- t <- newTempG
+        -- addTAC $ t :=* op
+        -- pure $ Brackets t (C . IC . fromIntegral $ offset)
+        pure $ Brackets op (C . IC . fromIntegral $ offset)
 
   Index lval idx -> do
     r  <- irLval lval

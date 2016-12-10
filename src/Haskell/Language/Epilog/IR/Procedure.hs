@@ -25,6 +25,7 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
   case procDef of
     Nothing -> liftIO . putStrLn $ "Epilog native procedure `" <> procName <> "`"
     Just (iblock, scope) -> do
+      enterScope
       g <- use global
       let smbs = (\(Right x) -> x) . goDownFirst . insertST scope . focus $ g
       symbols .= smbs
@@ -74,5 +75,6 @@ irProcedure Procedure { procName, procPos, procType = _ :-> retType
       retLabel .= Nothing
 
       closeModule procName
+      exitScope
 
 irProcedure _ = pure ()

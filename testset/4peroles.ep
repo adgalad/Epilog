@@ -70,19 +70,20 @@ procedure peroles (integer N) :-
   integer J,
   for J from 0 to N - 1 ->
       boolean Done is false
-      character K,
+    , character K
     , while not Done ->
           write "Introduzca la letra correspondiente al tipo que desea para el perol #", write J, write "\n"
         , write "\t(B)ooleano, (C)aracter, (I/E)ntero, (F)lotante\n"
         , write "> "
 
         , read K
+        , write "\n"
 
         , if K = 'B' orelse K = 'b' ->
               Done is true
             , Perolero[J]_Kind is 'B'
             , write "Introduzca un Booleano > "
-            , read Perolero[J]_P_B,
+            , read Perolero[J]_P_B
           ;  K = 'C' orelse K = 'c' ->
               Done is true
             , Perolero[J]_Kind is 'C'
@@ -139,23 +140,23 @@ procedure mauritius (integer N) :-
 procedure swap (ref perol P, ref perol Q) :-
   perol T,
 
-  % T is P
+  %% T is P
   T_Kind is P_Kind,
   if T_Kind = 'B' -> T_P_B is P_P_B
   ;  T_Kind = 'C' -> T_P_C is P_P_C
   ;  T_Kind = 'I' -> T_P_I is P_P_I
   ;  T_Kind = 'F' -> T_P_F is P_P_F
-  end
+  end,
 
-  % P is Q
+  %% P is Q
   P_Kind is Q_Kind,
   if P_Kind = 'B' -> P_P_B is Q_P_B
   ;  P_Kind = 'C' -> P_P_C is Q_P_C
   ;  P_Kind = 'I' -> P_P_I is Q_P_I
   ;  P_Kind = 'F' -> P_P_F is Q_P_F
-  end
+  end,
 
-  % Q is T
+  %% Q is T
   Q_Kind is T_Kind,
   if Q_Kind = 'B' -> Q_P_B is T_P_B
   ;  Q_Kind = 'C' -> Q_P_C is T_P_C
@@ -165,8 +166,8 @@ procedure swap (ref perol P, ref perol Q) :-
 
 procedure printOne (integer J, ref perol P).
 
-procedure printOut (N) :-
-  write "Resultado:\n"
+procedure printOut (integer N) :-
+  write "Resultado:\n",
   integer J,
   for J from 0 to N - 1 ->
     printOne(J, Perolero[J])

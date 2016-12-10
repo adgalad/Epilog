@@ -32,7 +32,7 @@ procedure sortC (integer N).
 
 procedure main () :-
   boolean Done is false,
-  character C,
+  character C, character Enter,
   integer N,
 
   write "Multi Quicksort \'In Situ\'.\n",
@@ -46,6 +46,7 @@ procedure main () :-
     , write "> "
 
     , read C
+    , read Enter
 
     , if C = 'T' orelse C = 't' -> 
           write "Adios.\n", Done is true
@@ -82,6 +83,7 @@ procedure sortI (integer N) :-
     , read Is[I]
   end,
   quicksortI(0, N-1),
+  write "Enteros ordenados:\n",
   displayI(N).
 
 procedure sortF (integer N) :-
@@ -91,6 +93,7 @@ procedure sortF (integer N) :-
     , read Fs[I]
   end,
   quicksortF(0, N-1),
+  write "Flotantes ordenados:\n",
   displayF(N).
 
 procedure sortC (integer N) :-
@@ -100,6 +103,7 @@ procedure sortC (integer N) :-
     , read Cs[I], write "\n"
   end,
   quicksortC(0, N-1),
+  write "Caracteres ordenados:\n",
   displayC(N).
 
 %%%%%%%%%% QUICKSORT %%%%%%%%%
@@ -110,19 +114,19 @@ procedure partitionC (integer L, integer H) -> integer.
 procedure quicksortI (integer L, integer H) :-
   if L < H -> 
     integer P is partitionI (L, H),
-    quicksortI(L, P – 1),
+    quicksortI(L, P - 1),
     quicksortI(P + 1, H) end.
 
 procedure quicksortF (integer L, integer H) :-
   if L < H -> 
     integer P is partitionF (L, H),
-    quicksortF(L, P – 1),
+    quicksortF(L, P - 1),
     quicksortF(P + 1, H) end.
 
 procedure quicksortC (integer L, integer H) :-
   if L < H -> 
     integer P is partitionC (L, H),
-    quicksortC(L, P – 1),
+    quicksortC(L, P - 1),
     quicksortC(P + 1, H) end.
 
 %%%%%%%%%% PARTITION %%%%%%%%%
@@ -138,7 +142,7 @@ procedure partitionI (integer L, integer H) -> integer :-
   for J from L to H - 1 ->
     if Is[J] =< Pivot ->
       swapI (Is[I], Is[J]),
-      I is I + 1 end end
+      I is I + 1 end end,
   swapI (Is[I], Is[H]),
   answer I.
 
@@ -150,7 +154,7 @@ procedure partitionF (integer L, integer H) -> integer :-
   for J from L to H - 1 ->
     if Fs[J] =< Pivot ->
       swapF (Fs[I], Fs[J]),
-      I is I + 1 end end
+      I is I + 1 end end,
   swapF (Fs[I], Fs[H]),
   answer I.
 
@@ -162,7 +166,7 @@ procedure partitionC (integer L, integer H) -> integer :-
   for J from L to H - 1 ->
     if Cs[J] =< Pivot ->
       swapC (Cs[I], Cs[J]),
-      I is I + 1 end end
+      I is I + 1 end end,
   swapC (Cs[I], Cs[H]),
   answer I.
 
@@ -170,17 +174,17 @@ procedure partitionC (integer L, integer H) -> integer :-
 procedure displayI (integer N) :-
   integer I,
   for I from 0 to N-1 ->
-    write "i", write I, write ":", write Is[I]
+    write "i", write I, write ": ", write Is[I], write "\n"
   end.
 procedure displayF (integer N) :-
   integer I,
   for I from 0 to N-1 ->
-    write "f", write I, write ":", write Fs[I]
+    write "f", write I, write ": ", write Fs[I], write "\n"
   end.
 procedure displayC (integer N) :-
   integer I,
   for I from 0 to N-1 ->
-    write "c", write I, write ":", write Cs[I]
+    write "c", write I, write ": ", write Cs[I], write "\n"
   end.
 
 %%%%%%%%%%%% SWAP %%%%%%%%%%%%

@@ -192,9 +192,11 @@ irInstruction = \case
   Var { varName, varOffset, varSize, varType } -> do
     varName' <- insertVar varName
 
-    addTAC $ (case varType of 
-      Basic {atom = EpFloat} -> TAC.FloatVar
-      _ -> TAC.Var) varName' (negate $ 4 + varOffset) varSize
+    let var = case varType of 
+          Basic {atom = EpFloat} -> TAC.FloatVar
+          _ -> TAC.Var
+
+    addTAC $ var varName' (negate $ (fromIntegral varSize) + varOffset) varSize
 
 irGuards :: Label -> [(Position, Expression, IBlock)] -> IRMonad ()
 irGuards _ [] = internal "impossible call to irGuards"
