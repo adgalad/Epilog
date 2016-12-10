@@ -10,20 +10,23 @@ import           Language.Epilog.Epilog
 import           Language.Epilog.IR.Monad    hiding (symbols)
 import           Language.Epilog.IR.Program
 import           Language.Epilog.IR.TAC
+import           Language.Epilog.MIPS.Gmips  (Gmips (..))
+import           Language.Epilog.MIPS.MIPS   (emitMIPS)
+import           Language.Epilog.MIPS.Monad
 import           Language.Epilog.Parser
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
-import           Language.Epilog.MIPS.Monad
-import           Language.Epilog.MIPS.MIPS  (emips)
-import           Language.Epilog.MIPS.Gmips (Gmips (..))
 --------------------------------------------------------------------------------
 import           Control.Lens                (makeLenses, (.~), (^.))
 import qualified Data.Map                    as Map
+import           Data.Text.IO                (writeFile)
+import           Prelude                     hiding (writeFile)
 import           System.Console.GetOpt       (ArgDescr (..), ArgOrder (..),
                                               OptDescr (..), getOpt, usageInfo)
 import           System.Environment          (getArgs)
 import           System.Exit                 (exitSuccess)
-import           System.IO                   (Handle, IOMode (ReadMode, WriteMode),
+import           System.FilePath.Posix       ((-<.>))
+import           System.IO                   (Handle, IOMode (ReadMode),
                                               hGetContents, openFile, stdin)
 --------------------------------------------------------------------------------
 -- Options -----------------------------
@@ -155,10 +158,7 @@ doMIPS filename handle = do
 
   when (s^.parseOK) $ do
     (code, _s) <- runIR irProgram ast
-    runMIPS gmips code >>= 
-      pure . unlines . toList . fmap emips >>= \m -> do
-        putStrLn m
-        writeFile "./out.asm" m
+    runMIPS gmips code >>= writeFile (filename -<.> "asm") . emitMIPS
 
 -- Main --------------------------------
 main :: IO ()

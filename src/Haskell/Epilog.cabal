@@ -37,6 +37,8 @@ executable Epilog
         , numeric-limits >= 0.1   && < 0.2
         , safe           >= 0.3.9 && < 0.3.10
         , semigroups     >= 0.18  && < 0.19
+        , text           >= 1.2.2 && < 1.2.3
+        , filepath       >= 1.4.0 && < 1.4.1
         , transformers   >= 0.4   && < 0.5
 
     build-tools: alex, happy

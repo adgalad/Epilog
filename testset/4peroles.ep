@@ -1,4 +1,4 @@
-/% Orientación a Peroles.
+/% Orientacion a Peroles.
  % Considere un tipo de datos
  %
  %   struct {
@@ -13,15 +13,15 @@
  %
  % El programa debe operar en un ciclo infinito, preguntando al usuario si
  % quiere organizar elementos, o terminar. Si el usuario indica que quiere
- % organizar elementos, debe preguntar cuántos elementos organizar, y luego
+ % organizar elementos, debe preguntar cuantos elementos organizar, y luego
  % solicitarlos uno por uno. Al solicitar cada elemento debe preguntarse el
  % tipo particular antes de leerlo.
- % Los elementos leídos deben almacenarse en un arreglo, y luego deben
- % reorganizarse (usando la técnica de la «Bandera Holandesa») para tener
+ % Los elementos leidos deben almacenarse en un arreglo, y luego deben
+ % reorganizarse (usando la tecnica de la «Bandera Holandesa») para tener
  % primero los booleanos, luego los caracteres, siguiendo los enteros y
  % finalmente los flotantes, antes de imprimir el arreglo en pantalla
- % (un elemento por línea).
- % Su programa debe ser capaz de operar con no más de veinte (20) elementos
+ % (un elemento por linea).
+ % Su programa debe ser capaz de operar con no mas de veinte (20) elementos
  % en el arreglo y todo el trabajo debe completarse sobre el mismo arreglo.
  %/
 
@@ -47,18 +47,18 @@ procedure main () :-
   boolean Done is false,
   integer N,
 
-  write "Orientación a Peroles.",
+  write "Orientacion a Peroles.\n",
 
   while not Done ->
       write "Introduzca\n"
-    , write "\tel número cero para salir, o\n"
-    , write "\tun número entero N entre uno y veinte para ordenar N peroles.\n"
+    , write "\tel numero cero para salir, o\n"
+    , write "\tun numero entero N entre uno y veinte para ordenar N peroles.\n"
     , write "> "
 
     , read N
 
     , if N = 0                 -> write "Adios.\n", Done is true
-      ;  1 <= N andalso N < 21 -> peroles (N)
+      ;  1 =< N andalso N < 21 -> peroles (N)
       end
   end.
 
@@ -115,7 +115,7 @@ procedure mauritius (integer N) :-
 
   integer J is 0,
 
-  while J <= CI ->
+  while J =< CI ->
       if Perolero[J]_Kind = 'B' ->
           swap (Perolero[J], Perolero[BC])
         , BC is BC + 1

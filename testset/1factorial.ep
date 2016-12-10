@@ -22,30 +22,29 @@ procedure main () :-
   while not Done ->
       write "Introduzca\n"
     , write "\tel numero 0 para salir,\n"
-    , write "\tun numero par para utilizar el metodo recursivo, o\n"
-    , write "\tun numero impar para utilizar el metodo iterativo.\n"
+    , write "\tel numero 1 para utilizar el metodo recursivo, o\n"
+    , write "\tel numero 2 para utilizar el metodo iterativo.\n"
     , write "> "
 
     , read Metodo
 
-    , write Metodo, write "\n"
-
     , if 0  = Metodo ->
           write "Adios.\n"
         , Done is true
-      ;  0 /= Metodo ->
+      ;  Metodo = 1 orelse Metodo = 2 ->
           write "Introduzca x, (entero, no negativo) para calcular x! con el metodo "
 
-        , if 2  | Metodo -> write "recursivo\n"
-          ;  2 !| Metodo -> write "iterativo\n"
+        , if Metodo = 1 -> write "recursivo\n"
+          ;  Metodo = 2 -> write "iterativo\n"
           end
 
         , write "> "
-        , read X
+        , read X, write "\n"
 
         , if X < 0       -> write "Ha ingresado un numero negativo.\n"
-          ;  2  | Metodo -> write "< ", write recfact(X), write "\n"
-          ;  2 !| Metodo -> write "< ", write  itfact(X), write "\n"
+          ;  Metodo = 1 -> write "< ", X is recfact(X), write X, write "\n"
+          ;  Metodo = 2 -> write "< ", X is  itfact(X), write X, write "\n"
+          ; true -> write "wut?"
           end
       end
   end.

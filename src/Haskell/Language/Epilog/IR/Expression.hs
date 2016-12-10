@@ -26,7 +26,7 @@ import qualified Data.Sequence                  as Seq (reverse)
 --------------------------------------------------------------------------------
 
 irExpression :: Expression -> IRMonad Operand
-irExpression e@Expression { exp', expPos, expType = t } = case exp' of
+irExpression e@Expression { exp', expPos, expType = ty } = case exp' of
   LitBool  b -> pure . C . BC $ b
   LitChar  c -> pure . C . CC $ c
   LitInt   i -> pure . C . IC $ i
@@ -42,12 +42,12 @@ irExpression e@Expression { exp', expPos, expType = t } = case exp' of
       Pure op -> pure $ op
 
       Brackets b off -> do
-        t <- newTemp t
+        t <- newTemp ty
         addTAC $ t :=# (b, off)
         pure t
 
       Star op -> do
-        t <- newTemp t
+        t <- newTemp ty
         addTAC $ t :=* op
         pure t
 
@@ -55,7 +55,7 @@ irExpression e@Expression { exp', expPos, expType = t } = case exp' of
     args <- mapM (either irLvalAddr irExpression) callArgs
     mapM_ (addTAC . Param) (Seq.reverse args)
 
-    t <- newTemp t
+    t <- newTemp ty
     addTAC $ t :<- callName
     addTAC $ Cleanup (4 * fromIntegral (length callArgs))
 
@@ -130,31 +130,45 @@ irExpression e@Expression { exp', expPos, expType = t } = case exp' of
       operand0 <- irExpression exp0
 
       case operand0 of
-        C (BC b0) -> pure . C . BC $ op' b0
+        C (BC b0) -> pure . C $ op' b0
           where
             op' = case op of
-              E.Not -> not
+              E.Not -> BC . not
+              ToF   -> FC . (\x -> if x then 1.0 else 0.0)
+              ToI   -> IC . (\x -> if x then 1   else 0  )
+              ToC   -> CC . (\x -> if x then 1   else 0)
+
               _ -> internal "badOp"
 
-        C (IC i0) -> pure . C . IC $ op' i0
+        C (IC i0) -> pure . C $ op' i0
           where
             op' = case op of
-              Uminus -> negate
-              Bnot -> complement
+              Uminus -> IC . negate
+              Bnot   -> IC . complement
+              ToF    -> FC . fromIntegral
+              ToC    -> CC . fromIntegral
+              ToB    -> BC . (/= 0)
               _ -> internal "badOp"
 
-        C (FC f0) -> pure . C . FC $ op' f0
+        C (FC f0) -> pure . C $ op' f0
           where
             op' = case op of
-              Uminus -> negate
+              Uminus -> FC . negate
+              ToC    -> CC . truncate
+              ToI    -> IC . truncate
+              ToB    -> BC . (/= 0.0)
               _ -> internal "badOp"
 
-        C (CC c0) -> pure . C . CC $ op' c0
+        C (CC c0) -> pure . C $ op' c0
           where
             op' = case op of
+              ToF -> FC . fromIntegral 
+              ToI -> IC . fromIntegral 
+              ToB -> BC . (/= 0)
+              _ -> internal "badOp"
 
         _ -> do
-          result   <- newTemp (expType exp0)
+          result   <- newTemp ty
 
           let Basic { atom } = expType exp0
 
@@ -219,6 +233,18 @@ toIRUOp :: Atom -> UnaryOp -> UOp
 toIRUOp atom = \case
   E.Not  -> internal "Operator Not must be generated with irBoolean"
   Bnot   -> BNot
+  ToB    -> case atom of
+    EpFloat -> FtoI
+    _       -> Id
+  ToI    -> case atom of
+    EpFloat -> FtoI
+    _       -> Id
+  ToC    -> case atom of
+    EpFloat -> FtoI
+    _       -> Id
+  ToF    -> case atom of
+    EpFloat -> Id
+    _       -> ItoF
   Uminus -> case atom of
     EpFloat   -> NegF
     EpInteger -> NegI
@@ -233,12 +259,21 @@ irBoolean true false e@Expression { exp', expPos } = case exp' of
   LitInt    _ -> internal "litInt cannot be a boolean expression"
   LitFloat  _ -> internal "litFloat cannot be a boolean expression"
   LitString _ -> internal "litString cannot be a boolean expression"
+  Void        -> internal "void cannot be a boolean expression"
 
   Rval _lval -> do
     t <- irExpression e
     terminate $ IfBr t true false
 
-  ECall _procName _args -> internal "Procedure calls are not implemented yet."
+  ECall callName callArgs -> do
+    args <- mapM (either irLvalAddr irExpression) callArgs
+    mapM_ (addTAC . Param) (Seq.reverse args)
+
+    t <- newTempG
+    addTAC $ t :<- callName
+    addTAC $ Cleanup (4 * fromIntegral (length callArgs))
+
+    terminate $ IfBr t true false
 
   Binary op exp0 exp1 -> case op of
     And -> do

@@ -104,6 +104,12 @@ epilog :-
     <0> "div"                   { make TokenIntDiv   }
     <0> "rem"                   { make TokenRem      }
 
+    ---- Conversion
+    <0> "toFloat"               { make TokenToFloat     }
+    <0> "toInteger"             { make TokenToInteger   }
+    <0> "toCharacter"           { make TokenToCharacter }
+    <0> "toBoolean"             { make TokenToBoolean   }
+
     ---- Relational
     <0> "<"                     { make TokenLT }
     <0> "=<"                    { make TokenLE }

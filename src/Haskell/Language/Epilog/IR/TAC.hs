@@ -24,7 +24,6 @@ module Language.Epilog.IR.TAC
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
-import           Language.Epilog.Type
 --------------------------------------------------------------------------------
 import           Control.Lens           ((|>))
 import           Data.Char              (toLower)
@@ -40,7 +39,7 @@ data Label = Label { lblstr :: String, lblnum :: Int  }
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 divZeroLabel :: Label
-divZeroLabel = Label 
+divZeroLabel = Label
   { lblstr = "__divZero"
   , lblnum = -1 }
 
@@ -138,7 +137,9 @@ data TAC
   = Comment String
   -- ^ We're gonna need this
 
-  | Var Bool Name Offset Size Type
+  | Var      Name Offset Size
+  | RefVar   Name Offset Size
+  | FloatVar Name Offset Size
   -- ^ Variable allocation
 
   | Operand :=  Operation
@@ -182,8 +183,9 @@ infix 8 :=, :=#, :#=, :=*, :*=
 instance Emit TAC where
   emit = \case
     Comment s     -> "; " <> s
-    Var r n o s _ -> (if r then "ref" else "var") <> " " <> n <> " " <>
-      show o <> " " <> show s
+    Var      n o s -> "var "  <> n <> " " <> show o <> " " <> show s
+    RefVar   n o s -> "ref "  <> n <> " " <> show o <> " " <> show s
+    FloatVar n o s -> "fvar " <> n <> " " <> show o <> " " <> show s
     x := op       -> emit x <> " := " <> emit op
     x :=# (b, o)  -> emit x <> " := " <> emit b <> "[" <> emit o <> "]"
     (b, o) :#= x  -> emit b <> "[" <> emit o <> "]" <> " := " <> emit x
@@ -225,7 +227,7 @@ instance Emit BOp where
   emit = (fmap toLower) . show
 
 data UOp
-  = NegF | NegI | BNot | Id
+  = NegF | NegI | BNot | ItoF | FtoI | Id
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 instance Emit UOp where
@@ -233,6 +235,8 @@ instance Emit UOp where
     NegF -> "negf "
     NegI -> "negi "
     BNot -> "bnot "
+    ItoF -> "itof "
+    FtoI -> "ftoi "
     Id   -> ""
 
 

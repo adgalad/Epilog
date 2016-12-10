@@ -215,7 +215,7 @@ showS t = show t <> case t of
     _ -> " bytes"
 
 
-boolT, charT, intT, floatT, stringT, voidT :: Type
+boolT, charT, intT, floatT, stringT, voidT, ptrT :: Type
 boolT   = Basic   EpBoolean   0 0
 charT   = Basic   EpCharacter 0 0
 floatT  = Basic   EpFloat     0 0

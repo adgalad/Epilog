@@ -1,9 +1,9 @@
-/* Cálculo de Raíz Cuadrada por el Método de Heron.
+/* Calculo de Raiz Cuadrada por el Metodo de Heron.
  *
- * El programa debe operar en un ciclo infinito en el cual solicita un número
- * en punto flotante no negativo, y muestra la raíz cuadrada calculada según
- * el método descrito, con una precisión de un millonésimo, hasta que el
+ * El programa debe operar en un ciclo infinito en el cual solicita un numero
+ * en punto flotante no negativo, y muestra la raiz cuadrada calculada segun
+ * el metodo descrito, con una precision de un millonesimo, hasta que el
  * usuario indique que no quiere continuar.
- * El cálculo de la raíz cuadrada debe estar en una función separada,
+ * El calculo de la raiz cuadrada debe estar en una funcion separada,
  * usando pasaje por valor.
  */

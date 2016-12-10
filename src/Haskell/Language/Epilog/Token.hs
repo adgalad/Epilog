@@ -28,6 +28,9 @@ data Token
     | TokenPlus | TokenMinus | TokenTimes | TokenFloatDiv
     | TokenIntDiv | TokenRem
 
+    ---- Conversion
+    | TokenToFloat | TokenToInteger | TokenToCharacter | TokenToBoolean
+
     ---- Relational
     | TokenLT | TokenLE | TokenGT | TokenGE
     | TokenEQ | TokenNE
@@ -119,6 +122,12 @@ instance Show Token where
         TokenFloatDiv -> "/"
         TokenIntDiv   -> "div"
         TokenRem      -> "rem"
+
+    ---- Conversion
+        TokenToFloat     -> "toFloat"
+        TokenToInteger   -> "toInteger"
+        TokenToCharacter -> "toCharacter"
+        TokenToBoolean   -> "toBoolean"
 
     ---- Relational
         TokenLT -> "<"

@@ -70,6 +70,12 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
     div             { TokenIntDiv   :@ _ }
     rem             { TokenRem      :@ _ }
 
+    ---- Conversion
+    toF             { TokenToFloat     :@ _ }
+    toI             { TokenToInteger   :@ _ }
+    toC             { TokenToCharacter :@ _ }
+    toB             { TokenToBoolean   :@ _ }
+
     ---- Relational
     "<"             { TokenLT :@ _ }
     "=<"            { TokenLE :@ _ }
@@ -628,6 +634,10 @@ Exp
     | Exp div Exp                   {% checkBinOp (pos $2) IntDiv   $1 $3 }
     | Exp rem Exp                   {% checkBinOp (pos $2) Rem      $1 $3 }
     |     "-" Exp %prec NEG         {% checkUnOp  (pos $1) Uminus   $2 }
+    |     toF Exp %prec NEG         {% checkUnOp  (pos $1) ToF      $2 }
+    |     toI Exp %prec NEG         {% checkUnOp  (pos $1) ToI      $2 }
+    |     toC Exp %prec NEG         {% checkUnOp  (pos $1) ToC      $2 }
+    |     toB Exp %prec NEG         {% checkUnOp  (pos $1) ToB      $2 }
 
     ---- Relational
     | Exp "<"  Exp                  {% checkBinOp (pos $2) LTop $1 $3 }

@@ -1,8 +1,9 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE MultiWayIf      #-}
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE OverloadedLists #-}
-{-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE MultiWayIf       #-}
+{-# LANGUAGE NamedFieldPuns   #-}
+{-# LANGUAGE OverloadedLists  #-}
+{-# LANGUAGE PostfixOperators #-}
+{-# LANGUAGE TupleSections    #-}
 
 module Language.Epilog.MIPS.Gmips
   ( Gmips (..)
@@ -13,19 +14,22 @@ import           Language.Epilog.IR.TAC     hiding (Comment)
 import qualified Language.Epilog.IR.TAC     as TAC (TAC (Comment))
 import           Language.Epilog.MIPS.MIPS
 import           Language.Epilog.MIPS.Monad
-import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import           Control.Lens               (use, (%=), (.=), (<-=))
-import           Data.Array.IO              (IOArray)
+import           Control.Lens               (at, use, (%=), (.=), (<-=), (?=))
 import           Data.Array.MArray          (readArray, writeArray)
-import qualified Data.Map                   as Map (empty, insert, lookup, delete, toList)
+import           Data.List                  ((\\))
+import qualified Data.Map                   as Map (empty, insert, lookup, size)
 import           Data.Maybe                 (fromMaybe)
 --------------------------------------------------------------------------------
-import           Debug.Trace                (traceM)
+import           Debug.Trace                (traceM, trace)
 --------------------------------------------------------------------------------
 
--- spill :: Register
--- spill = undefined
+data Except a = Except a
+
+except :: a -> Except a
+except =  Except
+
+--------------------------------------------------------------------------------
 
 data TAC'
   = IT TAC
@@ -37,167 +41,217 @@ instance Emit TAC' where
     TT t -> emit t
 
 class GetReg i where
-  getReg1 :: i -> MIPSMonad (Register)
+  getReg1 :: i -> MIPSMonad  Register
+  getReg1Read :: i -> MIPSMonad  Register
   getReg2 :: i -> MIPSMonad (Register, Register)
+  getReg2Read :: i -> MIPSMonad (Register, Register)
   getReg3 :: i -> MIPSMonad (Register, Register, Register)
+  getReg3Read :: i -> MIPSMonad (Register, Register, Register)
 
 instance GetReg TAC where
   getReg1 = getReg1' . IT
+  getReg1Read = getReg1Read' . IT
   getReg2 = getReg2' . IT
+  getReg2Read = getReg2Read' . IT
   getReg3 = getReg3' . IT
+  getReg3Read = getReg3Read' . IT
 
 instance GetReg Terminator where
   getReg1 = getReg1' . TT
+  getReg1Read = getReg1Read' . TT
   getReg2 = getReg2' . TT
+  getReg2Read = getReg2Read' . TT
   getReg3 = getReg3' . TT
+  getReg3Read = getReg3Read' . TT
 
 instance GetReg TAC' where
   getReg1 = getReg1'
+  getReg1Read = getReg1Read'
   getReg2 = getReg2'
+  getReg2Read = getReg2Read'
   getReg3 = getReg3'
+  getReg3Read = getReg3Read'
+
+getReg3Read' :: TAC' -> MIPSMonad (Register, Register, Register)
+getReg3Read' = undefined
 
 getReg3' :: TAC' -> MIPSMonad (Register, Register, Register)
 getReg3' t = do
   vd <- use variables
-  h  <- use home
   let
     (op1, op2, op3) = case t of
-      IT (a := B o b c) -> (a, b, c)
-      IT (a :=# (b, c)) -> (a, b, c)
+      IT (a := B _o b c) -> (a, b, c)
+      -- IT (a :=# (b, c)) -> (a, b, c)
       -- (_, _) :#= _ -> (a, b, c) -- FIXME!!!
-  rd1 <- use $ if isFloat op1 then floatregs else registers
-  rd2 <- use $ if isFloat op2 then floatregs else registers
-  rd3 <- use $ if isFloat op2 then floatregs else registers
-  ss1 <- cost op1
-  ss2 <- cost op2
-  ss3 <- cost op3
-  if
-    | op1 == op2 && op1 == op3 -> do
-        x <- case op1 `Map.lookup` vd of
-          Nothing -> do
-            x <- freshReg op1
-            load x op1
-            variables %= Map.insert op1 x
-            pure x
-          Just x -> pure x
 
-        liftIO $ writeArray rd1 (num x) (RegDesc [op1] ss1 True)
+  if| op1 == op2 && op1 == op3 -> do
+      x <- case op1 `Map.lookup` vd of
+        Nothing -> do
+          x <- freshReg op1
+          load x op1
+          pure x
 
-        pure (x, x, x)
+        Just x -> do
+          spill' x (except op1)
+          pure x
+
+      x `nowHas` (Dirty, op1)
+      pure (x, x, x)
 
     | op1 == op2 -> do
-      x <- case op1 `Map.lookup` vd of
-        Nothing -> do 
-          x <- freshReg op1
-          variables %= Map.insert op1 x
-          pure x
-        Just x  -> pure x
-      
-      liftIO $ writeArray rd1 (num x) (RegDesc [op1] ss1 True)
-      
       y <- case op3 `Map.lookup` vd of
         Nothing -> do
-          y <- freshReg' [num x] op3
+          y <- case op1 `Map.lookup` vd of
+            Nothing -> freshReg op3
+            Just x  -> freshReg' op3 (except [x])
           load y op3
-          variables %= Map.insert op3 y
-          liftIO $ writeArray rd3 (num y) (RegDesc [op3] ss3 True)
           pure y
+
         Just y -> pure y
 
+      x <- case op1 `Map.lookup` vd of
+        Nothing -> do
+          x <- freshReg' op1 (except [y])
+          load x op1
+          pure x
+        Just x -> do
+          spill' x (except op1) -- We do this since x/op1 is the target
+          pure x
+
+      x `nowHas` (Dirty, op1)
       pure (x, x, y)
 
     | op1 == op3 -> do
-      x <- case op1 `Map.lookup` vd of
-        Nothing -> do 
-          x <- freshReg op1
-          variables %= Map.insert op1 x
-          pure x
-        Just x  -> pure x
-      liftIO $ writeArray rd1 (num x) (RegDesc [op1] ss1 True)
-      
       y <- case op2 `Map.lookup` vd of
         Nothing -> do
-          y <- freshReg' [num x] op2
+          y <- case op1 `Map.lookup` vd of
+            Nothing -> freshReg op2
+            Just x  -> freshReg' op2 (except [x])
           load y op2
-          variables %= Map.insert op2 y
-          liftIO $ writeArray rd2 (num y) (RegDesc [op2] ss2 True)
           pure y
+
         Just y -> pure y
-      
-      
-      
+
+      x <- case op1 `Map.lookup` vd of
+        Nothing -> do
+          x <- freshReg' op1 (except [y])
+          load x op1
+          pure x
+        Just x -> do
+          spill' x (except op1) -- We do this since x/op1 is the target
+          pure x
+
+      x `nowHas` (Dirty, op1)
       pure (x, y, x)
 
-    | otherwise -> do
-      x <- case op1 `Map.lookup` vd of
-        Nothing -> do 
-          x <- freshReg op1
-          variables %= Map.insert op1 x
-          pure x
-        Just x  -> pure x
-      liftIO $ writeArray rd1 (num x) (RegDesc [op1] ss1 True)
-      
+    | otherwise {- op2 == op3 || All different -} -> do
       (y, z) <- if op2 == op3
-        then do
-          y <- case op2 `Map.lookup` vd of
-            Nothing -> do
-              y <- freshReg' [num x] op2
-              load y op2
-              variables %= Map.insert op2 y
-              liftIO $ writeArray rd2 (num y) (RegDesc [op2] ss2 True)
-              pure y
-            Just y -> pure y
-          
-          pure (y, y)
-        
+        then case op2 `Map.lookup` vd of
+          Nothing -> do
+            y <- case op1 `Map.lookup` vd of
+              Nothing -> freshReg  op2
+              Just x  -> freshReg' op2 (except [x])
+            load y op2
+            pure (y, y)
+          Just y -> pure (y, y)
+
         else do
           y <- case op2 `Map.lookup` vd of
             Nothing -> do
-              y <- freshReg' [num x] op2
+              y <- case (op1 `Map.lookup` vd, op3 `Map.lookup` vd) of
+                (Nothing, Nothing) -> freshReg  op2
+                (Just x , Nothing) -> freshReg' op2 (except [x])
+                (Nothing, Just z ) -> freshReg' op2 (except [z])
+                (Just x , Just z ) -> freshReg' op2 (except [x, z])
               load y op2
-              variables %= Map.insert op2 y
-              liftIO $ writeArray rd2 (num y) (RegDesc [op2] ss2 True)
               pure y
+
             Just y -> pure y
-          
-          z <- do 
-            case op3 `Map.lookup` vd of
-              Nothing -> do
-                z <- freshReg' (num <$> [x, y]) op3
-                load z op3
-                variables %= Map.insert op3 z
-                liftIO $ writeArray rd3 (num z) (RegDesc [op3] ss3 True)
-                pure z
-              Just z -> pure z
+
+          z <- case op3 `Map.lookup` vd of
+            Nothing -> do
+              z <- case op1 `Map.lookup` vd of
+                Nothing -> freshReg' op3 (except [y])
+                Just x  -> freshReg' op3 (except [x, y])
+              load z op3
+              pure z
+
+            Just z -> pure z
+
           pure (y, z)
 
-      
+      x <- case op1 `Map.lookup` vd of
+        Nothing -> do
+          x <- freshReg' op1 (except [y, z])
+          op1 `nowAt` x -- Don't load it, it's going to be overwritten!
+          -- No need to spill here, it's guaranteed fresh.
+          pure x
+        Just x -> do
+          spill' x (except op1) -- We do this since x/op1 is the target.
+          pure x
+
+      x `nowHas` (Dirty, op1)
+
+        -- Any other variable that lived here, now doesn't, and op1 must be
+        -- stored to memory eventually.
       pure (x, y, z)
+
+getReg2Read' :: TAC' -> MIPSMonad (Register, Register)
+getReg2Read' t = do
+  vd <- use variables
+
+  let
+    (op1, op2) = case t of
+      TT (CondBr _ a b _ _)  -> (a, b)
+
+  if op1 == op2
+    then case op1 `Map.lookup` vd of
+      Nothing -> do
+        y <- freshReg op1
+        load y op1
+        pure (y, y)
+      Just y -> pure (y, y)
+
+    else do
+      y <- case op1 `Map.lookup` vd of
+        Nothing -> do
+          y <- case op2 `Map.lookup` vd of
+            Nothing -> freshReg  op1
+            Just z  -> freshReg' op1 (except [z])
+          load y op1
+          pure y
+
+        Just y -> pure y
+
+      z <- case op2 `Map.lookup` vd of
+        Nothing -> do
+          z <- freshReg' op2 (except [y])
+          load z op2
+          pure z
+
+        Just z -> pure z
+
+      pure (y, z)
+
 
 getReg2' :: TAC' -> MIPSMonad (Register, Register)
 getReg2' t = do
   vd <- use variables
-  h  <- use home
-  
+
   let
     (op1, op2) = case t of
-      IT (a := B o b (C _))  -> (a, b)
-      IT (a := B o (C _) b)  -> (a, b)
-      IT (a := U o b    )    -> (a, b)
-      IT (a :=@ ((R  _), b)) -> (a, b)
-      IT (a :=@ ((RF _), b)) -> (a, b)
-      IT (a :=# (b, C _))    -> (a, b)
-      IT (a :=* b       )    -> (a, b)
+      IT (a := B _o b (C _)) -> (a, b)
+      IT (a := B _o (C _) b) -> (a, b)
+      IT (a := U _o b    )   -> (a, b)
+      IT (a :=@ (R  _, b))   -> (a, b)
+      IT (a :=@ (RF _, b))   -> (a, b)
+      -- IT (a :=# (b, C _))    -> (a, b)
+      -- IT (a :=* b       )    -> (a, b)
       -- IT ((a, C _) :#= b)  -> (a, b) -- FIXME!!!
       -- IT (a :*= b       )  -> (a, b) -- FIXME!!!
-      TT (CondBr _ a b _ _)  -> (a, b)
-      IT t -> internal $ emit t
-      TT t -> internal $ emit t
-
-  rd1 <- use $ if isFloat op1 then floatregs else registers
-  rd2 <- use $ if isFloat op2 then floatregs else registers
-  ss1 <- cost op1
-  ss2 <- cost op2
+      -- TT (CondBr _ a b _ _)  -> (a, b)
+      IT _                   -> internal $ emit t
+      TT _                   -> internal $ emit t
 
   if op1 == op2
     then do
@@ -205,86 +259,106 @@ getReg2' t = do
         Nothing -> do
           x <- freshReg op1
           load x op1
-          variables %= Map.insert op1 x
           pure x
-        Just x -> pure x
-      pure (x, x)
-
-    else do
-      case op1 `Map.lookup` vd of
-        Nothing -> do
-          x <- freshReg op1
-          variables %= Map.insert op1 x
-          liftIO $ writeArray rd1 (num x) (RegDesc [op1] ss1 True)
-          case op2 `Map.lookup` vd of
-            Just y -> do
-              pure (x, y)
-            Nothing -> do
-              y <- freshReg' [num x] op2 -- spill x op1
-              load y op2
-              variables %= Map.insert op2 y
-              liftIO $ writeArray rd2 (num y) (RegDesc [op2] ss2 True)
-              pure (x, y)
 
         Just x -> do
-          liftIO $ writeArray rd1 (num x) (RegDesc [op1] ss1 True)
-          case op2 `Map.lookup` vd of
-            Just y  -> pure (x, y)
-            Nothing -> do
-              y <- freshReg' [num x] op2 -- spill x op1
-              load y op2
-              variables %= Map.insert op2 y
-              liftIO $ writeArray rd2 (num y) (RegDesc [op2] ss2 True)
-              pure (x, y)
+          spill' x (except op1)
+          pure x
+
+      x `nowHas` (Dirty, op1)
+      pure (x, x)
+
+    else {- different ops -} do
+      y <- case op2 `Map.lookup` vd of
+        Nothing -> do
+          y <- case op1 `Map.lookup` vd of
+            Nothing -> freshReg  op2
+            Just x  -> freshReg' op2 (except [x])
+          load y op2
+          pure y
+        Just y -> pure y
+
+      x <- case op1 `Map.lookup` vd of
+        Nothing -> do
+          x <- freshReg' op1 (except [y])
+          op1 `nowAt` x -- Don't load it, it's going to be overwritten!
+          -- No need to spill here, it's guaranteed fresh.
+          pure x
+        Just x -> do
+          spill' x (except op1)
+          pure x
+
+      x `nowHas` (Dirty, op1)
+      -- Any other variable that lived here, now doesn't, and op1 must be
+      -- stored to memory eventually.
+      pure (x, y)
 
 getReg1' :: TAC' -> MIPSMonad Register
 getReg1' t = do
   vd <- use variables
-  h  <- use home
-  
+
   let
     op = case t of
       -- Special case (value)
-      IT (x := B o (C _) (C _)) -> x
-      IT (x := U o (C _)) -> x
-      IT (_ := U Id x)    -> x
-      
-      IT (Param (C _)   ) -> internal "Constant Param"
-      IT (Param x       ) -> x
-      IT (Answer (C _)  ) -> internal "Constant Answer"
-      IT (Answer x      ) -> x
+      IT (x := B _o (C _) (C _)) -> x
+      IT (x := U _o (C _))       -> x
 
-      IT (x :=@ (R  _,C _)) -> x
-      IT (x :=@ (RF _,C _)) -> x
-      IT (x :=& R name  ) -> x
-      IT (x :<- _       ) -> x
+      -- IT (Param (C _)   )       -> internal "Constant Param"
+      -- IT (Param x       )       -> x
+      -- IT (Answer (C _)  )       -> internal "Constant Answer"
+      -- IT (Answer x      )       -> x
 
-      TT (IfBr x _ _)     -> x
-      TT (CondBr _ x (C _) _ _) -> x
-      TT (CondBr _ (C _) x _ _) -> x
+      IT (x :=@ (R  _,C _))      -> x
+      IT (x :=@ (RF _,C _))      -> x
+      IT (x :=& R _name  )       -> x
+      IT (x :<- _       )        -> x
 
-  rd <- use $ if isFloat op then floatregs else registers
-  ss' <- cost op
+      _ -> trace (emit t) undefined
+
+      -- TT (IfBr x _ _)           -> x
+      -- TT (CondBr _ x (C _) _ _) -> x
+      -- TT (CondBr _ (C _) x _ _) -> x
 
   x <- case op `Map.lookup` vd of
     Nothing -> do
       x <- freshReg op
-      variables %= Map.insert op x
-      when (t `reading` op) $ load x op
+      op `nowAt` x -- Don't load it, it's going to be overwritten!
+      -- No need to spill here, it's guaranteed fresh.
       pure x
 
     Just x -> do
+      spill' x (except op)
       pure x
-  
-  case t of
-    IT (Param  _ )   -> pure ()
-    IT (Answer _ )   -> pure ()
-    IT (_ := U Id _) -> do
-      RegDesc{values, ss} <- liftIO $ readArray rd (num x)
-      liftIO $ writeArray rd (num x) (RegDesc (op:values) (ss'+ss) True)
-    _ -> liftIO $ writeArray rd (num x) (RegDesc [op] ss' True)
+
+  x `nowHas` (Dirty, op)
 
   pure x
+
+getReg1Read' :: TAC' -> MIPSMonad Register
+getReg1Read' t = do
+  vd <- use variables
+
+  let
+    op = case t of
+      IT (_ := U Id x)          -> x
+
+      IT (Param (C _)   )       -> internal "Constant Param"
+      IT (Param x       )       -> x
+      IT (Answer (C _)  )       -> internal "Constant Answer"
+      IT (Answer x      )       -> x
+
+      TT (IfBr x _ _)           -> x
+      TT (CondBr _ x (C _) _ _) -> x
+      TT (CondBr _ (C _) x _ _) -> x
+
+  case op `Map.lookup` vd of
+    Nothing -> do
+      x <- freshReg op
+      load x op
+      -- No need to spill here, it's guaranteed fresh.
+      pure x
+
+    Just x -> pure x
 
 load :: Register -> Operand -> MIPSMonad ()
 load r op = do
@@ -294,145 +368,75 @@ load r op = do
       RF name -> LoadFG r name
       R name  -> LoadWG r name
       _ -> internal $
-        "Reading from Constant or unavailable Temp " <> emit op
-    Just offset -> tell1 $ if isFloat op 
-      then LoadF r (offset, FP)
-      else LoadW r (offset, FP)
+        "Loading Constant or unavailable Temp " <> emit op
+
+    Just offset ->
+      tell1 $ (if isFloatReg r then LoadF else LoadW) r (offset, FP)
+
+  r `nowHas` (Clean, op)
+  op `nowAt` r
 
 
 
 cost :: Operand -> MIPSMonad Word32
 cost op = do
-  h <- use home  
-  pure $ if temporary op && isNothing (op `Map.lookup` h) 
-    then 10 
+  h <- use home
+  pure $ if temporary op && isNothing (op `Map.lookup` h)
+    then 10
     else 1
 
   where
     temporary :: Operand -> Bool
     temporary = \case
-      T _ -> True
+      T  _ -> True
+      TF _ -> True
       _ -> False
 
-reading :: TAC' -> Operand -> Bool
-reading t op = case t of
-  IT (Param  x    ) -> x == op
-  IT (Answer x    ) -> x == op
-
-  IT (_ :=& _     ) -> False
-  IT (_ :<- _     ) -> False
-  IT (Call _      ) -> False
-
-  IT (_ := U o x  ) -> x == op
-  IT (_ := B o x y) -> x == op || y == op
-
-  IT (_ :=# (x, y)) -> x == op || y == op
-  IT ((x, y) :#= z) -> x == op || y == op || z == op
-  IT (_ :=* x     ) -> x == op
-  IT (x :*= y     ) -> x == op || y == op
-
-  TT (Br _)             -> False
-  TT (IfBr x _ _)       -> x == op
-  TT (CondBr _ x y _ _) -> x == op || y == op
-  TT (Return)           -> False
-  TT (Exit)             -> False
-
--- writing :: TAC' -> Operand -> Bool
--- writing t op = case t of
---   IT (Param  x    ) -> False
---   IT (Answer x    ) -> False
-
---   IT (x :=& _     ) -> x == op
---   IT (x :<- _     ) -> x == op
---   IT (Call _      ) -> False
-
---   IT (x := U o _  ) -> x == op
---   IT (x := B o _ _) -> x == op
-
---   IT (x :=# (_, _)) -> x == op
---   IT ((x, y) :#= z) -> False
---   IT (x :=* _     ) -> x == op
---   IT (_ :*= _     ) -> False
-
-isFloat = \case
-    RF _ -> True
-    TF _ -> True
-    _    -> False
-
-
--- freshRegs :: Int -> MIPSMonad [ Word32 ]
--- freshRegs 1 = (:[]) <$> freshReg
--- freshRegs n = do
---   rs <- freshRegs (n-1)
---   r  <- freshReg' rs
---   pure $ r : rs
+isFloatOp :: Operand -> Bool
+isFloatOp = \case
+  RF _ -> True
+  TF _ -> True
+  _    -> False
 
 freshReg :: Operand -> MIPSMonad Register
-freshReg = freshReg' []
+freshReg op = freshReg' op (except [])
 
-freshReg' :: [ Word32 ] -> Operand -> MIPSMonad Register
-freshReg' exceptions op = do
-  rd <- if isFloat op
-    then use floatregs
-    else use registers 
-
-  h  <- use home
-  n  <- fromMaybe
-    (internal $ "couldn't find a fresh reg meeting exceptions " <> show exceptions) <$>
-    (min' rd $ if isFloat op then 30 else 21)
-  d@RegDesc {values, dirty} <- liftIO $ readArray rd n
-  
-  when dirty $ do
-    liftIO $ writeArray rd n d { dirty = False }
-    forM_ values $ \v -> do
-      case v `Map.lookup` h of
-        Nothing     -> case v of
-          (R  name) -> tell1 $ StoreWG (General n) name
-          (RF name) -> tell1 $ StoreFG (FloatP n) name
-
-          temp@(T _)  -> do
-            tell [ BinOpi AddI SP SP (IC $ -4)
-                 , StoreW (General n) (0, SP) ]
-            toffs <- vsp <-= 4
-            home %= Map.insert temp toffs
-
-          temp@(TF _)  -> do
-            tell [ BinOpi AddI SP SP (IC $ -4)
-                 , StoreF (FloatP n) (0, SP) ]
-            toffs <- vsp <-= 4
-            home %= Map.insert temp toffs
-
-          _        -> internal "trying to save a constant operand as global 2"
-        Just offset ->
-          tell1 $ if isFloat op
-            then StoreF (FloatP  n) (offset, FP)
-            else StoreW (General n) (offset, FP)
-      variables %= Map.delete v
-  pure $ if isFloat op
-    then FloatP n
-    else General n 
+freshReg' :: Operand -> Except [Register] -> MIPSMonad Register
+freshReg' op (Except exceptions) = do
+  r <- fromMaybe msg <$> min'
+  spill r
+  pure r
 
   where
-    min' :: IOArray Word32 RegDesc -> Word32 -> MIPSMonad (Maybe Word32)
-    min' regs n = min'' 0 Nothing
+    msg = internal $
+      "couldn't find a fresh reg meeting exceptions " <> show exceptions
 
+    min' :: MIPSMonad (Maybe Register)
+    min' = fmap (if isFloatOp op then mkFloatR else mkGeneral) <$>
+      min'' first Nothing
 
-      where
-        min'' :: Word32 -> (Maybe (Word32, Word32)) -> MIPSMonad (Maybe Word32)
-        min'' i mb | i == n = case mb of 
-          (Just (b, bc)) -> pure . Just $ b
-          Nothing        -> pure Nothing
-        min'' i  mb = if i `elem` exceptions
-          then min'' (succ i) mb
-          else do
-            ri <- liftIO $ readArray regs i
-            if (not (dirty ri) || ss ri == 0)
-              then pure (Just i)
-              else min'' (i+1) $ case mb of
-                Nothing      -> Just (i, ss ri)
-                Just (b, bc) -> Just $ if ss ri < bc
-                  then (i, ss ri)
-                  else (b, bc)
+    first, last' :: Word32
+    (first, last') = if isFloatOp op
+      then (nGeneralRegs, nTotalRegs)
+      else (0, nGeneralRegs)
+
+    min'' :: Word32 -> Maybe (Word32, Word32) -> MIPSMonad (Maybe Word32)
+    min'' i mb | i == last' = case mb of
+      (Just (b, _bc)) -> pure . Just $ b
+      Nothing         -> pure Nothing
+    min'' i  mb = if i `elem` (num <$> exceptions)
+      then min'' (succ i) mb
+      else do
+        regs <- use registers
+        ri <- liftIO $ readArray regs i
+        if not (dirty ri) || ss ri == 0
+          then pure (Just i)
+          else min'' (i+1) $ case mb of
+            Nothing      -> Just (i, ss ri)
+            Just (b, bc) -> Just $ if ss ri < bc
+              then (i, ss ri)
+              else (b, bc)
+
 
 class Gmips a where
   gmips :: a -> MIPSMonad ()
@@ -440,7 +444,7 @@ class Gmips a where
 instance Gmips Program where
   gmips Program { datas, modules } = do
     unless (null datas) $ do
-      tell 
+      tell
         [ DataSection
         , Align
         , Data "_base_header" 8
@@ -457,90 +461,104 @@ instance Gmips Program where
       mapM_ gmips modules
 
 instance Gmips Data where
-  gmips VarData { dName, dSpace } = do
-    tell 
-      [ Align
-      , Data dName dSpace ]
-  gmips StringData { dName, dString } = do
-    tell1 $ MString dName dString
+  gmips VarData { dName, dSpace } = tell
+    [ Align
+    , Data dName dSpace ]
+  gmips StringData { dName, dString } = tell1 $ MString dName dString
 
 instance Gmips Module where
   gmips Module { mName, mBlocks } = do
     tell1 $ Comment mName
     mapM_ gmips mBlocks
-    resetRegDescs
-    variables .= Map.empty
-    home      .= Map.empty
+
+    h    <-  use home
+    ssq  <|= fromIntegral (Map.size h * 4)
+    home  .= Map.empty
+
 
 instance Gmips Block where
   gmips Block { lbl, tacs, term } = do
     tell1 $ MLabel lbl
     mapM_ gmips tacs
+    spillAll
     gmips term
+    resetDescs
 
 instance Gmips Terminator where
   gmips term = case term of
     Br dest -> tell1 $ J dest
 
-    IfBr cond trueDest falseDest -> do
-      x <- getReg1 term
+    IfBr _cond trueDest falseDest -> do
+      x <- getReg1Read term
       tell
         [ Bne x Zero trueDest
         , J falseDest ]
 
     CondBr rel op0 op1 trueDest falseDest -> do
-      let 
-        (f, load') = if isFloat op0 
-          then (ScratchF, LoadFI) 
+      let
+        (scratch, load') = if isFloatOp op0
+          then (ScratchF, LoadFI)
           else (Scratch , LoadI)
       (x, y) <- case (op0, op1) of
-        (C c1, C c2) -> do 
-          tell 
-            [ load' (f 1) c1
-            , load' (f 1) c1]
-          pure (f 0, f 1)
-        
-        (   _, C c2) -> do 
-          tell1 $ load' (f 0) c2
-          x <- getReg1 term 
-          pure (x, f 0)
-        
-        (C c1, _   ) -> do 
-          tell1 $ load' (f 0) c1
-          y <- getReg1 term 
-          pure (f 0, y)
-        
-        _            -> getReg2 term
+        (C c0, C c1) -> do
+          traceM $ "forgot to fold " <> emit term <> ", :("
+          tell
+            [ load' (scratch 0) c0
+            , load' (scratch 1) c1 ]
+          pure (scratch 0, scratch 1)
 
+        (   _, C c1) -> do
+          tell1 $ load' (scratch 0) c1
+          x <- getReg1Read term
+          pure (x, scratch 0)
+
+        (C c0, _   ) -> do
+          tell1 $ load' (scratch 0) c0
+          y <- getReg1Read term
+          pure (scratch 0, y)
+
+        _            -> getReg2Read term
 
       case rel of
-        LTF -> undefined -- c.lt.s $f1, $f2 ; bc1t l`
+        LTF -> tell
+          [ Clts x y
+          , Bc1t trueDest ]
 
-        LEF -> undefined -- c.le.s $f1, $f2 ; bc1t l`
+        LEF -> tell
+          [ Cles x y
+          , Bc1t trueDest ]
 
-        GTF -> undefined -- c.lt.s $f2, $f1 ; bc1t l`
+        GTF -> tell
+          [ Clts y x
+          , Bc1t trueDest ]
 
-        GEF -> undefined -- c.le.s $f2, $f1 ; bc1t l`
+        GEF -> tell
+          [ Cles y x
+          , Bc1t trueDest ]
 
-        EQF -> undefined -- c.eq.s $f1, $f2 ; bc1t l`
+        EQF -> tell
+          [ Ceqs x y
+          , Bc1t trueDest ]
 
-        NEF -> undefined -- c.eq.s $f1, $f2 ; bc1f l`
+        NEF -> tell
+          [ Ceqs x y
+          , Bc1f trueDest ]
 
-        LTI -> do
-          tell1 $ Slt (Scratch 0) x y
-          tell1 $ Bne (Scratch 0) Zero trueDest
+        LTI -> tell
+          [ Slt (Scratch 0) x y
+          , Bne (Scratch 0) Zero trueDest ]
 
-        LEI -> do
-          tell1 $ Slt (Scratch 0) y x
-          tell1 $ Beq (Scratch 0) Zero trueDest
+        LEI -> tell
+          [ Slt (Scratch 0) y x
+          , Beq (Scratch 0) Zero trueDest ]
 
-        GTI -> do
-          tell1 $ Slt (Scratch 0) y x
-          tell1 $ Bne (Scratch 0) Zero trueDest
+        GTI -> tell
+          [ Slt (Scratch 0) y x
+          , Bne (Scratch 0) Zero trueDest ]
 
-        GEI -> do
-          tell1 $ Slt (Scratch 0) x y
-          tell1 $ Beq (Scratch 0) Zero trueDest
+        GEI -> tell
+          [ Slt (Scratch 0) x y
+          , Beq (Scratch 0) Zero trueDest ]
 
         EQI ->
           tell1 $ Beq x y trueDest
@@ -548,13 +566,13 @@ instance Gmips Terminator where
         NEI ->
           tell1 $ Bne x y trueDest
 
-        FAI -> do
-          tell1 $ BinOp RemI (Scratch 0) y x
-          tell1 $ Beq (Scratch 0) Zero trueDest
+        FAI -> tell
+          [ BinOp RemI (Scratch 0) y x
+          , Beq (Scratch 0) Zero trueDest ]
 
-        NFI -> do
-          tell1 $ BinOp RemI (Scratch 0) y x
-          tell1 $ Bne (Scratch 0) Zero trueDest
+        NFI -> tell
+          [ BinOp RemI (Scratch 0) y x
+          , Bne (Scratch 0) Zero trueDest ]
 
       tell1 $ J falseDest
 
@@ -567,12 +585,12 @@ instance Gmips Terminator where
       , Syscall ]
 
 instance Gmips TAC where
-  gmips tac = (tell1 $ Comment $ "  " <> emit tac) >> case tac of
+  gmips tac = tell1 (Comment $ "  " <> emit tac) >> case tac of
     TAC.Comment str -> tell1 $ Comment str
 
-    Var _ name offs _ t -> case t of 
-      Basic {atom = EpFloat} -> home %= Map.insert (RF  name) offs
-      _                      -> home %= Map.insert (R name) offs
+    Var      name offs _ -> home %= Map.insert (R  name) offs
+    RefVar   name offs _ -> home %= Map.insert (R  name) offs
+    FloatVar name offs _ -> home %= Map.insert (RF name) offs
 
     op := operation -> case operation of
       B o l r
@@ -580,7 +598,7 @@ instance Gmips TAC where
           traceM $ "forgot to fold " <> emit tac <> ", :("
           x <- getReg1 tac
           tell
-            [ LoadI  x   (extract l)
+            [ LoadI  x     (extract l)
             , BinOpi o x x (extract r) ]
         | intconst r -> do
           (x, y) <- getReg2 tac
@@ -607,7 +625,7 @@ instance Gmips TAC where
           tell1 $ BinOp o x y z
 
         where
-          floatconst = \case 
+          floatconst = \case
             C (FC _ ) -> True
             _         -> False
           intconst = \case
@@ -623,54 +641,89 @@ instance Gmips TAC where
         x <- getReg1 tac
         case o of
           NegF -> tell
-            [ LoadFI (ScratchF 0) (IC 0)
+            [ LoadFI (ScratchF 0) (FC 0.0)
             , BinOpi SubF x (ScratchF 0) c ]
           NegI -> tell1 $ BinOpi SubI x Zero c
           BNot -> tell1 $ BinOpi BXor x Zero c
-          Id   -> do 
-            tell1 $ if isFloat op 
-              then LoadFI x c
-              else LoadI  x c
-      U Id u -> do
-        x <- getReg1 tac      
-        variables %= Map.insert op x
+          ItoF -> tell1 $ I2Fi x c
+          FtoI -> tell1 $ F2Ii x c
+          Id   -> tell1 $ if isFloatOp op
+            then LoadFI x c
+            else LoadI  x c
 
-      U o u -> do
+      U Id _u -> do
+        x <- getReg1Read tac
+
+        vd <- use variables
+        case op `Map.lookup` vd of
+          Just x' | x' == x -> pure ()
+
+          Just x' | x' /= x -> do
+            regs <- use registers
+            ssx <- cost op
+            liftIO $ do
+              rd'@RegDesc { values, ss } <- readArray regs (num x')
+              writeArray regs (num x') rd'
+                { values = values \\ [op]
+                , ss = ss - ssx }
+
+              rd@RegDesc { values, ss } <- readArray regs (num x)
+              writeArray regs (num x) rd
+                { values = op : values
+                , ss = ss + ssx
+                , dirtyness = Dirty }
+            op `nowAt` x
+
+          Nothing -> do
+            regs <- use registers
+            ssx <- cost op
+            liftIO $ do
+              rd@RegDesc { values, ss } <- readArray regs (num x)
+              writeArray regs (num x) rd
+                { values = op : values
+                , ss = ss + ssx
+                , dirtyness = Dirty }
+            op `nowAt` x
+
+      U o _u -> do
         (x, y) <- getReg2 tac
         case o of
           NegF -> tell
-            [ LoadFI (ScratchF 0) (IC 0)
+            [ LoadFI (ScratchF 0) (FC 0.0)
             , BinOp SubF x (ScratchF 0) y ]
           NegI -> tell1 $ BinOp SubI x Zero y
           BNot -> tell1 $ BinOp BXor x Zero y
+          ItoF -> tell1 $ I2F x y
+          FtoI -> tell1 $ F2I x y
+          Id   -> internal "Id is a special case"
 
-    _ :=# (_, C (IC n)) -> do
-      (x, y) <- getReg2 tac
-      tell1 $ LoadW x (n, y)
+    -- _ :=# (_, C (IC n)) -> do
+    --   (x, y) <- getReg2 tac
+    --   tell1 $ LoadW x (n, y)
 
-    _ :=# (_, _) -> do
-      (x, y, z) <- getReg3 tac
-      tell
-        [ BinOp AddI (Scratch 0) y z
-        , LoadW x (0, (Scratch 0)) ]
+    -- _ :=# (_, _) -> do
+    --   (x, y, z) <- getReg3 tac
+    --   tell
+    --     [ BinOp AddI (Scratch 0) y z
+    --     , LoadW x (0, (Scratch 0)) ]
 
-    (_, C (IC n)) :#= _ -> do
-      (x, y) <- getReg2 tac
-      tell1 $ StoreW y (n, x)
+    -- (_, C (IC n)) :#= _ -> do
+    --   (x, y) <- getReg2 tac
+    --   tell1 $ StoreW y (n, x)
 
-    (_, _) :#= _ -> do
-      (x, y, z) <- getReg3 tac
-      tell
-        [ BinOp AddI (Scratch 0) x y
-        , StoreW z (0, (Scratch 0)) ]
+    -- (_, _) :#= _ -> do
+    --   (x, y, z) <- getReg3 tac
+    --   tell
+    --     [ BinOp AddI (Scratch 0) x y
+    --     , StoreW z (0, (Scratch 0)) ]
 
-    _ :=* _ -> do
-      (x, y) <- getReg2 tac
-      tell1 $ LoadW x (0, y)
+    -- _ :=* _ -> do
+    --   (x, y) <- getReg2 tac
+    --   tell1 $ LoadW x (0, y)
 
-    _ :*= _ -> do
-      (x, y) <- getReg2 tac
-      tell1 $ StoreW y (0, x)
+    -- _ :*= _ -> do
+    --   (x, y) <- getReg2 tac
+    --   tell1 $ StoreW y (0, x)
 
     _ :=& o@(R name) -> do
       x <- getReg1 tac
@@ -679,7 +732,14 @@ instance Gmips TAC where
         Nothing     -> LoadA x name
         Just offset -> BinOpi AddI x FP (IC offset)
 
-    _ :=& _ -> internal $ "Invalid address-of"
+    _ :=& o@(RF name) -> do
+      x <- getReg1 tac
+      h <- use home
+      tell1 $ case o `Map.lookup` h of
+        Nothing     -> LoadA x name
+        Just offset -> BinOpi AddI x FP (IC offset)
+
+    _ :=& _ -> internal "Invalid address-of"
 
     _ :=@ (r@(R name), C (IC n)) -> do
       h <- use home
@@ -737,7 +797,7 @@ instance Gmips TAC where
           [ BinOpi AddI (Scratch 0) FP (IC offset)
           , BinOp  AddI x (Scratch 0) y ]
 
-    a :=@ (b@(T num), c) -> gmips (a := B AddI b c)
+    a :=@ (b@(T _), c) -> gmips (a := B AddI b c)
 
     _ :=@ (C _, _) -> internal "_ :=@ (Constant, _)"
 
@@ -756,14 +816,13 @@ instance Gmips TAC where
       when fstp $ do
         spillAll
         fstParam .= False
-      
-      x <- getReg1 tac
+
+      x <- getReg1Read tac
 
       tell1 $ BinOpi AddI SP SP (IC $ -4)
-      tell1 $ if isFloat op 
-        then StoreF x (0, SP) 
+      tell1 $ if isFloatOp op
+        then StoreF x (0, SP)
         else StoreW x (0, SP)
-
 
     RefParam o@(R name) -> do
       fstp <- use fstParam
@@ -777,13 +836,11 @@ instance Gmips TAC where
             Nothing     -> LoadA (Scratch 0) name
             Just offset -> BinOpi AddI (Scratch 0) FP (IC offset)
         , StoreW (Scratch 0) (0, SP) ]
-      
- 
 
     RefParam _ -> internal "RefParam (Const/Temp)"
 
-    Call proc -> do 
-      resetRegDescs
+    Call proc -> do
+      resetDescs
       fstParam .= True
       tell
         [ BinOpi SubI SP SP (IC $ 12)
@@ -796,108 +853,117 @@ instance Gmips TAC where
         -- Cleanup
         ]
 
-      
-
     op :<- proc -> do
       x <- getReg1 tac
+      resetDescs
+
+      op `nowAt` x
+      x `nowHas` (Dirty, op)
+
+      fstParam .= True
       tell
-        [ BinOpi SubI SP SP (IC $ 12)
+        [ BinOpi SubI SP SP (IC 12)
         , StoreW FP (0, SP)
         , Jal $ "proc_" <> proc
         -- prolog
         -- ???
         -- profit
         -- epilog
-        , LoadW x (8, FP)
+        , (if isFloatReg x then LoadF else LoadW) x (8, FP)
         -- Cleanup
         ]
 
-    Cleanup n -> do 
-      tell
-        [ LoadW FP (0, FP)
-        , BinOpi AddI SP SP (IC . fromIntegral $ n+12) ]
-      llAllips
-
+    Cleanup n -> tell
+      [ LoadW FP (0, FP)
+      , BinOpi AddI SP SP (IC . fromIntegral $ n+12) ]
 
     Prolog n -> do
-      tell [ Move FP SP
-           , StoreW RA (4, FP)
-           , BinOpi SubI SP SP (IC . fromIntegral $ n) ]
+      tell1 MIPSProlog
       vsp .= fromIntegral (-n)
 
-    Epilog _ -> do
-      tell1 $ Move SP FP
-
+    Epilog _ -> tell1 $ Move SP FP
 
     Answer (C c) -> case c of
-      FC _ -> undefined
+      FC _ -> tell
+        [ LoadFI (ScratchF 0) c
+        , StoreF (ScratchF 0) (8, FP) ]
       _    -> tell
-        [ LoadI (Scratch 0) c
+        [ LoadI  (Scratch 0) c
         , StoreW (Scratch 0) (8, FP) ]
 
     Answer _ -> do
-      x <- getReg1 tac
-      tell1 $ StoreW x (8, FP)
+      x <- getReg1Read tac
+      tell1 $ if isFloatReg x
+        then StoreF x (8, FP)
+        else StoreW x (8, FP)
 
     -- c -> tell1 $ Comment (emit c)
 
-llAllips :: MIPSMonad ()
-llAllips = do
-  rdg <- use registers
-  rdf <- use floatregs
-  vd  <- use variables
-  h   <- use home
-
-  forM_ (Map.toList vd) $ \(op, r) -> do 
-    let 
-      (rd, i, load') = case r of 
-        FloatP  n -> (rdf, n, LoadF)
-        General n -> (rdg, n, LoadW)
-    ss' <- cost op
-    RegDesc {values, ss} <- liftIO $ readArray rd i
-    if ss == 0 
-      then case op `Map.lookup` h of 
-        Nothing -> internal "wut"
-        Just offset -> do
-          liftIO $ writeArray rd i (RegDesc [op] ss' False)
-          tell1 $ load' r (offset, FP)
-      else 
-        liftIO $ writeArray rd i (RegDesc (op:values) (ss + ss') False)
-
+-- `spillAll` spills all variables in all registers.
 spillAll :: MIPSMonad ()
-spillAll = do 
-      rdg <- use registers
-      rdf <- use floatregs
-      cleanReg [0..20] rdg False
-      cleanReg [0..29] rdf True       
-      
-      where 
-        cleanReg :: [ Word32 ] -> IOArray Word32 RegDesc -> Bool -> MIPSMonad ()
-        cleanReg range rd isF = do
-          h <- use home
-          forM_ range $ \i -> do
-            RegDesc {dirty, values} <- liftIO $ readArray rd i
-            when dirty . forM_ values $ \v -> do
-              case v `Map.lookup` h of
-                Nothing     -> case v of
-                  (R  name) -> tell1 $ StoreWG (General i) name
-                  (RF name) -> tell1 $ StoreFG (FloatP i) name
+spillAll = mapM_ spill allRegisters
+  where
+    allRegisters :: [Register]
+    allRegisters = mkRegister <$> [0..nTotalRegs-1]
 
-                  temp@(T _)  -> do
-                    tell [ BinOpi AddI SP SP (IC $ -4)
-                         , StoreW (General i) (0, SP) ]
-                    toffs <- vsp <-= 4
-                    home %= Map.insert temp toffs
+-- `spill r op` spills all variables in register `r`.
+spill :: Register -> MIPSMonad ()
+spill r = spill'' r (except Nothing)
 
-                  temp@(TF _)  -> do
-                    tell [ BinOpi AddI SP SP (IC $ -4)
-                         , StoreF (FloatP i) (0, SP) ]
-                    toffs <- vsp <-= 4
-                    home %= Map.insert temp toffs
+-- `spill' r op` spills all variables in register `r` except `op`.
+spill' :: Register
+       -> Except Operand
+       -> MIPSMonad ()
+spill' r (Except op) = spill'' r (except (Just op))
 
-                  _        -> internal $ "trying to save a constant operand as global " <> emit v
-                Just offset ->
-                  tell1 $ if isF
-                    then StoreF (FloatP  i) (offset, FP)
-                    else StoreW (General i) (offset, FP)
-            
+-- `spill'' r ops` spills all variables in register `r` except those in `ops`.
+spill'' :: Foldable f
+        => Register
+        -> Except (f Operand)
+        -> MIPSMonad ()
+spill'' r (Except ops) = do
+  regs <- use registers
+  h <- use home
+  rd@RegDesc { values } <- liftIO $ readArray regs (num r)
+  when (dirty rd) . forM_ values $ \v -> when (v `notElem` ops) $
+    case v `Map.lookup` h of
+      Nothing     -> case v of
+        (R  name) -> tell1 $ StoreWG r name
+        (RF name) -> tell1 $ StoreFG r name
+
+        temp@(T _)  -> do
+          toffs <- vsp <-= 4
+          tell1 $ StoreW r (toffs, FP)
+          home %= Map.insert temp toffs
+
+        temp@(TF _)  -> do
+          toffs <- vsp <-= 4
+          tell1 $ StoreF r (toffs, FP)
+          home %= Map.insert temp toffs
+
+        _ -> internal $
+          "trying to spill a constant operand" <> emit v
+
+      Just offset ->
+        tell1 $ (if isFloatReg r then StoreF else StoreW) r (offset, FP)
+
+nowAt :: Operand -> Register -> MIPSMonad ()
+op `nowAt` r = variables . at op ?= r
+
+-- nowHas :: Register -> (Dirtyness, op) -> MIPSMonad ()
+-- r `nowHas` (dirty, op) = do
+--   regs <- use registers
+--   ss <- cost op
+--   liftIO $ writeArray regs (num r) (RegDesc [op] ss dirty)
+
+nowHas :: Register -> (Dirtyness, Operand) -> MIPSMonad ()
+r `nowHas` (d, op) = do
+  regs <- use registers
+
+  RegDesc { values } <- liftIO $ readArray regs (num r)
+
+  forM_ values $ \v -> when (v /= op) $
+    variables . at v .= Nothing
+
+  ss <- cost op
+  liftIO $ writeArray regs (num r) (RegDesc [op] ss d)

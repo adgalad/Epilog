@@ -1,8 +1,8 @@
 /% Calculadora
  %
  % Utilice su lenguaje para escribir una calculadora interactiva que pueda
- % sumar, restar, multiplicar y dividir números en punto flotante. Su
- % calculadora debe tener veintiséis (26) variables, con los nombres de a a z,
+ % sumar, restar, multiplicar y dividir numeros en punto flotante. Su
+ % calculadora debe tener veintiseis (26) variables, con los nombres de a a z,
  % naturalmente, las cuales inician con valor cero.
  %/
 
@@ -17,7 +17,7 @@ record token :-
 
 /% case Kind of
  %     0 -> Variable (Info :: Int)
- %     1 -> Número (Info :: Float)
+ %     1 -> Numero (Info :: Float)
  %     2 -> Assignment op =
  %     3 -> Add op +
  %     4 -> Sub op -
@@ -68,15 +68,15 @@ procedure getToken (integer N) :-
     ;  C = '('  -> Tk[N]_Kind is 7
     ;  C = ')'  -> Tk[N]_Kind is 8
     ;  C = '\n' -> Tk[N]_Kind is 9
-    ;  97 <= toInteger (C) andalso toInteger (C) <= 122 ->
+    ;  97 =< toInteger (C) andalso toInteger (C) =< 122 ->
         Tk[N]_Kind is 0, Tk[N]_Info_I is toInteger(C) - 97
-    ;  48 <= toInteger (C) andalso toInteger (C) < 57 ->
+    ;  48 =< toInteger (C) andalso toInteger (C) < 57 ->
         float F is toFloat (toInteger (C) - 48),
         boolean Dot, float Places, 
         boolean Done1
         while not Done1 ->
           C is getChar(),
-          if 48 <= toInteger (C) andalso toInteger (C) < 57 ->
+          if 48 =< toInteger (C) andalso toInteger (C) < 57 ->
             if not Dot -> F is F * 10.0 + toFloat (toInteger (C) - 48)
             ;      Dot -> F is F + toFloat (toInteger (C) - 48) * Places
                         , Places is Places / 10.0

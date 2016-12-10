@@ -24,7 +24,6 @@ __start:
     .globl __eoth
 __eoth:
 
-
     .globl __divZero
 __divZero:
     li   $v0, 4

@@ -13,7 +13,7 @@ import           Language.Epilog.Common
 import           Language.Epilog.IR.Expression
 import           Language.Epilog.IR.Monad
 import           Language.Epilog.IR.TAC          hiding (TAC (Answer, Var))
-import qualified Language.Epilog.IR.TAC          as TAC (TAC (Answer, Var))
+import qualified Language.Epilog.IR.TAC          as TAC (TAC (Answer, Var, FloatVar))
 import           Language.Epilog.Position
 import           Language.Epilog.Type
 --------------------------------------------------------------------------------
@@ -191,7 +191,10 @@ irInstruction = \case
 
   Var { varName, varOffset, varSize, varType } -> do
     varName' <- insertVar varName
-    addTAC $ TAC.Var False varName' (negate $ 4 + varOffset) varSize varType
+
+    addTAC $ (case varType of 
+      Basic {atom = EpFloat} -> TAC.FloatVar
+      _ -> TAC.Var) varName' (negate $ 4 + varOffset) varSize
 
 irGuards :: Label -> [(Position, Expression, IBlock)] -> IRMonad ()
 irGuards _ [] = internal "impossible call to irGuards"

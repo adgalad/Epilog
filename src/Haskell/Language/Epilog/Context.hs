@@ -1015,3 +1015,7 @@ typeUnOp Not    = [ ( boolT,  boolT  ) ]
 typeUnOp Bnot   = [ ( intT,   intT   ) ]
 typeUnOp Uminus = [ ( intT,   intT   )
                   , ( floatT, floatT ) ]
+typeUnOp ToF    = [ (OneOf [        intT, charT, boolT], floatT) ]
+typeUnOp ToI    = [ (OneOf [floatT,       charT, boolT], intT  ) ]
+typeUnOp ToC    = [ (OneOf [floatT, intT,        boolT], charT ) ]
+typeUnOp ToB    = [ (OneOf [floatT, intT, charT       ], boolT ) ]

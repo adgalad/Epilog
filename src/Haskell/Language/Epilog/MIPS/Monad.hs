@@ -8,26 +8,29 @@ module Language.Epilog.MIPS.Monad
   ( MIPSState (..)
   , MIPSMonad
   , RegDesc (..)
+  , Dirtyness (..)
+  , dirty
   , runMIPS
   , tell
   , tell1
   , registers
-  , floatregs
   , variables
   , home
   , vsp
+  , ssq
   , fstParam
-  , resetRegDescs
+  , resetDescs
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
-import qualified Language.Epilog.IR.TAC    as IR
+import           Language.Epilog.IR.TAC    (Operand)
 import           Language.Epilog.MIPS.MIPS
 --------------------------------------------------------------------------------
-import           Control.Lens              (makeLenses, (.=))
-import           Control.Monad.Trans.RWS   (RWST, execRWST, tell)
+import           Control.Lens              (makeLenses, use, (.=), (<~))
+import           Control.Monad.Trans.RWS   (RWST, evalRWST, tell)
 import           Data.Array.IO             (IOArray)
 import           Data.Array.MArray         (newArray)
+-- import           Data.List.NonEmpty        (NonEmpty (..))
 import qualified Data.Map                  as Map (empty)
 import qualified Data.Sequence             as Seq (singleton)
 --------------------------------------------------------------------------------
@@ -37,39 +40,43 @@ type MIPSMonad a = RWST () (Seq MIPS) MIPSState IO a
 tell1 :: Monad m => w -> RWST r (Seq w) s m ()
 tell1 = tell . Seq.singleton
 
+data Dirtyness = Clean | Dirty deriving (Eq, Show)
+
 data RegDesc = RegDesc
-  { values :: [IR.Operand]
-  , ss     :: Word32
-  , dirty  :: Bool }
+  { values    :: [Operand]
+  , ss        :: Word32
+  , dirtyness :: Dirtyness }
+
+dirty :: RegDesc -> Bool
+dirty = (== Dirty) . dirtyness
 
 data MIPSState = MIPSState
-  { _registers :: IOArray Word32     RegDesc
-  , _floatregs :: IOArray Word32     RegDesc
-  , _variables :: Map     IR.Operand Register
-  , _home      :: Map     IR.Operand Offset
-  , _vsp       :: Int32 
+  { _registers :: IOArray Word32  RegDesc
+  , _variables :: Map     Operand Register
+  , _home      :: Map     Operand Offset
+  , _vsp       :: Int32
+  , _ssq       :: [Int32] -- Stack Size Queue
   , _fstParam  :: Bool }
 
 
 initialMIPS :: MIPSState
 initialMIPS = MIPSState
   { _registers = undefined
-  , _floatregs = undefined
   , _variables = Map.empty
   , _home      = Map.empty
   , _vsp       = 0
-  , _fstParam = False}
+  , _ssq       = []
+  , _fstParam  = False}
 
 makeLenses ''MIPSState
 
-resetRegDescs :: MIPSMonad ()
-resetRegDescs = do
-  x <- liftIO $ newArray (0, 20) (RegDesc [] 0 False)
-  y <- liftIO $ newArray (0, 31) (RegDesc [] 0 False)
-  registers  .= x
-  floatregs  .= y
+resetDescs :: MIPSMonad ()
+resetDescs = do
+  registers  <~ liftIO (newArray (0, 50) (RegDesc [] 0 Clean))
+  variables  .= Map.empty
 
-runMIPS :: (a -> MIPSMonad ()) -> a -> IO (Seq MIPS)
-runMIPS x inp = snd <$> execRWST x' () initialMIPS
+runMIPS :: (a -> MIPSMonad ()) -> a -> IO ([Int32], Seq MIPS)
+runMIPS x inp = evalRWST x' () initialMIPS
   where
-    x' = resetRegDescs >> x inp
+    x' :: MIPSMonad [Int32]
+    x' = resetDescs >> x inp >> fmap (tail . reverse) (use ssq)

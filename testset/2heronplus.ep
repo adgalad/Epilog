@@ -1,38 +1,38 @@
-/% Cálculo de Raíz Cuadrada por el Método de Heron.
+/% Calculo de Raiz Cuadrada por el Metodo de Heron.
  %
- % El programa debe operar en un ciclo infinito en el cual solicita un número
- % en punto flotante no negativo, y muestra la raíz cuadrada calculada según
- % el método descrito, con una precisión de un millonésimo, hasta que el
+ % El programa debe operar en un ciclo infinito en el cual solicita un numero
+ % en punto flotante no negativo, y muestra la raiz cuadrada calculada segun
+ % el metodo descrito, con una precision de un millonesimo, hasta que el
  % usuario indique que no quiere continuar.
- % El cálculo de la raíz cuadrada debe estar en una función separada,
+ % El calculo de la raiz cuadrada debe estar en una funcion separada,
  % usando pasaje por valor.
  %/
 
-procedure heron (float X) -> float.
+procedure heron (float X, integer N) -> float.
 
 procedure main () :-
   boolean Done is false,
   integer N,
   float X,
 
-  write "Cálculo de Raíz Enésima por el Método de Herón.",
+  write "Calculo de Raiz Enesima por el Metodo de Heron.\n",
 
   while not Done ->
       write "Introduzca\n"
-    , write "\tun número entero no positivo para salir, o\n"
-    , write "\tun número entero positivo para usarlo como índice.\n"
+    , write "\tun numero entero no positivo para salir, o\n"
+    , write "\tun numero entero positivo para usarlo como indice.\n"
     , write "> "
 
     , read N
 
-    , if N <= 0 -> write "Adios.\n", Done is true
+    , if N =< 0 -> write "Adios.\n", Done is true
       ;  N  > 0 ->
           write "Introduzca\n"
-        , write "\tun número en punto flotante negativo para salir, o\n"
-        , write "\tun número en punto flotante no negativo para usarlo como radicando.\n"
+        , write "\tun numero en punto flotante negativo para salir, o\n"
+        , write "\tun numero en punto flotante no negativo para usarlo como radicando.\n"
         , write "> "
 
-        , read X,
+        , read X
 
         , if X  < 0.0 -> write "Adios.\n", Done is true
           ;  X >= 0.0 -> write "< ", write heron(X, N), write "\n"
@@ -45,10 +45,13 @@ procedure pow (float X, integer N) -> float.
 procedure abs (float X) -> float.
 
 procedure heron (float X, integer N) -> float :-
-  float Rt is 0.0,
+  float Rt is 1.0,
+  float Nf is toFloat N,
 
   while abs((X - pow(Rt, N)) / X) > 0.000001 ->
-    Rt is (pow(Rt, N - 1) + X / pow(Rt, N - 1)) / 2
+    float B is pow(Rt, N - 1),
+    float A is (Nf - 1.0) * Rt,
+    Rt is (A + X / B) / Nf
   end,
 
   answer Rt.
@@ -60,8 +63,11 @@ procedure abs (float X) -> float :-
 
 procedure pow (float X, integer N) -> float :-
   integer I,
+
   float R is X,
-  for I from 1 to N ->
+
+  for I from 2 to N ->
     R is R * X
   end,
+
   answer R.

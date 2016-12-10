@@ -109,6 +109,7 @@ newTemp :: Type -> IRMonad Operand
 newTemp Basic {atom = EpFloat} = TF <$> (tempCount <<+= 1)
 newTemp _                      = T  <$> (tempCount <<+= 1)
 
+newTempG :: IRMonad Operand
 newTempG = newTemp Any
 
 (#) :: Label -> IRMonad ()

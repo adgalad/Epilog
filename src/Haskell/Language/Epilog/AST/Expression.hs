@@ -132,13 +132,21 @@ data UnaryOp
   = Not
   | Bnot
   | Uminus
+  | ToF
+  | ToI
+  | ToC
+  | ToB
   deriving Eq
 
 instance Show UnaryOp where
   show = \case
-    Not         -> "not"
-    Bnot        -> "bnot"
-    Uminus      -> "(-)"
+    Not    -> "not"
+    Bnot   -> "bnot"
+    Uminus -> "(-)"
+    ToF    -> "toFloat"
+    ToI    -> "toInteger"
+    ToC    -> "toCharacter"
+    ToB    -> "toBoolean"
 
 -- Lval ------------------------------------------------------------------------
 

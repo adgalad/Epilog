@@ -2,5 +2,6 @@
 procedure main() :-
 	integer A0 is 0,
 	float B is 3.0,
-	for A0 from 1 to 10 -> write("\n"), write (B + 100.0)
+	for A0 from 1 to 10 -> 
+    write("\n"), write A0, write (B + 100.0)
 	end.
