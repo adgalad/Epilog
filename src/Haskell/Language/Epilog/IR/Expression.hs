@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf       #-}
 {-# LANGUAGE NamedFieldPuns   #-}
 {-# LANGUAGE PostfixOperators #-}
-{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE EmptyCase        #-}
 
 module Language.Epilog.IR.Expression
   ( irExpression
@@ -10,9 +10,10 @@ module Language.Epilog.IR.Expression
   , irLval
   , irLvalAddr
   , Metaoperand (..)
+  , Meta (..)
   ) where
 --------------------------------------------------------------------------------
-import           Language.Epilog.AST.Expression hiding (Not, VarKind(..))
+import           Language.Epilog.AST.Expression hiding (Not, VarKind (..))
 import qualified Language.Epilog.AST.Expression as E (UnaryOp (Not))
 import qualified Language.Epilog.AST.Expression as K (VarKind (..))
 import           Language.Epilog.Common
@@ -39,17 +40,24 @@ irExpression e@Expression { exp', expPos, expType = ty } = case exp' of
   Rval rval -> do
     r <- irLval rval
     case r of
-      Pure op -> pure $ op
+      Single (Pure op) -> pure $ op
 
-      Brackets b off -> do
+      Single (Star op) -> do
+        t <- newTemp ty
+        addTAC $ t :=* op
+        pure t
+
+      Brackets (Pure b) off -> do
         t <- newTemp ty
         addTAC $ t :=# (b, off)
         pure t
 
-      Star op -> do
-        t <- newTemp ty
-        addTAC $ t :=* op
-        pure t
+      Brackets (Star b) off -> do
+        t1 <- newTempG
+        t2 <- newTemp ty
+        addTAC $ t1 := B AddI b off
+        addTAC $ t2 :=* t1
+        pure t2
 
   ECall callName callArgs -> do
     args <- mapM (either irLvalAddr irExpression) callArgs
@@ -352,10 +360,8 @@ irBoolean true false e@Expression { exp', expPos } = case exp' of
 
         _ -> do
 
-          let Basic { atom } = expType exp0
-
           terminate CondBr
-            { rel       = toIRRel atom op
+            { rel       = toIRRel (expType exp0) op
             , op0
             , op1
             , trueDest  = true
@@ -366,52 +372,52 @@ irBoolean true false e@Expression { exp', expPos } = case exp' of
     _     -> internal $ "Non-boolean operator `" <> show op <> "`"
 
 
-toIRRel :: Atom -> BinaryOp -> Rel
-toIRRel atom = \case
+toIRRel :: Type -> BinaryOp -> Rel
+toIRRel t = \case
   LTop     -> if
-    | atom == EpFloat -> LTF
-    | atom `elem` [EpInteger, EpCharacter] -> LTI
+    | t == floatT -> LTF
+    | t `elem` [intT, charT] -> LTI
     | otherwise -> internal "wut?"
 
   LEop     -> if
-    | atom == EpFloat -> LEF
-    | atom `elem` [EpInteger, EpCharacter] -> LEI
+    | t == floatT -> LEF
+    | t `elem` [intT, charT] -> LEI
     | otherwise -> internal "wut?"
 
   GTop     -> if
-    | atom == EpFloat -> GTF
-    | atom `elem` [EpInteger, EpCharacter] -> GTI
+    | t == floatT -> GTF
+    | t `elem` [intT, charT] -> GTI
     | otherwise -> internal "wut?"
 
   GEop     -> if
-    | atom == EpFloat -> GEF
-    | atom `elem` [EpInteger, EpCharacter] -> GEI
+    | t == floatT -> GEF
+    | t `elem` [intT, charT] -> GEI
     | otherwise -> internal "wut?"
 
   EQop     -> if
-    | atom == EpFloat -> EQF
-    | atom `elem` [EpInteger, EpCharacter] -> EQI
+    | t == floatT -> EQF
+    | t `elem` [intT, charT, ptrT] -> EQI
     | otherwise -> internal "wut?"
 
   NEop     -> if
-    | atom == EpFloat -> NEF
-    | atom `elem` [EpInteger, EpCharacter] -> NEI
+    | t == floatT -> NEF
+    | t `elem` [intT, charT, ptrT] -> NEI
     | otherwise -> internal "wut?"
 
   FAop     -> FAI
   NFop     -> NFI
   o        -> internal $ "Non relational operator `" <> show o <> "`"
 
-data Metaoperand
-  = Pure     { op :: Operand}
-  | Brackets { base :: Operand, off :: Operand } -- ^ the offset is in bytes
-  | Star     { op :: Operand}
+
+data Meta
+  = Pure { op :: Operand }
+  | Star { op :: Operand }
   deriving (Eq, Show, Ord)
 
-regKind :: Type -> (String -> Operand)
-regKind = \case
-  Basic {atom = EpFloat} -> RF
-  _                      -> R
+data Metaoperand
+  = Single   { base :: Meta }
+  | Brackets { base :: Meta, off :: Operand } -- ^ the offset is in bytes
+  deriving (Eq, Show, Ord)
 
 irLval :: Lval -> IRMonad Metaoperand
 irLval Lval { lvalType, lval' } = case lval' of
@@ -420,43 +426,39 @@ irLval Lval { lvalType, lval' } = case lval' of
     name' <- getVarName name
 
     pure $ case k of
-      K.RefParam -> Star . regKind ptrT     $ name'
-      _          -> Pure . regKind lvalType $ name'
-
-  Member lval _name 0 -> irLval lval
+      K.RefParam -> Single . Star . R $ name'
+      _          -> 
+        let r = case lvalType of
+              Basic {atom = EpFloat} -> RF
+              _ -> R
+        in Single . Pure . r $ name'
 
   Member lval _name offset -> do
-    r <- irLval lval
-    case r of
-      Pure op -> pure $ Brackets op (C . IC . fromIntegral $ offset)
+    irLval lval >>= \case
+      Single b -> pure $ if offset == 0
+        then Single b
+        else Brackets b (C . IC . fromIntegral $ offset)
 
       Brackets b off -> case off of
-        C (IC n) -> case n of
-          0 -> pure $ Brackets b (C . IC . fromIntegral $ offset)
-          _ -> pure $ Brackets b (C . IC . (+n) . fromIntegral $ offset)
+        C (IC n) -> pure $ 
+          Brackets b (C . IC . (+n) . fromIntegral $ offset)
         _ -> do
           t <- newTempG
           addTAC $ t := B AddI off (C . IC . fromIntegral $ offset)
           pure $ Brackets b t
 
-      Star op -> do
-        -- t <- newTempG
-        -- addTAC $ t :=* op
-        -- pure $ Brackets t (C . IC . fromIntegral $ offset)
-        pure $ Brackets op (C . IC . fromIntegral $ offset)
-
   Index lval idx -> do
     r  <- irLval lval
     t0 <- irExpression idx
     case r of
-      Pure op -> case t0 of
-        C (IC n) -> pure $ case n of
-          0 -> Star op
-          _ -> Brackets op (C . IC . (*n) . fromIntegral . sizeT $ lvalType)
+      Single b -> case t0 of
+        C (IC n) -> pure $ if n == 0
+          then Single b
+          else Brackets b (C . IC . (*n) . fromIntegral . sizeT $ lvalType)
         _ -> do
           t1 <- newTempG
           addTAC $ t1 := B MulI t0 (C . IC . fromIntegral . sizeT $ lvalType)
-          pure $ Brackets op t1
+          pure $ Brackets b t1
 
       Brackets b off -> case (off, t0) of
         (C (IC n), C (IC m)) -> pure $
@@ -472,43 +474,42 @@ irLval Lval { lvalType, lval' } = case lval' of
           addTAC $ t2 := B AddI off t1
           pure $ Brackets b t2
 
-      Star op -> do
-        t1 <- newTempG
-        addTAC $ t1 :=* op
-        case t0 of
-          C (IC n) -> pure $ case n of
-            0 -> Star t1
-            _ -> Brackets t1 (C . IC . (*n) . fromIntegral . sizeT $ lvalType)
-          _ -> do
-            t2 <- newTempG
-            addTAC $ t2 := B MulI t0 (C . IC . fromIntegral . sizeT $ lvalType)
-            pure $ Brackets t1 t2
-
   Deref lval -> do
-    r <- irLval lval
-    case r of
-      Pure op -> pure $ Star op
+    irLval lval >>= \case
+      Single (Pure op) -> 
+        pure $ Single (Star op)
 
-      Brackets b off -> do
-        t <- newTemp lvalType
-        addTAC $ t :=# (b, off)
-        pure $ Star t
-
-      Star op -> do
+      Single (Star op) -> do
         t <- newTemp lvalType
         addTAC $ t :=* op
-        pure $ Star t
+        pure $ Single (Star t)
+
+      Brackets (Pure op) off -> do
+        t <- newTemp lvalType
+        addTAC $ t :=# (op, off)
+        pure $ Single (Star t)
+
+      Brackets (Star op) off -> do
+        t <- newTemp lvalType
+        addTAC $ t := B AddI op off
+        pure $ Single (Star t)
 
 irLvalAddr :: Lval -> IRMonad Operand
 irLvalAddr lval = do
-  r <- irLval lval
-  case r of
-    Pure op -> do
+  irLval lval >>= \case
+    Single (Pure op) -> do
       t <- newTempG
       addTAC $ t :=& op
       pure t
-    Brackets b off -> do
+
+    Single (Star op) -> pure op
+
+    Brackets (Pure b) off -> do
       t <- newTempG
       addTAC $ t :=@ (b, off)
       pure t
-    Star op -> pure op
+
+    Brackets (Star b) off -> do
+      t <- newTempG
+      addTAC $ t := B AddI b off
+      pure t

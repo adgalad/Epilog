@@ -1,7 +1,7 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveGeneric     #-}
 
 module Language.Epilog.Type
     ( Atom (..)
@@ -27,11 +27,11 @@ import           Language.Epilog.Position (Position)
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
 import qualified Data.Foldable            as Foldable
-import           Data.List                (intercalate)
+import           Data.List                (intercalate, intersect)
 import qualified Data.Map                 as Map
+import           Data.Serialize           (Serialize)
+import           GHC.Generics             (Generic)
 import           Prelude                  hiding (Either)
-import           Data.Serialize         (Serialize)
-import           GHC.Generics           (Generic)
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
 type Types = Map Name (Type, Position)
@@ -110,6 +110,22 @@ data Type
     deriving (Ord, Read, Generic, Serialize)
 
 instance Eq Type where
+    None == _ =
+        False
+    _ == None =
+        False
+        
+    Any == _ =
+        True
+    _ == Any =
+        True
+    OneOf { options = a } == OneOf { options = b } =
+        not . null $ a `intersect` b
+    OneOf { options } == t =
+        t `elem` options
+    t == OneOf { options } =
+        t `elem` options
+
     Basic { atom = a } == Basic { atom = b } =
         a == b
     EpStr _ _ == EpStr _ _ =
@@ -124,16 +140,7 @@ instance Eq Type where
         a == b
     Pointer { pointed = a } == Pointer { pointed = b } =
         a == b
-    OneOf { options = a } == OneOf { options = b } =
-        a == b
-    OneOf { options } == t =
-        t `elem` options
-    t == OneOf { options } =
-        t `elem` options
-    None == _ =
-        False
-    Any == _ =
-        True
+
 
     (ps1 :-> r1) == (ps2 :-> r2) =
         r1 == r2 && ps1 == ps2
@@ -222,7 +229,7 @@ floatT  = Basic   EpFloat     0 0
 intT    = Basic   EpInteger   0 0
 stringT = EpStr               0 0
 voidT   = Basic   EpVoid      0 0
-ptrT    = Pointer Any         0 0 
+ptrT    = Pointer Any         0 0
 
 scalar :: Type -> Bool
 scalar Basic {}   = True

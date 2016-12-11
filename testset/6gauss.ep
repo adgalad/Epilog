@@ -137,5 +137,5 @@ procedure showSolution (integer N) :-
         write "X_", write I, write " = ", write X[I], write "\n"
       end
   ; not Solvable ->
-      write "El sistema de ecuaciones dado no tiene solucion pues su matriz es singular.\n"
+      write "El sistema de ecuaciones dado no tiene solucion, pues su matriz es singular.\n"
   end.

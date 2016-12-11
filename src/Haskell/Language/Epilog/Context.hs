@@ -784,7 +784,7 @@ checkMake _ _ = error "internal error: non-none read without lval"
 checkEkam :: Position -> Joy -> Epilog Joy
 checkEkam p Joy { jType = None } = pure $ noJoy { jPos = p }
 checkEkam p Joy { jType = t, jLval = Just lval } =
-  if t `elem` ([boolT, charT, intT, floatT] :: [Type])
+  if t == ptrT
     then pure $ joy { jPos = p, jInsts = theEkam }
     else do
       err $ BadEkam t p

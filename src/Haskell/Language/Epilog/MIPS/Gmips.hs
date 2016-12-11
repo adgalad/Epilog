@@ -832,6 +832,20 @@ instance Gmips TAC where
 
     C _ :*= _ -> internal "Const ptr assign"
 
+    _ :*= C v -> do
+      (store, scratch) <- case v of
+        FC {} -> do
+          tell1 $ LoadFI (ScratchF 1) v
+          pure (StoreF, ScratchF 1)
+        _  -> do
+          tell1 $ LoadI  (Scratch  1) v
+          pure (StoreW, Scratch 1)
+
+      x <- getReg1 tac
+      spillAll
+      resetDescs
+      tell1 $ store scratch (0, x)
+
     _ :*= op -> do
       (x, y) <- getReg2 tac
       spillAll
