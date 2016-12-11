@@ -593,9 +593,9 @@ instance Gmips TAC where
           BNot -> tell1 $ BinOpi BXor x Zero c
           ItoF -> tell1 $ I2Fi x c
           FtoI -> tell1 $ F2Ii x c
-          Id   -> tell1 $ if isFloatOp op
-            then LoadFI x c
-            else LoadI  x c
+          Id   -> tell1 $ case c of
+            FC {} -> LoadFI x c
+            _ -> LoadI  x c
 
       U Id _u -> do
         x <- getReg1 tac

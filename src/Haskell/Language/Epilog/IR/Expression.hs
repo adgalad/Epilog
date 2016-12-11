@@ -435,9 +435,7 @@ irLval Lval { lvalType, lval' } = case lval' of
 
   Member lval _name offset -> do
     irLval lval >>= \case
-      Single b -> pure $ if offset == 0
-        then Single b
-        else Brackets b (C . IC . fromIntegral $ offset)
+      Single b -> pure $ Brackets b (C . IC . fromIntegral $ offset)
 
       Brackets b off -> case off of
         C (IC n) -> pure $ 
@@ -452,9 +450,7 @@ irLval Lval { lvalType, lval' } = case lval' of
     t0 <- irExpression idx
     case r of
       Single b -> case t0 of
-        C (IC n) -> pure $ if n == 0
-          then Single b
-          else Brackets b (C . IC . (*n) . fromIntegral . sizeT $ lvalType)
+        C (IC n) -> pure $ Brackets b (C . IC . (*n) . fromIntegral . sizeT $ lvalType)
         _ -> do
           t1 <- newTempG
           addTAC $ t1 := B MulI t0 (C . IC . fromIntegral . sizeT $ lvalType)

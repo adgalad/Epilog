@@ -13,7 +13,6 @@ import           Language.Epilog.IR.Program
 import           Language.Epilog.IR.TAC
 import           Language.Epilog.MIPS.Gmips  (Gmips (..))
 import           Language.Epilog.MIPS.MIPS   (emitMIPS)
-import           Language.Epilog.MIPS.Monad
 import           Language.Epilog.Parser
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike

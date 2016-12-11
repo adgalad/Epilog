@@ -43,6 +43,7 @@ procedure main () :-
 procedure elimination (integer N).
 procedure backSubstitution (integer N).
 procedure showSolution (integer N).
+procedure showMatrix (integer N).
 
 procedure gauss (integer N) :-
   integer Eq,
@@ -51,19 +52,25 @@ procedure gauss (integer N) :-
   write "Introduzca los coeficientes de las ecuaciones, por filas\n",
 
   for Eq from 0 to N-1 ->
+    X[Eq] is 0.0,
     for Var from 0 to N ->
       write "c_", write Eq, write "_", write Var, write "? ",
       read Coef[Eq][Var] end end,
 
+  %% showMatrix (N),
+
   Solvable is true,
   elimination (N),
+
+  %% showMatrix (N),
+
   if Solvable -> backSubstitution (N) end,
 
   showSolution(N).
 
 procedure swapRows (integer A, integer B, integer N).
-
 procedure maxPivot (integer K, integer N) -> integer.
+procedure abs (float X) -> float.
 
 procedure elimination (integer N) :-
   integer K, integer IMax, integer I, integer J,
@@ -73,7 +80,7 @@ procedure elimination (integer N) :-
     %% Find the K-th pivot:
     IMax is maxPivot (K, N-1),
     if 
-      Coef[IMax][K] < 0.00001 -> 
+      abs (Coef[IMax][K]) < 0.000001 ->
         Solvable is false;  
       true ->
         swapRows(K, IMax, N),
@@ -100,7 +107,7 @@ procedure maxPivot (integer K, integer N) -> integer :-
   float BestVal is Coef[K][K],
 
   integer I,
-  for I from K + 1 to N - 1 ->
+  for I from K + 1 to N ->
     float Val is abs(Coef[I][K]),
     if Val > BestVal -> Best is I
                       , BestVal is Val
@@ -110,7 +117,7 @@ procedure maxPivot (integer K, integer N) -> integer :-
 procedure swapRows (integer A, integer B, integer N) :-
   if A /= B ->
     integer I, float T,
-    for I from 0 to N - 1 ->
+    for I from 0 to N ->
       T          is Coef[A][I],
       Coef[A][I] is Coef[B][I],
       Coef[B][I] is T end end.
@@ -139,3 +146,15 @@ procedure showSolution (integer N) :-
   ; not Solvable ->
       write "El sistema de ecuaciones dado no tiene solucion, pues su matriz es singular.\n"
   end.
+
+
+procedure showMatrix (integer N) :-
+  write "\n",
+  integer I, integer J,
+  for I from 0 to N - 1 ->
+    for J from 0 to N - 1 ->
+      write Coef[I][J], write " "
+    end,
+    write "| ", write Coef [I][N], write "\n"
+  end,
+  write "\n".
