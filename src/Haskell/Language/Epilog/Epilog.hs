@@ -61,8 +61,8 @@ mipsConfig = EpilogConfig
   , pointerAlign    = mipsPointerAlign }
   where
     mipsTypes =
-      [ ("boolean"  , ( Basic EpBoolean   1 4, Epilog ))
-      , ("character", ( Basic EpCharacter 1 4, Epilog ))
+      [ ("boolean"  , ( Basic EpBoolean   4 4, Epilog ))
+      , ("character", ( Basic EpCharacter 4 4, Epilog ))
       , ("float"    , ( Basic EpFloat     4 4, Epilog ))
       , ("integer"  , ( Basic EpInteger   4 4, Epilog ))
       , ("string"   , ( EpStr             0 1, Epilog ))

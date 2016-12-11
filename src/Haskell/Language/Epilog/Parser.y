@@ -57,8 +57,8 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
     ---- Array / Record / Either
     "["             { TokenLeftBracket  :@ _ }
     "]"             { TokenRightBracket :@ _ }
-    "{"             { TokenLeftBrace    :@ _ }
-    "}"             { TokenRightBrace   :@ _ }
+--  "{"             { TokenLeftBrace    :@ _ }
+--  "}"             { TokenRightBrace   :@ _ }
     "^"             { TokenCaret        :@ _ }
     "_"             { TokenUnderscore   :@ _ }
 
@@ -69,6 +69,12 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
     "/"             { TokenFloatDiv :@ _ }
     div             { TokenIntDiv   :@ _ }
     rem             { TokenRem      :@ _ }
+
+    ---- Conversion
+    toF             { TokenToFloat     :@ _ }
+    toI             { TokenToInteger   :@ _ }
+    toC             { TokenToCharacter :@ _ }
+    toB             { TokenToBoolean   :@ _ }
 
     ---- Relational
     "<"             { TokenLT :@ _ }
@@ -118,6 +124,7 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
     write           { TokenWrite :@ _ }
     make            { TokenMake  :@ _ }
     ekam            { TokenEkam  :@ _ }
+    void            { TokenVoid  :@ _ }
 
     -- Literals
     boolLit         { TokenBoolLit   _ :@ _ }
@@ -404,11 +411,11 @@ TSizes
     { $1 |> $2 }
 
 TSize
-    : "[" Int "}"                      { (      0    , item $2 - 1) }
-    | "[" Int "," Int "]"              { (item $2    , item $4    ) }
-    | "[" Int "," Int "}"              { (item $2    , item $4 - 1) }
-    | "{" Int "," Int "]"              { (item $2 + 1, item $4    ) }
-    | "{" Int "," Int "}"              { (item $2 + 1, item $4 - 1) }
+    : "[" Int "]"                      { (      0    , item $2 - 1) }
+--  | "[" Int "," Int "]"              { (item $2    , item $4    ) }
+--  | "[" Int "," Int "}"              { (item $2    , item $4 - 1) }
+--  | "{" Int "," Int "]"              { (item $2 + 1, item $4    ) }
+--  | "{" Int "," Int "}"              { (item $2 + 1, item $4 - 1) }
 
 ------ Assignment ------------------------
 Assign
@@ -550,6 +557,14 @@ Exp
     : "(" Exp ")"
     { $2 }
 
+    | void
+    {% return $ joy
+        { jType = ptrT
+        , jPos  = pos $1
+        , jExp  = Just . Expression (pos $1) ptrT $ Void
+        }
+    }
+
     | Bool
     {% return $ joy
         { jType = boolT
@@ -619,6 +634,10 @@ Exp
     | Exp div Exp                   {% checkBinOp (pos $2) IntDiv   $1 $3 }
     | Exp rem Exp                   {% checkBinOp (pos $2) Rem      $1 $3 }
     |     "-" Exp %prec NEG         {% checkUnOp  (pos $1) Uminus   $2 }
+    |     toF Exp %prec NEG         {% checkUnOp  (pos $1) ToF      $2 }
+    |     toI Exp %prec NEG         {% checkUnOp  (pos $1) ToI      $2 }
+    |     toC Exp %prec NEG         {% checkUnOp  (pos $1) ToC      $2 }
+    |     toB Exp %prec NEG         {% checkUnOp  (pos $1) ToB      $2 }
 
     ---- Relational
     | Exp "<"  Exp                  {% checkBinOp (pos $2) LTop $1 $3 }

@@ -160,6 +160,10 @@ data EpilogError
         , bbeETS :: [(Type, Type)]
         , bbeP   :: Position
         }
+    | DivZero
+        { dzOp  :: BinaryOp
+        , dzP   :: Position
+        }
     | BadUnaryExpression
         { bueOp  :: UnaryOp
         , bueT   ::  Type
@@ -233,6 +237,7 @@ instance P EpilogError where
         UndefinedType              _ p -> p
         UnexpectedToken            _ p -> p
         BadBinaryExpression    _ _ _ p -> p
+        DivZero                    _ p -> p
         BadUnaryExpression     _ _ _ p -> p
         BadForVar              _ _ _ p -> p
         BadCaseExp                 _ p -> p
@@ -393,6 +398,10 @@ instance Show EpilogError where
             "Bad binary expression " <> show p <> ", operator `" <>
             show op <> "` expected one pair of " <> show ets <>
             ", but received " <> show ts
+
+        DivZero op p ->
+            "Division by zero " <> show p <> ", operator `" <>
+            show op <> "` expected non-zero right operand."
 
         BadUnaryExpression op t ets p ->
             "Bad unary expression " <> show p <> ", operator `" <>

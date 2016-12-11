@@ -1,0 +1,96 @@
+/% Calculadora
+ %
+ % Utilice su lenguaje para escribir una calculadora interactiva que pueda
+ % sumar, restar, multiplicar y dividir numeros en punto flotante. Su
+ % calculadora debe tener veintiseis (26) variables, con los nombres de a a z,
+ % naturalmente, las cuales inician con valor cero.
+ %/
+
+union contents :-
+  integer   I,
+  float     F
+  character C.
+
+record token :-
+  integer  Kind,
+  contents Info.
+
+/% case Kind of
+ %     0 -> Variable (Info :: Int)
+ %     1 -> Numero (Info :: Float)
+ %     2 -> Assignment op =
+ %     3 -> Add op +
+ %     4 -> Sub op -
+ %     5 -> Mult op *
+ %     6 -> Div op /
+ %     7 -> Left parenthesis  (
+ %     8 -> Right parenthesis )
+ %     9 -> Newline \n
+ %   999 -> Unexpected Character (Info :: Char)
+ %/
+
+token[2] Tk.
+
+integer Error.
+/% case Error of
+ %   0 -> All OK
+ %   1 -> divzero
+ %   2 -> Unexpected Token 0
+ %   3 -> Unexpected Token 1
+ %/
+
+char Buffer.
+
+boolean UseBuffer is false.
+
+integer Col.
+
+procedure getChar () -> character :-
+  Col is Col + 1,
+  if     UseBuffer -> UseBuffer is false
+  ;  not UseBuffer -> read Buffer
+  end,
+  answer Buffer.
+
+procedure getToken (integer N) :-
+  boolean Done is false,
+  character C,
+
+  while not Done ->
+    Done is true,
+    C is getChar(),
+    if C = ' '  -> Done is false
+    ;  C = '='  -> Tk[N]_Kind is 2
+    ;  C = '+'  -> Tk[N]_Kind is 3
+    ;  C = '-'  -> Tk[N]_Kind is 4
+    ;  C = '*'  -> Tk[N]_Kind is 5
+    ;  C = '/'  -> Tk[N]_Kind is 6
+    ;  C = '('  -> Tk[N]_Kind is 7
+    ;  C = ')'  -> Tk[N]_Kind is 8
+    ;  C = '\n' -> Tk[N]_Kind is 9
+    ;  97 =< toInteger (C) andalso toInteger (C) =< 122 ->
+        Tk[N]_Kind is 0, Tk[N]_Info_I is toInteger(C) - 97
+    ;  48 =< toInteger (C) andalso toInteger (C) < 57 ->
+        float F is toFloat (toInteger (C) - 48),
+        boolean Dot, float Places, 
+        boolean Done1
+        while not Done1 ->
+          C is getChar(),
+          if 48 =< toInteger (C) andalso toInteger (C) < 57 ->
+            if not Dot -> F is F * 10.0 + toFloat (toInteger (C) - 48)
+            ;      Dot -> F is F + toFloat (toInteger (C) - 48) * Places
+                        , Places is Places / 10.0
+            end
+          ;  C = '.' -> 
+            if not Dot -> Dot is true, Places is 0.1
+            ;      Dot -> Buffer is C, UseBuffer is true, Done1 is True
+            end
+          ;  true -> Buffer is C, UseBuffer is true, Done1 is True
+          end
+
+        Tk[N]_Kind is 1, Tk[N]_Info_F is F
+
+    ;  true -> 
+        Tk[N]_Kind is 999, Tk[N]_Info_C is C
+    end
+  end.

@@ -11,16 +11,22 @@ import           Language.Epilog.IR.Monad    hiding (symbols)
 import           Language.Epilog.MIPS.Monad
 import           Language.Epilog.IR.Program
 import           Language.Epilog.IR.TAC
+import           Language.Epilog.MIPS.Gmips  (Gmips (..))
+import           Language.Epilog.MIPS.MIPS   (emitMIPS)
+import           Language.Epilog.MIPS.Monad
 import           Language.Epilog.Parser
 import           Language.Epilog.SymbolTable
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
 import           Control.Lens                (makeLenses, (.~), (^.))
 import qualified Data.Map                    as Map
+import           Data.Text.IO                (writeFile)
+import           Prelude                     hiding (writeFile)
 import           System.Console.GetOpt       (ArgDescr (..), ArgOrder (..),
                                               OptDescr (..), getOpt, usageInfo)
 import           System.Environment          (getArgs)
 import           System.Exit                 (exitSuccess)
+import           System.FilePath.Posix       ((-<.>))
 import           System.IO                   (Handle, IOMode (ReadMode),
                                               hGetContents, openFile, stdin)
 --------------------------------------------------------------------------------
@@ -36,7 +42,7 @@ defaultOptions :: Options
 defaultOptions  = Options
   { _help     = False
   , _version  = False
-  , _action   = doIR }
+  , _action   = doMIPS }
 
 options :: [OptDescr (Options -> Options)]
 options =
@@ -153,10 +159,7 @@ doMIPS filename handle = do
 
   when (s^.parseOK) $ do
     (code, _s) <- runIR irProgram ast
-
-    -- (mipsCode, _) <- runMIPS code 
-
-    putStrLn $ emit code
+    runMIPS gmips code >>= writeFile (filename -<.> "asm") . emitMIPS
 
 -- Main --------------------------------
 main :: IO ()

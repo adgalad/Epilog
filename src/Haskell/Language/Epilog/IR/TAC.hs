@@ -20,6 +20,7 @@ module Language.Epilog.IR.TAC
   , Constant (..)
   , Label (..)
   , targets
+  , divZeroLabel
   ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.Common
@@ -37,21 +38,30 @@ class Emit a where
 data Label = Label { lblstr :: String, lblnum :: Int  }
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
+divZeroLabel :: Label
+divZeroLabel = Label
+  { lblstr = "__divZero"
+  , lblnum = -1 }
+
 instance Emit Label where
   emit = lblstr
 --------------------------------------------------------------------------------
 
 data Operand
-  = R Name
-  | T Int
-  | C Constant
+  = R  Name
+  | RF Name
+  | T  Int
+  | TF Int
+  | C  Constant
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 instance Emit Operand where
   emit = \case
-    R s -> s
-    T i -> "_t" <> show i
-    C c -> emit c
+    R  s -> s
+    RF s -> "f." <> s
+    T  i -> "_t" <> show i
+    TF i -> "_tf" <> show i
+    C  c -> "#" <> emit c
 
 data Constant
   = BC Bool
@@ -127,7 +137,9 @@ data TAC
   = Comment String
   -- ^ We're gonna need this
 
-  | Var Bool Name Offset Size
+  | Var      Name Offset Size
+  | RefVar   Name Offset Size
+  | FloatVar Name Offset Size
   -- ^ Variable allocation
 
   | Operand :=  Operation
@@ -141,8 +153,11 @@ data TAC
   | Operand :*= Operand
   -- ^ Pointer write, i.e. *a := b
 
+  | Operand :=@ (Operand, Operand)
+  -- ^ Offset operator, i.e. a := &b + c
+
   | Operand :=& Operand
-  -- ^ Address-of operator, i.e., t := &a
+  -- ^ Address-of operator, i.e., t := &a + 0
 
   | Param Operand
   -- ^ For storing procedure parameters
@@ -168,13 +183,15 @@ infix 8 :=, :=#, :#=, :=*, :*=
 instance Emit TAC where
   emit = \case
     Comment s     -> "; " <> s
-    Var r n o s   -> (if r then "ref" else "var") <> " " <> n <> " " <>
-      show o <> " " <> show s
+    Var      n o s -> "var "  <> n <> " " <> show o <> " " <> show s
+    RefVar   n o s -> "ref "  <> n <> " " <> show o <> " " <> show s
+    FloatVar n o s -> "fvar " <> n <> " " <> show o <> " " <> show s
     x := op       -> emit x <> " := " <> emit op
     x :=# (b, o)  -> emit x <> " := " <> emit b <> "[" <> emit o <> "]"
     (b, o) :#= x  -> emit b <> "[" <> emit o <> "]" <> " := " <> emit x
     x :=* a       -> emit x <> " := *" <> emit a
     x :*= a       -> "*" <> emit x <> " := " <> emit a
+    x :=@ (a, b)  -> emit x <> " := &" <> emit a <> " + " <> emit b
     x :=& a       -> emit x <> " := &" <> emit a
     Param op      -> "param " <> emit op
     RefParam op   -> "param &" <> emit op
@@ -188,14 +205,12 @@ instance Emit TAC where
 data Operation
   = B  BOp Operand Operand
   | U  UOp Operand
-  | Id     Operand
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
 instance Emit Operation where
   emit = \case
-    B op a b -> fmap toLower (show op) <> " " <> emit a <>  " " <> emit b
-    U op a   -> fmap toLower (show op) <> " " <> emit a
-    Id   a   -> emit a
+    B op a b -> emit op <> " " <> emit a <>  " " <> emit b
+    U op a   -> emit op <> emit a
 
 data BOp
   = AddI | AddF
@@ -208,9 +223,21 @@ data BOp
   | BXor
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
 
+instance Emit BOp where
+  emit = (fmap toLower) . show
+
 data UOp
-  = NegF | NegI | BNot
+  = NegF | NegI | BNot | ItoF | FtoI | Id
   deriving (Eq, Show, Ord, Read, Generic, Serialize)
+
+instance Emit UOp where
+  emit = \case
+    NegF -> "negf "
+    NegI -> "negi "
+    BNot -> "bnot "
+    ItoF -> "itof "
+    FtoI -> "ftoi "
+    Id   -> ""
 
 
 data Terminator

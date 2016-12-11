@@ -28,6 +28,9 @@ data Token
     | TokenPlus | TokenMinus | TokenTimes | TokenFloatDiv
     | TokenIntDiv | TokenRem
 
+    ---- Conversion
+    | TokenToFloat | TokenToInteger | TokenToCharacter | TokenToBoolean
+
     ---- Relational
     | TokenLT | TokenLE | TokenGT | TokenGE
     | TokenEQ | TokenNE
@@ -54,7 +57,7 @@ data Token
     | TokenIs
 
     -- IO
-    |  TokenRead | TokenWrite | TokenMake | TokenEkam
+    |  TokenRead | TokenWrite | TokenMake | TokenEkam | TokenVoid
 
     -- Literals
     | TokenBoolLit   { unTokenBoolLit :: Bool   }
@@ -120,6 +123,12 @@ instance Show Token where
         TokenIntDiv   -> "div"
         TokenRem      -> "rem"
 
+    ---- Conversion
+        TokenToFloat     -> "toFloat"
+        TokenToInteger   -> "toInteger"
+        TokenToCharacter -> "toCharacter"
+        TokenToBoolean   -> "toBoolean"
+
     ---- Relational
         TokenLT -> "<"
         TokenLE -> "=<"
@@ -171,6 +180,7 @@ instance Show Token where
         TokenWrite -> "write"
         TokenMake  -> "make"
         TokenEkam  -> "ekam"
+        TokenVoid  -> "void"
 
     -- Literals
         TokenBoolLit value ->

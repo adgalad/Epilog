@@ -7,14 +7,12 @@
 module Language.Epilog.IR.Monad
   ( IRState (..)
   , IRMonad
-  , runStateT
-  , execStateT
-  , evalStateT
   , runIR
   , initialIR
   , newLabel
   , newUnLabel
   , newTemp
+  , newTempG
   , (#)
   , addTAC
   , comment
@@ -36,7 +34,7 @@ module Language.Epilog.IR.Monad
   , retLabel
   , labelCount
   , tempCount
-  , varSupply
+  , nameSupply
   , global
   , symbols
   , varTable
@@ -46,12 +44,12 @@ module Language.Epilog.IR.Monad
 import           Language.Epilog.Common
 import           Language.Epilog.IR.TAC      hiding (modules)
 import           Language.Epilog.SymbolTable (Scope, SymbolTable)
+import           Language.Epilog.Type
 --------------------------------------------------------------------------------
-import           Control.Lens                (at, makeLenses, use, (%%=), (%=),
-                                              (&), (.=), (<<+=), (?=), (?~), _2,
-                                              _Just, _head)
-import           Control.Monad.Trans.State   (StateT, evalStateT, execStateT,
-                                              runStateT)
+import           Control.Lens                (at, ix, makeLenses, use, (%%=),
+                                              (%=), (&), (+~), (.=), (<<+=),
+                                              (?=), (?~), _2, _Just, _head)
+import           Control.Monad.Trans.State   (StateT, runStateT)
 import           Data.Graph                  (Edge, buildG)
 import qualified Data.Map                    as Map (empty, lookup)
 import           Data.Maybe                  (fromMaybe)
@@ -69,9 +67,8 @@ data IRState = IRState
   , _nextBlock    :: [Label]
   , _retLabel     :: Maybe Label
   , _labelCount   :: Int
-  , _labelSupply  :: Map String Int
+  , _nameSupply   :: Map String Int
   , _tempCount    :: Int
-  , _varSupply    :: Map String Int
   , _global       :: Scope
   , _symbols      :: SymbolTable
   , _varTable     :: [Map String String] }
@@ -86,9 +83,8 @@ initialIR = IRState
   , _nextBlock    = []
   , _retLabel     = Nothing
   , _labelCount   = 1
-  , _labelSupply  = Map.empty
   , _tempCount    = 0
-  , _varSupply    = Map.empty
+  , _nameSupply    = Map.empty
   , _global       = undefined
   , _symbols      = undefined
   , _varTable     = [] }
@@ -102,14 +98,19 @@ newUnLabel :: IRMonad Label
 newUnLabel = newLabel "Noname"
 
 newLabel :: String -> IRMonad Label
-newLabel name = Label <$> aux <*> (labelCount <<+= 1)
-  where
-    aux = labelSupply %%= \supply -> case name `Map.lookup` supply of
-      Nothing -> (name                 , supply & at name ?~ 1)
-      Just i  -> (name <> "_" <> show i, supply & at name ?~ i)
+newLabel name = Label <$> newVar name <*> (labelCount <<+= 1)
 
-newTemp :: IRMonad Operand
-newTemp = T <$> (tempCount <<+= 1)
+newVar :: String -> IRMonad String
+newVar name = nameSupply %%= \supply -> case name `Map.lookup` supply of
+  Nothing -> (name                 , supply & at name ?~ 1)
+  Just i  -> (name <> "_" <> show i, supply & ix name +~ 1)
+
+newTemp :: Type -> IRMonad Operand
+newTemp Basic {atom = EpFloat} = TF <$> (tempCount <<+= 1)
+newTemp _                      = T  <$> (tempCount <<+= 1)
+
+newTempG :: IRMonad Operand
+newTempG = newTemp Any
 
 (#) :: Label -> IRMonad ()
 (#) label = -- do
@@ -169,11 +170,6 @@ getVarName v = do
   where
     getVarName' []     = error $ "getVarName failed: " <> v
     getVarName' (m:ms) = fromMaybe (getVarName' ms) (v `Map.lookup` m)
-
-newVar :: String -> IRMonad String
-newVar name = varSupply %%= \supply -> case name `Map.lookup` supply of
-  Nothing -> (name                 , supply & at name ?~ 1)
-  Just i  -> (name <> "_" <> show i, supply & at name ?~ i)
 
 insertVar' :: String -> IRMonad ()
 insertVar' = void . insertVar

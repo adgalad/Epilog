@@ -44,7 +44,7 @@ $idchar      = [$alpha $digit \'] --'
 @varid       = $upper $idchar*
 @genid       = $lower $idchar*
 
-$symbol      = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\^\|\-\~\(\)\,\:\;\[\]\`\{\}\ ]
+$symbol      = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\^\|\-\~\(\)\,\:\;\[\]\`\{\}\ \_]
 $graphic     = [$alpha $digit $symbol]
 
 $charesc     = [0nt\\\'\"]
@@ -104,6 +104,12 @@ epilog :-
     <0> "div"                   { make TokenIntDiv   }
     <0> "rem"                   { make TokenRem      }
 
+    ---- Conversion
+    <0> "toFloat"               { make TokenToFloat     }
+    <0> "toInteger"             { make TokenToInteger   }
+    <0> "toCharacter"           { make TokenToCharacter }
+    <0> "toBoolean"             { make TokenToBoolean   }
+
     ---- Relational
     <0> "<"                     { make TokenLT }
     <0> "=<"                    { make TokenLE }
@@ -155,6 +161,7 @@ epilog :-
     <0> "write"                 { make TokenWrite }
     <0> "make"                  { make TokenMake }
     <0> "ekam"                  { make TokenEkam }
+    <0> "void"                  { make TokenVoid }
 
     -- Literals
     ---- Bools

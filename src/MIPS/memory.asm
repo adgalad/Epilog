@@ -1,7 +1,9 @@
 
   .data
-_base_header: .word 0, 0    # base_header {next, size}
-_last_used: .word 0
+  .align 2
+_base_header: .space 8    # base_header {next, size}
+  .align 2
+_last_used: .space 4
   .text
 
 

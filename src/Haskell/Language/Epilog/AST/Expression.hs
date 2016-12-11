@@ -43,6 +43,8 @@ data Expression'
   | LitFloat  Float
   | LitString Int32
 
+  | Void
+
   -- | Otherwise
 
   | Rval      Lval
@@ -72,6 +74,9 @@ instance Treelike Expression where
 
     LitString val ->
       leaf ("String #" <> unwords [show val])
+
+    Void ->
+      leaf "Void"
 
     -- Otherwise ->
     --   leaf (unwords ["otherwise"])
@@ -127,13 +132,21 @@ data UnaryOp
   = Not
   | Bnot
   | Uminus
+  | ToF
+  | ToI
+  | ToC
+  | ToB
   deriving Eq
 
 instance Show UnaryOp where
   show = \case
-    Not         -> "not"
-    Bnot        -> "bnot"
-    Uminus      -> "(-)"
+    Not    -> "not"
+    Bnot   -> "bnot"
+    Uminus -> "(-)"
+    ToF    -> "toFloat"
+    ToI    -> "toInteger"
+    ToC    -> "toCharacter"
+    ToB    -> "toBoolean"
 
 -- Lval ------------------------------------------------------------------------
 

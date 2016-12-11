@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
@@ -16,6 +18,7 @@ module Language.Epilog.Type
     , floatT
     , stringT
     , voidT
+    , ptrT
     , scalar
     ) where
 --------------------------------------------------------------------------------
@@ -24,8 +27,10 @@ import           Language.Epilog.Position (Position)
 import           Language.Epilog.Treelike
 --------------------------------------------------------------------------------
 import qualified Data.Foldable            as Foldable
-import           Data.List                (intercalate)
+import           Data.List                (intercalate, intersect)
 import qualified Data.Map                 as Map
+import           Data.Serialize           (Serialize)
+import           GHC.Generics             (Generic)
 import           Prelude                  hiding (Either)
 --------------------------------------------------------------------------------
 -- Synonyms ----------------------------
@@ -38,7 +43,7 @@ data Atom
     | EpInteger
     | EpFloat
     | EpVoid
-    deriving (Eq)
+    deriving (Eq, Ord, Read, Generic, Serialize)
 
 
 instance Show Atom where
@@ -56,7 +61,7 @@ instance Treelike Atom where
 data Mode
     = RefMode
     | ValMode
-    deriving (Eq)
+    deriving (Eq, Ord, Read, Generic, Serialize)
 
 instance Show Mode where
     show = \case
@@ -102,9 +107,25 @@ data Type
     | Any
     | None
     | Undef { name :: Name }
-
+    deriving (Ord, Read, Generic, Serialize)
 
 instance Eq Type where
+    None == _ =
+        False
+    _ == None =
+        False
+        
+    Any == _ =
+        True
+    _ == Any =
+        True
+    OneOf { options = a } == OneOf { options = b } =
+        not . null $ a `intersect` b
+    OneOf { options } == t =
+        t `elem` options
+    t == OneOf { options } =
+        t `elem` options
+
     Basic { atom = a } == Basic { atom = b } =
         a == b
     EpStr _ _ == EpStr _ _ =
@@ -119,16 +140,7 @@ instance Eq Type where
         a == b
     Pointer { pointed = a } == Pointer { pointed = b } =
         a == b
-    OneOf { options = a } == OneOf { options = b } =
-        a == b
-    OneOf { options } == t =
-        t `elem` options
-    t == OneOf { options } =
-        t `elem` options
-    None == _ =
-        False
-    Any == _ =
-        True
+
 
     (ps1 :-> r1) == (ps2 :-> r2) =
         r1 == r2 && ps1 == ps2
@@ -210,13 +222,14 @@ showS t = show t <> case t of
     _ -> " bytes"
 
 
-boolT, charT, intT, floatT, stringT, voidT :: Type
-boolT   = Basic EpBoolean   0 0
-charT   = Basic EpCharacter 0 0
-floatT  = Basic EpFloat     0 0
-intT    = Basic EpInteger   0 0
-stringT = EpStr             0 0
-voidT   = Basic EpVoid      0 0
+boolT, charT, intT, floatT, stringT, voidT, ptrT :: Type
+boolT   = Basic   EpBoolean   0 0
+charT   = Basic   EpCharacter 0 0
+floatT  = Basic   EpFloat     0 0
+intT    = Basic   EpInteger   0 0
+stringT = EpStr               0 0
+voidT   = Basic   EpVoid      0 0
+ptrT    = Pointer Any         0 0
 
 scalar :: Type -> Bool
 scalar Basic {}   = True

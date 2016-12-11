@@ -1,0 +1,267 @@
+/% Arbol de busqueda de caracteres.
+ %
+ % El programa debe operar en un ciclo infinito, preguntando al usuario si
+ % desea continuar o terminar. Si desea continuar, el programa preguntara la
+ % siguiente operacion, la efectuara, y regresara a la pregunta inicial. Las
+ % operaciones posibles son:
+ %
+ % * Insertar un valor en el arbol.
+ % * Eliminar un valor del arbol.
+ % * Buscar un valor en el arbol.
+ % * Mostrar el arbol.
+ %
+ % Para las operaciones, Ud. debe diseñar un tipo de datos usando registros,
+ % tales que contenga:
+ %
+ % * El valor almacenado -- un caracter.
+ % * La cantidad de repeticiones -- un entero. Si el usuario inserta varias
+ %   veces el mismo caracter, se incrementa este contador. Si el usuario
+ %   elimina el caracter, se decrementa el contador hasta llegar a cero; y
+ %   en ese caso hay que sacar el nodo del arbol.
+ % * Hijo izquierdo e hijo derecho, como apuntadores.
+ %
+ % El arbol debe ser mostrado como
+ %
+ %    (v0,n0)
+ %      (v1,n1)
+ %         (v2,n2)
+ %         -
+ %      (v3,n3)
+ %         (v4,n4)
+ %         (v5,n5)
+ %
+ % donde vI indica el valor (caracter) almacenado en el nodo, y nI el contador
+ % de repeticiones. Los nodos se muestran en preorden, primero mostrando el
+ % hijo izquierdo, y luego el derecho. Si un nodo no tiene hijos, no se
+ % muestra nada especial; si le falta algun hijo, se muestra - en su lugar.
+ %
+ % Este programa debe ejercitar malloc para la insercion de nuevos nodos,
+ % y free para la eliminacion de nodos tan pronto su conteo llega a cero.
+ %
+ % Como se trata de un arbol de busqueda, el valor almacenado en un nodo
+ % debe ser estrictamente mayor que los valores almacenados en su subarbol
+ % izquierdo, y estrictamente menor que los valores almacenados en su
+ % subarbol derecho.
+ %/
+
+%%%%%%%%%%%% TYPES %%%%%%%%%%%
+record searchNode :-
+   character  V, %% Value
+   integer    N,
+  ^searchNode L, %% Left
+  ^searchNode R. %% Right
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%% GLOBAL %%%%%%%%%%%
+^searchNode Tree is void.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+procedure insertar ().
+procedure eliminar ().
+procedure buscar   ().
+procedure mostrar  ().
+
+procedure main () :-
+  boolean Done is false,
+  character C, character Enter,
+
+  write "Arbol de busqueda de caracteres.\n",
+
+  while not Done ->
+      write "Introduzca una letra:\n"
+    , write "\t(T) para Terminar, \n"
+    , write "\t(I) para Insertar un valor en el arbol,\n"
+    , write "\t(E) para Eliminar un valor del arbol,\n"
+    , write "\t(B) para Buscar un valor en el arbol, o\n"
+    , write "\t(M) para Mostrar el arbol en preorden.\n"
+    , write "> "
+
+    , read C
+    , read Enter
+
+    , if C = 'T' orelse C = 't' -> write "Adios.\n", Done is true
+      ;  C = 'I' orelse C = 'i' -> insertar ()
+      ;  C = 'E' orelse C = 'e' -> eliminar ()
+      ;  C = 'B' orelse C = 'b' -> buscar   ()
+      ;  C = 'M' orelse C = 'm' -> mostrar  ()
+      end
+  end.
+
+%%%%%%%%%% INSERTAR %%%%%%%%%%
+procedure insertar () :-
+  character C, character Enter,
+  character D,
+  boolean Done is false,
+
+  write "Escriba el caracter a insertar > ",
+  read C,
+  read Enter,
+
+  ^searchNode P is Tree,
+  ^searchNode Q is void,
+
+  while not Done ->
+    if P = void -> Done is true
+    ;  true -> D is P^_V
+             , if C = D -> Done is true
+               ;  C < D -> Q is P, P is P^_L
+               ;  C > D -> Q is P, P is P^_R
+               end
+    end
+  end,
+
+  if P = void ->
+    ^searchNode New,
+    make New,
+      New^_V is C,
+      New^_N is 1,
+      New^_L is void,
+      New^_R is void,
+
+    if Q = void -> Tree is New
+    ;  C < Q^_V -> Q^_L is New
+    ;  C > Q^_V -> Q^_R is New
+    end
+
+  ;  P /= void -> P^_N is P^_N + 1
+  end.
+
+%%%%%%%%%% ELIMINAR %%%%%%%%%%
+procedure delete (^searchNode P, ^searchNode Q, integer N).
+
+procedure eliminar () :-
+  character C, character Enter,
+  character D,
+  integer   N,
+  boolean Done is false,
+
+  write "Escriba el caracter a eliminar > ",
+  read C,
+  read Enter,
+
+  ^searchNode P is Tree,
+  ^searchNode Q is void,
+
+  while not Done ->
+    if P = void -> Done is true
+    ;  true -> D is P^_V
+             , if C = D -> Done is true
+               ;  C < D -> Q is P, P is P^_L
+               ;  C > D -> Q is P, P is P^_R
+               end
+    end
+  end,
+
+  if P = void ->
+      write "No quedan ocurrencias de \'", write C
+    , write "\' que eliminar.\n"
+    , N is 0
+  ;  P /= void ->
+    if P^_N > 1 -> P^_N is P^_N - 1, N is P^_N
+    ;  P^_N = 1 -> delete (P, Q, 0), N is 0
+    ;  true -> write "wut? hay ", write P^_N, write " ocurrencias de ", write C
+    end
+  end,
+
+  write "< (",
+  write C,
+  write ",",
+  write N,
+  write ")\n".
+
+procedure delete (^searchNode P, ^searchNode Q, integer N) :-
+  write "Delete called with ",
+  write P^_V, write " ", write N,
+  write "\n",
+  if P^_L = void andalso P^_R = void ->
+      if Q = void -> Tree is void
+      ;  Q^_L = P -> Q^_L is void
+      ;  Q^_R = P -> Q^_R is void
+      end
+    , ekam P
+  ;  P^_L = void ->
+      if Q = void -> Tree is P^_R
+      ;  Q^_L = P -> Q^_L is P^_R
+      ;  Q^_R = P -> Q^_R is P^_R
+      end
+    , ekam P
+  ;  P^_R = void ->
+      if Q = void -> Tree is P^_L
+      ;  Q^_L = P -> Q^_L is P^_L
+      ;  Q^_R = P -> Q^_R is P^_L
+      end
+    , ekam P
+  ;  true ->
+      ^searchNode S is P^_R
+    , ^searchNode R is P
+    , while S^_L /= void -> R is S, S is S^_L end
+
+    %%, write ">>> (", write S^_V, write ")", write S^_L = void, write " ", write S^_R = void, write "\n"
+
+    , P^_V is S^_V
+    , P^_N is S^_N
+
+    , mostrar ()
+
+    , write "calling delete recursively with "
+    , write S^_V, write " ", write N + 1
+    , write "\n"
+
+    , delete (S, R, N+1)
+  end.
+
+%%%%%%%%%%% BUSCAR %%%%%%%%%%%
+procedure buscar () :-
+  character C, character Enter,
+  character D,
+  integer   N,
+  boolean Done is false,
+
+  write "Escriba el caracter a buscar > ",
+  read C,
+  read Enter,
+
+  ^searchNode P is Tree,
+
+  while not Done ->
+    if P = void -> Done is true
+    ;  true -> D is P^_V
+             , if C = D -> Done is true
+               ;  C < D -> P is P^_L
+               ;  C > D -> P is P^_R
+               end
+    end
+  end,
+
+  if P  = void -> N is 0
+  ;  P /= void -> N is P^_N
+  end,
+
+  write "< (",
+  write C,
+  write ",",
+  write N,
+  write ")\n".
+
+%%%%%%%%%%% MOSTRAR %%%%%%%%%%
+procedure pad (integer Pad) :-
+  integer I,
+  for I from 1 to Pad ->
+    write "  "
+  end.
+
+procedure auxMostrar (^searchNode Node, integer Pad).
+
+procedure mostrar () :- auxMostrar(Tree, 0).
+
+procedure auxMostrar (^searchNode Node, integer Pad) :-
+  pad (Pad),
+  if Node = void -> write "-\n"
+  ;  true -> write "("
+           , write Node^_V
+           , write ","
+           , write Node^_N
+           , write ")\n"
+           , auxMostrar (Node^_L, Pad + 1)
+           , auxMostrar (Node^_R, Pad + 1)
+  end.

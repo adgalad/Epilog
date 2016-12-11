@@ -1,0 +1,102 @@
+/% Calculo de estadisticos basicos.
+ %
+ % El programa debe operar en un ciclo infinito, preguntando al usuario si
+ % desea iniciar un calculo de estadisticos, o terminar. Para cada calculo
+ % de estadisticos comenzara por solicitar la cantidad de muestras a procesar
+ % N que debe ser un numero entero positivo. Obtenido N, solicitara N numeros
+ % en punto flotante, y al terminar de leerlo debe presentar en pantalla:
+ %
+ % * La cantidad de muestras -- N como entero.
+ % * El promedio de las muestras -- como punto flotante.
+ % * La varianza -- como punto flotante.
+ % * La desviacion estandar -- como punto flotante.
+ % * El maximo y el minimo de la muestra -- como punto flotante.
+ %
+ % Si su lenguaje soporta arreglos de tamaño definido a tiempo de ejecucion,
+ % puede utilizarlos. En caso contrario, haga los calculos utilizando
+ % variables acumuladores.
+ %
+ % Necesitara calcular la raiz cuadrada, pero eso ya lo hizo segun el
+ % requisito anterior.
+ %/
+
+procedure stats (integer N).
+
+procedure main () :-
+  boolean Done is false,
+  integer N,
+
+  write "Calculo de estadisticos basicos.\n",
+
+  while not Done ->
+      write "Introduzca\n"
+    , write "\tun numero no positivo para salir, o\n"
+    , write "\tun numero positivo N para calcular los estadisticos de una secuencia de N numeros.\n"
+    , write "> "
+
+    , read N
+
+    , if N =< 0 -> write "Adios.\n", Done is true
+      ;  N  > 0 -> stats (N)
+      end
+  end.
+
+procedure sqrt (float X) -> float.
+
+procedure stats (integer N) :-
+  integer I,
+
+  float X,
+  float Sum,
+  float SquareSum,
+  float Max,
+  float Min,
+
+  write "Introduzca ", write N, write " numeros en punto flotante.\n1> ",
+
+  read X,
+  Sum is X,
+  SquareSum is X*X,
+  Max is X,
+  Min is X,
+
+  for I from 2 to N -> /% Did for go to the top? %/
+      write I, write "> "
+    , read X
+    , Sum is Sum + X
+    , SquareSum is SquareSum + X*X
+    , if X > Max -> Max is X
+      ;  X < Min -> Min is X
+      end
+  end,
+
+  float Avg is Sum / toFloat(N),
+  float Vrnz
+    is SquareSum
+    -  2.0 * Avg * Sum
+    +  Avg * Avg * toFloat (N),
+  Vrnz is Vrnz / toFloat(N),
+
+  write "Resultados:\n",
+  write "\t Se tomaron ", write N, write " muestras.\n",
+  write "\t Promedio: ", write Avg, write "\n",
+  write "\t Varianza: ", write Vrnz, write "\n",
+  write "\t Desviacion Estandar: ", write sqrt(Vrnz), write "\n",
+  write "\t Minimo: ", write Min, write "\n",
+  write "\t Maximo: ", write Max, write "\n".
+
+procedure abs (float X) -> float.
+
+procedure sqrt (float X) -> float :-
+  float Sqrt is 1.0,
+
+  while abs((X - Sqrt * Sqrt) / X) > 0.000001 ->
+    Sqrt is (Sqrt + X / Sqrt) / 2.0
+  end,
+
+  answer Sqrt.
+
+procedure abs (float X) -> float :-
+  if X >= 0.0 -> answer X
+  ;  X <  0.0 -> answer -X
+  end.

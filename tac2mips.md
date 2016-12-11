@@ -33,7 +33,7 @@
 | 28| gp | global pointer               |
 | 29| sp | stack pointer                |
 | 30| fp | frame pointer                |
-| 31| ra | scratch 3                    |
+| 31| ra | return address               |
 |---|--- |------------------------------|
 |   | pc |                              |
 |   | lo |                              |
@@ -148,7 +148,7 @@
 
     -  `BSL`     ->  `sll r, a, b`
 
-    -  `BSR`     ->  `sra r, a, b`
+    -  `BSR`     ->  `srl r, a, b`
 
     -  `BAnd`    ->  `and r, a, b`
 

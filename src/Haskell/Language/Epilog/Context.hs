@@ -213,10 +213,14 @@ storeProcedure' _ Nothing = do
       t <- use curProcType
       pendProcs . at n ?= (t :@ p)
     Just (_ :@ p') -> err $ ReForwardDec n p p'
+  curProcType .= None
+  current .= Nothing
+  parameters .= Seq.empty
+
 
 storeProcedure' procParamsSize (Just Joy { jType = blockType, jBlock }) = do
     Just (n :@ p) <- use current
-    t@(_ :-> retType)<- use curProcType
+    t@(_ :-> retType) <- use curProcType
 
     sameType <- use (pendProcs . at n) >>= \case
       Nothing -> pure True
@@ -379,7 +383,7 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
             { jPos
             , jType = t
             , jInsts =
-              [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off) ] }
+              [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off) t ] }
 
         Just Joy { jType, jExp }
           | jType == None -> pure noJoy { jPos }
@@ -400,7 +404,7 @@ checkInitialization' (t :@ _) (var :@ jPos) mj = do
               { jPos
               , jType = t
               , jInsts =
-                [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off)
+                [ Var jPos var (fromIntegral off) (fromIntegral $ off' - off) t
                 , Assign
                   { instP        = jPos
                   , assignTarget = Lval
@@ -780,7 +784,7 @@ checkMake _ _ = error "internal error: non-none read without lval"
 checkEkam :: Position -> Joy -> Epilog Joy
 checkEkam p Joy { jType = None } = pure $ noJoy { jPos = p }
 checkEkam p Joy { jType = t, jLval = Just lval } =
-  if t `elem` ([boolT, charT, intT, floatT] :: [Type])
+  if t == ptrT
     then pure $ joy { jPos = p, jInsts = theEkam }
     else do
       err $ BadEkam t p
@@ -913,8 +917,17 @@ checkBinOp p op = aux opTypes
       pure $ noJoy { jPos = p }
     aux ((et1, et2, rt) : ts) j1@Joy { jType = t1 } j2@Joy { jType = t2 } =
       if t1 == et1 && t2 == et2
-        then pure $ joy
-          { jType = rt, jPos = p, jExp = theBinExp }
+        then if op `elem` ([IntDiv, Rem, FAop, NFop] :: [BinaryOp])
+          then if (exp' . fromJust . jExp $ j2) == LitInt 0
+            then do
+              err $ DivZero op p
+              pure $ noJoy { jPos = p }
+            else 
+              pure $ joy
+              { jType = rt, jPos = p, jExp = theBinExp }
+          else
+            pure $ joy
+              { jType = rt, jPos = p, jExp = theBinExp }
         else aux ts j1 j2
       where
         theBinExp = Just Expression
@@ -983,11 +996,13 @@ typeBinOp GTop     = [ ( intT,   intT,   boolT  )
 typeBinOp GEop     = [ ( intT,   intT,   boolT  )
                      , ( floatT, floatT, boolT  )
                      , ( charT,  charT,  boolT  ) ]
-typeBinOp EQop     = [ ( intT,   intT,   boolT  )
+typeBinOp EQop     = [ ( ptrT,   ptrT,   boolT  )
+                     , ( intT,   intT,   boolT  )
                      , ( floatT, floatT, boolT  )
                      , ( charT,  charT,  boolT  )
                      , ( boolT,  boolT,  boolT  ) ]
-typeBinOp NEop     = [ ( intT,   intT,   boolT  )
+typeBinOp NEop     = [ ( ptrT,   ptrT,   boolT  )
+                     , ( intT,   intT,   boolT  )
                      , ( floatT, floatT, boolT  )
                      , ( charT,  charT,  boolT  )
                      , ( boolT,  boolT,  boolT  ) ]
@@ -1000,3 +1015,7 @@ typeUnOp Not    = [ ( boolT,  boolT  ) ]
 typeUnOp Bnot   = [ ( intT,   intT   ) ]
 typeUnOp Uminus = [ ( intT,   intT   )
                   , ( floatT, floatT ) ]
+typeUnOp ToF    = [ (OneOf [        intT, charT, boolT], floatT) ]
+typeUnOp ToI    = [ (OneOf [floatT,       charT, boolT], intT  ) ]
+typeUnOp ToC    = [ (OneOf [floatT, intT,        boolT], charT ) ]
+typeUnOp ToB    = [ (OneOf [floatT, intT, charT       ], boolT ) ]
