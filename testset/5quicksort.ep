@@ -98,9 +98,10 @@ procedure sortF (integer N) :-
 
 procedure sortC (integer N) :-
   integer I,
+  character Enter,
   for I from 0 to N-1 ->
-      write "c", write I, write "> "
-    , read Cs[I], write "\n"
+    write "c", write I, write "> ",
+    read Cs[I], read Enter
   end,
   quicksortC(0, N-1),
   write "Caracteres ordenados:\n",

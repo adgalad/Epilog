@@ -80,7 +80,7 @@ procedure getToken () :-
         boolean Done1 is false,
         while not Done1 ->
           C is getChar (),
-          if 48 =< toInteger (C) andalso toInteger (C) < 57 ->
+          if isDigit (C) ->
             if not Dot -> F is F * 10.0 + toFloat (toInteger (C) - 48)
             ;      Dot -> F is F + toFloat (toInteger (C) - 48) * Places
                         , Places is Places / 10.0

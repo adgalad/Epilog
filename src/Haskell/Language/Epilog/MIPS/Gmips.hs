@@ -391,15 +391,7 @@ freshReg' op (Except exceptions) = do
 instance Gmips Program where
   gmips Program { datas, modules } = do
     unless (null datas) $ do
-      tell
-        [ DataSection
-        , Align
-        , Data "_base_header" 8
-        , Align
-        , Data "_last_used" 4
-        , MString "_true" "true\n"
-        , MString "_false" "false\n" ]
-
+      tell1 $ DataSection
       mapM_ gmips datas
 
     unless (null modules) $ do

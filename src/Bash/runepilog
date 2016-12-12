@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+if Epilog $1.ep
+  then 
+    cat /home/mal/git/epilog/src/MIPS/shared.asm $1.asm > a.out
+    spim -noexception -file a.out
+    rm a.out
+  else false
+fi

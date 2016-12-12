@@ -38,7 +38,7 @@ record perol :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%% GLOBAL %%%%%%%%%%%
-perol[20] Perolero.
+perol[20] Ps.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 procedure peroles (integer N).
@@ -70,35 +70,36 @@ procedure peroles (integer N) :-
   integer J,
   for J from 0 to N - 1 ->
       boolean Done is false
-    , character K
+    , character K, character Enter
     , while not Done ->
           write "Introduzca la letra correspondiente al tipo que desea para el perol #", write J, write "\n"
         , write "\t(B)ooleano, (C)aracter, (I/E)ntero, (F)lotante\n"
         , write "> "
 
         , read K
-        , write "\n"
+        , read Enter
 
         , if K = 'B' orelse K = 'b' ->
               Done is true
-            , Perolero[J]_Kind is 'B'
+            , Ps[J]_Kind is 'B'
             , write "Introduzca un Booleano > "
-            , read Perolero[J]_P_B
+            , read Ps[J]_P_B
           ;  K = 'C' orelse K = 'c' ->
               Done is true
-            , Perolero[J]_Kind is 'C'
+            , Ps[J]_Kind is 'C'
             , write "Introduzca un Caracter > "
-            , read Perolero[J]_P_C, write "\n"
+            , read Ps[J]_P_C, write "\n"
+            , read Enter
           ;  K = 'I' orelse K = 'i' orelse K = 'E' orelse K = 'e' ->
               Done is true
-            , Perolero[J]_Kind is 'I'
+            , Ps[J]_Kind is 'I'
             , write "Introduzca un Entero > "
-            , read Perolero[J]_P_I
+            , read Ps[J]_P_I
           ;  K = 'F' orelse K = 'f' ->
               Done is true
-            , Perolero[J]_Kind is 'F'
+            , Ps[J]_Kind is 'F'
             , write "Introduzca un Flotante > "
-            , read Perolero[J]_P_F
+            , read Ps[J]_P_F
           end
       end
   end,
@@ -117,21 +118,21 @@ procedure mauritius (integer N) :-
   integer J is 0,
 
   while J =< CI ->
-      if Perolero[J]_Kind = 'B' ->
-          swap (Perolero[J], Perolero[BC])
+      if Ps[J]_Kind = 'B' ->
+          swap (Ps[J], Ps[BC])
         , BC is BC + 1
         , J  is J  + 1
 
-      ;  Perolero[J]_Kind = 'C' -> 
+      ;  Ps[J]_Kind = 'C' -> 
           J is J + 1
 
-      ;  Perolero[J]_Kind = 'I' ->
-          swap (Perolero[J], Perolero[CI])
+      ;  Ps[J]_Kind = 'I' ->
+          swap (Ps[J], Ps[CI])
         , CI is CI - 1
 
-      ;  Perolero[J]_Kind = 'F' ->
-          if CI /= IF andalso CI /= J -> swap (Perolero[CI], Perolero[IF]) end
-        , swap (Perolero[ J], Perolero[IF])
+      ;  Ps[J]_Kind = 'F' ->
+          if CI /= IF andalso CI /= J -> swap (Ps[CI], Ps[IF]) end
+        , swap (Ps[ J], Ps[IF])
         , CI is CI - 1
         , IF is IF - 1
       end
@@ -170,7 +171,7 @@ procedure printOut (integer N) :-
   write "Resultado:\n",
   integer J,
   for J from 0 to N - 1 ->
-    printOne(J, Perolero[J])
+    printOne(J, Ps[J])
   end.
 
 procedure printOne (integer J, ref perol P) :-

@@ -24,7 +24,7 @@ import           Prelude                     hiding (writeFile)
 import           System.Console.GetOpt       (ArgDescr (..), ArgOrder (..),
                                               OptDescr (..), getOpt, usageInfo)
 import           System.Environment          (getArgs)
-import           System.Exit                 (exitSuccess)
+import           System.Exit                 (exitSuccess, exitFailure)
 import           System.FilePath.Posix       ((-<.>))
 import           System.IO                   (Handle, IOMode (ReadMode),
                                               hGetContents, openFile, stdin)
@@ -156,9 +156,13 @@ doMIPS filename handle = do
 
   (ast, s, _w) <- runEpilog parse inp
 
-  when (s^.parseOK) $ do
-    (code, _s) <- runIR irProgram ast
-    runMIPS gmips code >>= writeFile (filename -<.> "asm") . emitMIPS
+  if (s^.parseOK) 
+    then do
+      (code, _s) <- runIR irProgram ast
+      runMIPS gmips code >>= writeFile (filename -<.> "asm") . emitMIPS
+      exitSuccess
+    else 
+      exitFailure
 
 -- Main --------------------------------
 main :: IO ()
