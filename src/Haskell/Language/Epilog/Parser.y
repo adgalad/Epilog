@@ -97,6 +97,9 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
     -- case            { TokenCase      :@ _ }
     -- of              { TokenOf        :@ _ }
 
+    -- Noop
+    meh             { TokenMeh       :@ _ }
+
     -- Procedures
     proc            { TokenProcedure :@ _ }
     ref             { TokenRef       :@ _ }
@@ -163,7 +166,9 @@ import           Control.Lens                   ((%=), use, (.=), (+=), (<~))
 -- Program -----------------------------
 Program
     : Program1 CLOSE
-    { $1 }
+    {% do 
+        checkPends
+        pure $1 }
 
 Program1
   : PREPARE OPEN TopDefs
@@ -329,6 +334,7 @@ Insts
 Inst
     : Declaration                   { $1 }
     | Initialization                { $1 }
+    | Meh                           { $1 }
     | Assign                        { $1 }
     | Call                          { $1 }
     | If                            { $1 }
@@ -416,6 +422,11 @@ TSize
 --  | "[" Int "," Int "}"              { (item $2    , item $4 - 1) }
 --  | "{" Int "," Int "]"              { (item $2 + 1, item $4    ) }
 --  | "{" Int "," Int "}"              { (item $2 + 1, item $4 - 1) }
+
+------ Meh -------------------------------
+Meh
+    : meh
+    { joy { jPos = pos $1 } }
 
 ------ Assignment ------------------------
 Assign

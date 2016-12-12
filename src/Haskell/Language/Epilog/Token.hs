@@ -40,6 +40,9 @@ data Token
     | TokenEnd | TokenFor | TokenFrom | TokenTo | TokenIf | TokenOtherwise
     | TokenWhile -- | TokenCase | TokenOf
 
+    -- Noop
+    | TokenMeh
+
     -- Procedures
     | TokenProcedure | TokenRef | TokenDefine | TokenFinish | TokenAnswer
 
@@ -150,9 +153,12 @@ instance Show Token where
         -- TokenCase      -> "case"
         -- TokenOf        -> "of"
 
+    -- Noop
+        TokenMeh       -> "meh"
+
     -- Procedures
         TokenProcedure -> "procedure"
-        TokenRef        -> "ref"
+        TokenRef       -> "ref"
         TokenDefine    -> ":-"
         TokenFinish    -> "finish"
         TokenAnswer    -> "answer"

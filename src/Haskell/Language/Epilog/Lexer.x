@@ -131,6 +131,9 @@ epilog :-
     -- <0> "case"                  { make TokenCase      }
     -- <0> "of"                    { make TokenOf        }
 
+    -- Noop
+    <0> "meh"                   { make TokenMeh }
+
     -- Procedures
     <0> "procedure"             { make TokenProcedure }
     <0> "ref"                   { make TokenRef       }

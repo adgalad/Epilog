@@ -6,45 +6,59 @@
  % naturalmente, las cuales inician con valor cero.
  %/
 
-union contents :-
-  integer   I,
-  float     F
-  character C.
+%%%%%%%%%%%%%%%%%%% Auxiliary procedures %%%%%%%%%%%%%%%%%%%
+procedure isLetter (character C) -> boolean :-
+  answer 'a' =< C andalso C =< 'z'.
 
-record token :-
-  integer  Kind,
-  contents Info.
+procedure isDigit (character C) -> boolean :-
+  answer '0' =< C andalso C =< '9'.
 
-/% case Kind of
- %     0 -> Variable (Info :: Int)
- %     1 -> Numero (Info :: Float)
- %     2 -> Assignment op =
- %     3 -> Add op +
- %     4 -> Sub op -
- %     5 -> Mult op *
- %     6 -> Div op /
- %     7 -> Left parenthesis  (
- %     8 -> Right parenthesis )
- %     9 -> Newline \n
- %   999 -> Unexpected Character (Info :: Char)
+procedure index (character C) -> integer :-
+  answer toInteger C - toInteger 'a'.
+%%%%%%%%%%%%%%%%%% \ Auxiliary procedures %%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%% Global Variables %%%%%%%%%%%%%%%%%%%%%
+float[26] Vars. %% These are the variables a-z
+
+character Tk. %% The current token
+/% case Tk of
+ %     '#' -> Number
+ % 'a'-'z' -> Variable
+ %     '=' -> Assignment op
+ %     '+' -> Add op
+ %     '-' -> Sub op
+ %     '*' -> Mult op
+ %     '/' -> Div op
+ %     '(' -> Left parenthesis
+ %     ')' -> Right parenthesis
+ %    '\n' -> Newline
+ %     '@' -> Assign
+ %       _ -> Unexpected Character
  %/
 
-token[2] Tk.
+float Val. %% The value of the current token iff it's a number
+
+character Buffer.           %% These two are for reading tokens one at a time
+boolean UseBuffer is false. %% while recognizing floating point numbers
+
+integer Col. %% The current position in the line
+
+%%%%%%%%%%% Error Management %%%%%%%%%%%
+/% These variables are for showing error messages nicely-ish %/
 
 integer Error.
 /% case Error of
- %   0 -> All OK
- %   1 -> divzero
- %   2 -> Unexpected Token 0
- %   3 -> Unexpected Token 1
+ %     0 -> All OK!
+ %     1 -> divzero
+ %     2 -> unexpected token
  %/
+character Unexpected. %% The unexpected token, if Error = 2.
+float UVal. %% The unexpected token's value, 
+            %% if Error = 2 andalso Unexpected = '#'
+%%%%%%%%%% \ Error Management %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%% \ Global Variables %%%%%%%%%%%%%%%%%%%%
 
-char Buffer.
-
-boolean UseBuffer is false.
-
-integer Col.
-
+%%%%%%%%%%%%%%%%%%%%%%%%%% Lexing %%%%%%%%%%%%%%%%%%%%%%%%%%
 procedure getChar () -> character :-
   Col is Col + 1,
   if     UseBuffer -> UseBuffer is false
@@ -52,45 +66,238 @@ procedure getChar () -> character :-
   end,
   answer Buffer.
 
-procedure getToken (integer N) :-
+procedure getToken () :-
   boolean Done is false,
   character C,
 
   while not Done ->
     Done is true,
-    C is getChar(),
-    if C = ' '  -> Done is false
-    ;  C = '='  -> Tk[N]_Kind is 2
-    ;  C = '+'  -> Tk[N]_Kind is 3
-    ;  C = '-'  -> Tk[N]_Kind is 4
-    ;  C = '*'  -> Tk[N]_Kind is 5
-    ;  C = '/'  -> Tk[N]_Kind is 6
-    ;  C = '('  -> Tk[N]_Kind is 7
-    ;  C = ')'  -> Tk[N]_Kind is 8
-    ;  C = '\n' -> Tk[N]_Kind is 9
-    ;  97 =< toInteger (C) andalso toInteger (C) =< 122 ->
-        Tk[N]_Kind is 0, Tk[N]_Info_I is toInteger(C) - 97
-    ;  48 =< toInteger (C) andalso toInteger (C) < 57 ->
+    C is getChar (),
+    if C = ' ' -> Done is false
+    ;  isDigit (C) ->
         float F is toFloat (toInteger (C) - 48),
-        boolean Dot, float Places, 
-        boolean Done1
+        boolean Dot is false, float Places is 0.1, 
+        boolean Done1 is false,
         while not Done1 ->
-          C is getChar(),
+          C is getChar (),
           if 48 =< toInteger (C) andalso toInteger (C) < 57 ->
             if not Dot -> F is F * 10.0 + toFloat (toInteger (C) - 48)
             ;      Dot -> F is F + toFloat (toInteger (C) - 48) * Places
                         , Places is Places / 10.0
             end
           ;  C = '.' -> 
-            if not Dot -> Dot is true, Places is 0.1
-            ;      Dot -> Buffer is C, UseBuffer is true, Done1 is True
+            if not Dot -> Dot is true
+            ;      Dot -> Buffer is C, UseBuffer is true, Done1 is true
             end
-          ;  true -> Buffer is C, UseBuffer is true, Done1 is True
+          ;  true -> Buffer is C, UseBuffer is true, Done1 is true
           end
+        end,
 
-        Tk[N]_Kind is 1, Tk[N]_Info_F is F
+        Tk is '#', Val is F
 
-    ;  true -> 
-        Tk[N]_Kind is 999, Tk[N]_Info_C is C
+    ;  true -> Tk is C
     end
   end.
+%%%%%%%%%%%%%%%%%%%%%%%%% \ Lexing %%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%% Parsing %%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%% Errors %%%%%%%%%%%%%%%%
+/% If there's an unexpected character, save it %/
+procedure unexpected (character C) :-
+  Error is 2, 
+  Unexpected is C, 
+  if C = '#' -> UVal is Val end.
+
+procedure divzero () :-
+  Error is 1.
+
+%%%%%%%%%%%%%%% \ Errors %%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%% Basics %%%%%%%%%%%%%%%%
+procedure lookAhead () -> character :-
+  answer Tk.
+
+procedure match (character C) :-
+  if Tk = C -> getToken ()
+  ;  true   -> unexpected (Tk)
+  end.
+
+procedure matchFloat () -> float :-
+  if Tk = '#' -> float F is Val, getToken (), answer F
+  ;  true -> unexpected (Tk)
+  end.
+
+procedure matchLetter () -> character :-
+  if isLetter (Tk) -> character Letter is Tk, getToken (), answer Letter
+  ;  true -> unexpected (Tk), answer '\0'
+  end.
+%%%%%%%%%%%%%%% \ Basics %%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%% Grammar %%%%%%%%%%%%%%%%
+%% --             _ 
+%% --           /  `- This bad guy would make the grammar LL (2)
+%% --          v  So we changed it for this guy,
+%% -- <L> ::= <C> = <E>     __________________/
+%% <L> ::= @ <C> = <E>   <'`
+%%     |   <E>
+%%     |   <X>
+%% <E> ::= <T>
+%%     |   <T> + <E>
+%%     |   <T> - <E>
+%% <T> ::= <F>
+%%     |   <F> * <T>
+%%     |   <F> / <T>
+%% <F> ::= ( <E> )
+%%     |   <N>
+%%     |   <C>
+%% <N> ::= "floating point number"
+%% <C> ::= a-z
+%% <X> ::= X | Q
+%%  ^- These guys are for exiting the program
+%%
+%%%%%%%%%%%%%% \ Grammar %%%%%%%%%%%%%%%
+
+%%%%%%%%% Forward Declarations %%%%%%%%%
+procedure line   () -> boolean. %% <L>
+procedure exp    () -> float.   %% <E>
+procedure term   () -> float.   %% <T>
+procedure factor () -> float.   %% <F>
+%%%%%%%% \ Forward Declarations %%%%%%%%
+
+/% <L>, a Line, either an assignment or a simple expression %/
+procedure line () -> boolean :-
+  Col is 0, Error is 0, 
+
+  boolean Assigning is false, 
+  character Target,
+  float Result,
+
+  write "calc> ",
+
+  getToken (),
+  character LA is lookAhead (),
+  if LA = 'X' orelse LA = 'Q' -> 
+    getChar (),
+    write "Bye!\n",
+    answer false 
+  ;  LA = '@' ->
+    match ('@'),
+    Assigning is true,
+    Target is matchLetter (),
+    if Error = 0 ->
+      match ('=')
+    end
+  end,
+
+  if Error = 0 ->
+    Result is exp ()
+  end,
+
+  LA is lookAhead (),
+  if Error = 0 andalso LA = '\n' -> 
+    write Result, write "\n",
+    if Assigning -> Vars [index (Target)] is Result end
+  ;  Error = 0 ->
+    unexpected (LA)
+  end,
+
+  if Error /= 0 ->
+    while LA /= '\n' -> getToken (), LA is lookAhead () end,
+    if Error = 1 -> 
+      write "divzero\n"
+    ;  Error = 2 -> 
+      write "unexpected token \'",
+      if Unexpected = '#' -> write UVal
+      ;  true -> write Unexpected
+      end,
+      write "\'\n"
+    end
+  end,
+
+  answer true.
+
+/% <E>, an Expression %/
+procedure exp () -> float :-
+  float Temp,
+  float Exp is term (),
+  if Error /= 0 -> answer 1.0 end,
+
+  character LA is lookAhead (),
+  while LA='+' orelse LA='-' ->
+
+    if LA='+' -> 
+      match ('+'), 
+      Temp is term (), 
+      if Error /= 0 -> answer 1.0 end,
+      Exp is Exp + Temp
+
+    ;  LA='-' -> 
+      match ('-'), 
+      Temp is term (), 
+      if Error /= 0 -> answer 1.0 end,
+      Exp is Exp - Temp
+
+    end,
+    LA is lookAhead ()
+  end,
+
+  answer Exp.
+
+/% <T>, a Term %/
+procedure term () -> float :-
+  float Temp,
+  float Term is factor (),
+  if Error /= 0 -> answer 1.0 end,
+
+  character LA is lookAhead (),
+  while LA='*' orelse LA='/' ->
+    
+    if LA='*' -> 
+      match ('*'), 
+      Temp is factor (),
+      if Error /= 0 -> answer 1.0 end,
+      Term is Term * Temp
+
+    ;  LA='/' -> 
+      match ('/'), 
+      Temp is factor (),
+      if Error /= 0 -> answer 1.0 end,
+      if Temp = 0.0 -> divzero (), answer 1.0 end,
+      Term is Term / Temp
+
+    end,
+    LA is lookAhead ()
+  end,
+
+  answer Term.
+
+/% <F>, a Factor %/
+procedure factor () -> float :-
+  float Factor,
+  character LA is lookAhead (),
+  if LA='(' ->
+    match ('('), Factor is exp (), match (')')
+
+  ;  LA='#' ->
+    Factor is matchFloat ()
+
+  ;  isLetter (LA) ->
+    Factor is Vars [index (matchLetter ())]
+
+  ;  true -> 
+    unexpected (LA), answer 1.0
+
+  end,
+
+  answer Factor.
+%%%%%%%%%%%%%%%%%%%%%%%% \ Parsing %%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%% Main %%%%%%%%%%%%%%%%%%%%%%%%%%%
+/% Main procedure, just a nice old infinite loop %/
+procedure main () :-
+  integer I,
+  for I from 0 to 25 ->
+    Vars[I] is 0.0
+  end,
+  while line () -> meh end.
+%%%%%%%%%%%%%%%%%%%%%%%%%% \ Main %%%%%%%%%%%%%%%%%%%%%%%%%%

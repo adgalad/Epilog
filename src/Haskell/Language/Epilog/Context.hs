@@ -32,6 +32,7 @@ module Language.Epilog.Context
   -- , checkSet
   -- , checkSetElems
   -- , checkSets
+  , checkPends
   , checkSubindex
   , checkUnOp
   , checkVariable
@@ -225,7 +226,9 @@ storeProcedure' procParamsSize (Just Joy { jType = blockType, jBlock }) = do
     sameType <- use (pendProcs . at n) >>= \case
       Nothing -> pure True
       Just (t' :@ p') -> if t == t'
-        then pure True
+        then do
+          pendProcs . at n .= Nothing
+          pure True
         else do
           err $ ForwardDecMismatch n t' t p' p
           pure False
@@ -233,36 +236,41 @@ storeProcedure' procParamsSize (Just Joy { jType = blockType, jBlock }) = do
     scope <- symbols %%= extractScope
     ssize <- getMax <$> use curStackSize
 
-    if blockType == None || not sameType
-      then
-        procedures . at n ?= Procedure
-          { procName   = n
-          , procPos    = p
-          , procType   = t
-          , procParams = Seq.empty
-          , procDef    = Nothing
-          , procStackSize = ssize
-          , procParamsSize }
+    use (procedures . at n) >>= \case
+      Nothing -> if blockType == None || not sameType
+        then
+          procedures . at n ?= Procedure
+            { procName   = n
+            , procPos    = p
+            , procType   = t
+            , procParams = Seq.empty
+            , procDef    = Nothing
+            , procStackSize = ssize
+            , procParamsSize }
 
-      else
-        if scalar retType || retType == voidT
-          then do
-            params <- use parameters
+        else
+          if scalar retType || retType == voidT
+            then do
+              params <- use parameters
 
-            procedures . at n ?= Procedure
-              { procName   = n
-              , procPos    = p
-              , procType   = t
-              , procParams = params
-              , procDef    = Just
-                (case jBlock of
-                  Nothing -> error "bad block at storeProcedure'"
-                  Just b  -> b
-                , scope )
-              , procStackSize = ssize
-              , procParamsSize }
+              procedures . at n ?= Procedure
+                { procName   = n
+                , procPos    = p
+                , procType   = t
+                , procParams = params
+                , procDef    = Just
+                  (case jBlock of
+                    Nothing -> error "bad block at storeProcedure'"
+                    Just b  -> b
+                  , scope )
+                , procStackSize = ssize
+                , procParamsSize }
 
-          else err $ BadReturnType retType n p
+            else err $ BadReturnType retType n p
+      Just Procedure { procPos } -> 
+        err $ DuplicateDefinition n procPos p
+      Just EpiProc {} -> 
+        err $ DuplicateDefinition n Epilog p
 
     current .= Nothing
     curProcType .= None
@@ -277,6 +285,12 @@ storeProcedure t = do
     aux Parameter { parType, parRef } =
       (if parRef then RefMode else ValMode, parType)
 
+
+checkPends :: Epilog ()
+checkPends = do
+  pends <- use pendProcs
+  when (not (null pends)) $
+    err $ UnmetPromises pends
 
 -- Instructions ----------------------------------------------------------------
 instructions :: Joy -> Joy -> Epilog Joy

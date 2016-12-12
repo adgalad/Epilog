@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase     #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Language.Epilog.Error
     ( EpilogError (..)
@@ -6,12 +7,14 @@ module Language.Epilog.Error
     ) where
 --------------------------------------------------------------------------------
 import           Language.Epilog.AST.Expression
+import           Language.Epilog.At
 import           Language.Epilog.Common
 import           Language.Epilog.Position
 import           Language.Epilog.Token
 import           Language.Epilog.Type           hiding (name)
 --------------------------------------------------------------------------------
 import           Data.Function                  (on)
+import qualified Data.Map                       as Map (toList)
 --------------------------------------------------------------------------------
 type Errors = Seq EpilogError
 
@@ -63,9 +66,9 @@ data EpilogError
         , bptP         :: Position
         }
     | BadReturnType
-        { brtType      :: Type
-        , brtProcName  :: Name
-        , brtP         :: Position
+        { brtType     :: Type
+        , brtProcName :: Name
+        , brtP        :: Position
         }
     | BadRead
         { brType :: Type
@@ -161,8 +164,8 @@ data EpilogError
         , bbeP   :: Position
         }
     | DivZero
-        { dzOp  :: BinaryOp
-        , dzP   :: Position
+        { dzOp :: BinaryOp
+        , dzP  :: Position
         }
     | BadUnaryExpression
         { bueOp  :: UnaryOp
@@ -204,6 +207,8 @@ data EpilogError
         , fdmT' :: Type
         , fdmP  :: Position
         , fdmP' :: Position }
+    | UnmetPromises
+        { ups :: Map Name (At Type) }
     deriving (Eq)
 
 instance P EpilogError where
@@ -248,6 +253,7 @@ instance P EpilogError where
         BadReturnType            _ _ p -> p
         ReForwardDec             _ _ p -> p
         ForwardDecMismatch   _ _ _ _ p -> p
+        UnmetPromises                _ -> Code
 
 instance Ord EpilogError where
     compare = compare `on` pos
@@ -444,3 +450,11 @@ instance Show EpilogError where
             " with type " <> show t' <>
             " does not match the forward declaration at " <> show p <>
             " with type " <> show t <> "."
+
+        UnmetPromises { ups } ->
+            "The following forward-declarations do not have corresponding\
+            \ definitions:\n" <> aux ups
+            where
+                aux ps = unlines (aux' <$> Map.toList ps)
+                aux' (name, t :@ p) =
+                    "\t" <> name <> ", " <> show p <> ": " <> show t
